@@ -156,7 +156,7 @@ var anz = 0;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
-var inside = 0, inside_max = 100000, outer_max = 10;
+var inside = 0, inside_max = 100000, outer_max = 30;
 function spmv(callback){
   var files = new Array(num);
   var fileno = 0;
@@ -241,23 +241,37 @@ function spmv(callback){
             console.log("anz : cannot allocate this much");
             callback();
           }
-          var num_workers = 5;
-          var total_length = Int32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
+
+          // Total Memory required  = COO + CSR + x + y 
+          var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
           var num_pages = Math.ceil((total_length + num_workers * Float32Array.BYTES_PER_ELEMENT * N)/(64 * 1024));
           console.log('num_pages ', num_pages);
           let memory = new WebAssembly.Memory({initial:num_pages, maximum: num_pages, shared:true});
           let buffer = memory.buffer;
           console.log(buffer instanceof SharedArrayBuffer);
+
+          // COO memory allocation
           var coo_row_index = 0;
           let coo_row = new Int32Array(memory.buffer, coo_row_index, anz); 
           var coo_col_index = coo_row.byteLength; 
           let coo_col = new Int32Array(memory.buffer, coo_col_index, anz);
           var coo_val_index = coo_col_index + coo_col.byteLength;
           let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
-          var x_index = coo_val_index + coo_val.byteLength;
+
+          // CSR memory allocation
+          var csr_row_index = coo_val_index + coo_val.byteLength;
+          let csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+          var csr_col_index = csr_row_index + csr_row.byteLength;
+          let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
+          var csr_val_index = csr_col_index + csr_col.byteLength;
+          let csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+
+          // vector x and y allocation
+          var x_index = csr_val_index + csr_val.byteLength;
           let x = new Float32Array(memory.buffer, x_index, cols);
           var y_index = x_index + x.byteLength;
           let y = new Float32Array(memory.buffer, y_index, rows);
+
           var t1, t2, tt = 0.0;
           if(symmetry == "symmetric"){
             if(field == "pattern"){
@@ -317,6 +331,8 @@ function spmv(callback){
           } 
           var nnz_per_worker = Math.floor(anz/num_workers);
           var rem = anz - nnz_per_worker * num_workers;
+          var N_per_worker = Math.floor(N/num_workers);
+          var rem_N  = N - N_per_worker * num_workers;
 
           var pending_workers = num_workers;
           var t = 0;
@@ -339,9 +355,10 @@ function spmv(callback){
           else if(anz > 10000) inside_max = 100;
           else if(anz > 2000) inside_max = 1000;
           else if(anz > 100) inside_max = 10000;
+          console.log("inside max is ", inside_max);
 
           var my_instance;
-          WebAssembly.compileStreaming(fetch('spmv_coo_32.wasm'))
+          WebAssembly.compileStreaming(fetch('spmv_32.wasm'))
           .then(mod => {
             (async () => {
               let instance = WebAssembly.instantiate(mod, { js: { mem: memory }, console: {
@@ -352,44 +369,60 @@ function spmv(callback){
               console.log(instance); 
             })();
             for(var i = 0; i < num_workers; i++){
-              if(i == num_workers - 1)
-              w[i].postMessage([0, i, mod, memory, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, coo_row_index, coo_col_index, coo_val_index, x_index, w_y_index[i], inside_max]);
-              else
-              w[i].postMessage([0, i, mod, memory, i * nnz_per_worker, (i+1) * nnz_per_worker, coo_row_index, coo_col_index, coo_val_index, x_index, w_y_index[i], inside_max]);
+              w[i].postMessage([0, i, mod, memory]);
               w[i].onmessage = loaded;
             }
 
             function loaded(event){
               pending_workers -= 1;
               if(pending_workers <= 0){
-                run_workers();
+                run_workers(0);
               }
             }
 
-            function run_workers(){
+            function run_workers(format){
               pending_workers = num_workers;
               y.fill(0.0);
               for(var i = 0; i < num_workers; i++){
                 w_y[i].fill(0.0);
               }
-              t1 = Date.now();
-              for(var i = 0; i < num_workers; i++){
-                w[i].postMessage([1, i])
-                w[i].onmessage = storeResult;
+              if(format == 0){
+                t1 = Date.now();
+                for(var i = 0; i < num_workers; i++){
+                  if(i == num_workers - 1)
+                    w[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, coo_row_index, coo_col_index, coo_val_index, x_index, w_y_index[i], inside_max]);
+                  else
+                    w[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker, coo_row_index, coo_col_index, coo_val_index, x_index, w_y_index[i], inside_max]);
+                  w[i].onmessage = storeCOO;
+                }
+              }
+              else if(format == 1){
+                t1 = Date.now();
+                for(var i = 0; i < num_workers; i++){
+                  if(i == num_workers - 1)
+                    w[i].postMessage([2, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, inside_max]);
+                  else
+                    w[i].postMessage([2, i, i * N_per_worker, (i+1) * N_per_worker, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, inside_max]);
+                  w[i].onmessage = storeCSR;
+                }
               }
             }
 
-            function storeResult(event){
+            function storeCOO(event){
               pending_workers -= 1;
               if(pending_workers <= 0){
+                my_date = Date.now();
                 my_instance.exports.sum(y_index, y_index + y.byteLength, N, num_workers);
                 t2 = Date.now();
-                coo_flops[t] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
-                console.log(coo_flops[t]);
+                console.log("TIME ", t1, t2, t2 - t1, my_date - t1);
+                if(t >= 10){
+                  coo_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
+                  //console.log(coo_flops[t-10]);
+                  tt += t2 - t1;
+                }
                 t++;
-                tt += t2 - t1;
-                if(t < outer_max)
-                  run_workers();
+                if(t < (outer_max + 10))
+                  run_workers(0);
                 else{
                   tt = tt/1000; 
                   coo_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inside_max/ tt;
@@ -400,6 +433,37 @@ function spmv(callback){
                   coo_sd = Math.sqrt(variance);
                   coo_sum = parseInt(fletcher_sum(y));
                   console.log('coo mflops is ', coo_mflops);
+                  console.log("Returned to main thread");
+                  t = 0, tt = 0.0;
+                  coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
+                  run_workers(1);
+                }
+              }
+            }
+
+            function storeCSR(event){
+              pending_workers -= 1;
+              if(pending_workers <= 0){
+                t2 = Date.now();
+                console.log("TIME ", t1, t2, t2 - t1);
+                if(t >= 10){
+                  csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
+                  //console.log(csr_flops[t-10]);
+                  tt += t2 - t1;
+                }
+                t++;
+                if(t < (outer_max + 10))
+                  run_workers(1);
+                else{
+                  tt = tt/1000; 
+                  csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inside_max/ tt;
+                  variance = 0;
+                  for(var i = 0; i < outer_max; i++)
+                    variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
+                  variance /= outer_max;
+                  csr_sd = Math.sqrt(variance);
+                  csr_sum = parseInt(fletcher_sum(y));
+                  console.log('csr mflops is ', csr_mflops);
                   console.log("Returned to main thread");
                   console.log("Done");
                   callback();

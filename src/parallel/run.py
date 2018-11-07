@@ -12,7 +12,7 @@ def main(argv):
   p_found = False
   output_file = 'e.out'
   try :
-    opts, args = getopt.getopt(argv, "hb:p:o:")
+    opts, args = getopt.getopt(argv, "hb:p:o:w:")
   except getopt.GetoptError:
     print 'ERROR : run.py -b <browser> -p <precision> <input_filename>'
     sys.exit(2)
@@ -40,6 +40,8 @@ def main(argv):
         sys.exit()
     elif opt == '-o':
       output_file = arg
+    elif opt == '-w':
+      num_workers = arg
   if not b_found or not p_found :
     print 'run.py -b <browser> -p <precision> <input_filename>'
     sys.exit()
@@ -61,8 +63,9 @@ def main(argv):
   line3 = "var len = 0"
   line4 = "var browser = " + str(browser)
   line5 = "var output_file = '" + output_file + "'"
+  line6 = "var num_workers = " + str(num_workers)
   with open('my.js', 'w') as g:
-    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5 + '\n')
+    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5 + '\n' + line6 + '\n')
   httpd = subprocess.Popen(["python", "web.py"], stdout=subprocess.PIPE)
   url = "http://localhost:8080/static/index32.html"
   if precision == 1:
