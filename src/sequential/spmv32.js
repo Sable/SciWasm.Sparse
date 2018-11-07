@@ -156,7 +156,7 @@ var anz = 0;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
-var inside = 0, inside_max = 100000, outer_max = 10;
+var inside = 0, inside_max = 100000, outer_max = 30;
 function spmv(callback){
   var files = new Array(num);
   var fileno = 0;
@@ -241,23 +241,37 @@ function spmv(callback){
             console.log("anz : cannot allocate this much");
             callback();
           }
-          var total_length = Int32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
+          // Total Memory required  = COO + CSR + x + y 
+          var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
           var num_pages = Math.ceil((total_length + Float32Array.BYTES_PER_ELEMENT * N)/(64 * 1024));
           console.log('num pages', num_pages);
           let memory = new WebAssembly.Memory({initial:num_pages, maximum: num_pages});
           let buffer = memory.buffer;
+          
+          // COO memory allocation
           var coo_row_index = 0;
           let coo_row = new Int32Array(memory.buffer, coo_row_index, anz); 
           var coo_col_index = coo_row.byteLength; 
           let coo_col = new Int32Array(memory.buffer, coo_col_index, anz);
           var coo_val_index = coo_col_index + coo_col.byteLength;
           let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
-          var x_index = coo_val_index + coo_val.byteLength;
+
+          // CSR memory allocation
+          var csr_row_index = coo_val_index + coo_val.byteLength;
+          let csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+          var csr_col_index = csr_row_index + csr_row.byteLength;
+          let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
+          var csr_val_index = csr_col_index + csr_col.byteLength;
+          let csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+
+          // vector x and y allocation
+          var x_index = csr_val_index + csr_val.byteLength;
           console.log("x index is ", x_index);
           let x = new Float32Array(memory.buffer, x_index, cols);
           var y_index = x_index + x.byteLength;
           console.log("y index is ", y_index);
           let y = new Float32Array(memory.buffer, y_index, rows);
+
           var t1, t2, tt = 0.0;
           console.log("allocated memory");
           if(symmetry == "symmetric"){
@@ -324,19 +338,23 @@ function spmv(callback){
           else if(anz > 10000) inside_max = 100;
           else if(anz > 2000) inside_max = 1000;
           else if(anz > 100) inside_max = 10000;
-
-          WebAssembly.compileStreaming(fetch('spmv_coo_32.wasm'))
+          console.log(inside_max);
+          WebAssembly.compileStreaming(fetch('spmv_32.wasm'))
           .then(module => {
           WebAssembly.instantiate(module, { js: { mem: memory }, 
             console: { log: function(arg) {
               console.log(arg);}} 
           })
           .then(instance => {
+            console.log("COO");
+            for(var i = 0; i < 10; i++){
+              y.fill(0.0);
+              instance.exports.spmv_coo_wrapper(coo_row_index, coo_col_index, coo_val_index, x_index, y_index, anz, inside_max);
+            }
             for(var i = 0; i < outer_max; i++){
               y.fill(0.0);
               t1 = Date.now();
-              for(inside = 0; inside < inside_max; inside++)
-                instance.exports.spmv_coo(coo_row_index, coo_col_index, coo_val_index, x_index, y_index, anz);
+              instance.exports.spmv_coo_wrapper(coo_row_index, coo_col_index, coo_val_index, x_index, y_index, anz, inside_max);
               t2 = Date.now();
               console.log(t1, t2, t2 - t1);
               coo_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
@@ -353,6 +371,36 @@ function spmv(callback){
             coo_sum = parseInt(fletcher_sum(y));
             console.log('coo sum is ', coo_sum);
             console.log('coo sd is ', coo_sd);
+            console.log("CSR");
+            tt = 0.0;
+            coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
+            for(var i = 0; i < 10; i++){
+              y.fill(0.0);
+              instance.exports.spmv_csr_wrapper(csr_row_index, csr_col_index, csr_val_index, x_index, y_index, N, inside_max);
+            }
+            console.log("here");
+            console.log(outer_max);
+            console.log(inside_max);
+            for(var i = 0; i < outer_max; i++){
+              y.fill(0.0);
+              t1 = Date.now();
+              instance.exports.spmv_csr_wrapper(csr_row_index, csr_col_index, csr_val_index, x_index, y_index, N, inside_max);
+              t2 = Date.now();
+              console.log(t1, t2, t2 - t1);
+              csr_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
+              console.log(csr_flops[i]);
+              tt = tt + t2 - t1;
+            }
+            tt = tt/1000; 
+            csr_mflops = 1/Math.pow(10,6) * 2 * anz * inside_max * outer_max/ tt;
+            variance = 0;
+            for(var i = 0; i < outer_max; i++)
+              variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
+            variance /= outer_max;
+            csr_sd = Math.sqrt(variance);
+            csr_sum = parseInt(fletcher_sum(y));
+            console.log('csr sum is ', csr_sum);
+            console.log('csr sd is ', csr_sd);
             console.log("done seqential");
             callback();
           })
