@@ -25,13 +25,13 @@ function num_cols(csr_row, N)
   return max;
 }
 
-function csr_ell(csr_row, csr_col, csr_val, indices, data, nz, N){
+function csr_ell(csr_row, csr_col, csr_val, indices, data, nc, N){
   var i, j, k, temp, max = 0;
   for(i = 0; i < N; i++){
     k = 0;
     for(j = csr_row[i]; j < csr_row[i+1]; j++){
-      data[k*N+i] = csr_val[j];
-      indices[k*N+i] = csr_col[j];
+      data[i*nc+k] = csr_val[j];
+      indices[i*nc+k] = csr_col[j];
       k++;
     }
   }
@@ -57,7 +57,8 @@ function num_diags(N,csr_row,csr_col)
     }
     diag_no++; 
   }
-  stride = N - min;
+  //stride = N - min;
+  stride = N;
   return [num_diag,stride];
 }
 
@@ -87,15 +88,45 @@ function csr_dia(csr_row, csr_col, csr_val, offset, data, nz, N, stride){
       for(k = 0; k < offset.length; k++){
         move = 0;
         if(c - i == offset[k]){
-          if(offset[k] < 0)
-            move = N - stride; 
-          data[k*stride+i-move] = csr_val[j];
+          //if(offset[k] < 0)
+            //move = N - stride; 
+          //data[k*stride+i-move] = csr_val[j];
+          data[i*offset.length+k] = csr_val[j];
           break;
         }
       }
     }
   }
   return stride;
+}
+
+function quick_sort(arr, arr2, arr3, left, right)
+{
+  var i = left
+  var j = right;
+  var pivot = arr[parseInt((left + right) / 2)];
+  var pivot_col = arr2[parseInt((left + right) / 2)];
+
+  /* partition */
+  while(i <= j) {
+    while((arr[i] < pivot) || (arr[i] == pivot && arr2[i] < pivot_col))
+      i++;
+    while((arr[j] > pivot) || (arr[j] == pivot && arr2[j] > pivot_col))
+      j--;
+    if(i <= j) {
+      arr[j] = [arr[i], arr[i] = arr[j]][0];
+      arr2[j] = [arr2[i], arr2[i] = arr2[j]][0];
+      arr3[j] = [arr3[i], arr3[i] = arr3[j]][0];
+      i++;
+      j--;
+    }
+  }
+
+  /* recursion */
+  if(left < j)
+    quick_sort(arr, arr2, arr3, left, j);
+  if (i < right)
+    quick_sort(arr, arr2, arr3, i, right);
 }
 
 
@@ -244,9 +275,11 @@ function spmv(callback){
 
           // Total Memory required  = COO + CSR + x + y 
           var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
-          var num_pages = Math.ceil((total_length + num_workers * Float32Array.BYTES_PER_ELEMENT * N)/(64 * 1024));
+          const bytesPerPage = 64 * 1024;
+          var num_pages = Math.ceil((total_length + num_workers * Float32Array.BYTES_PER_ELEMENT * N)/bytesPerPage);
           console.log('num_pages ', num_pages);
-          let memory = new WebAssembly.Memory({initial:num_pages, maximum: num_pages, shared:true});
+          var max_pages = 16384;
+          let memory = new WebAssembly.Memory({initial:num_pages, maximum: max_pages, shared:true});
           let buffer = memory.buffer;
           console.log(buffer instanceof SharedArrayBuffer);
 
@@ -265,12 +298,6 @@ function spmv(callback){
           let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
           var csr_val_index = csr_col_index + csr_col.byteLength;
           let csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
-
-          // vector x and y allocation
-          var x_index = csr_val_index + csr_val.byteLength;
-          let x = new Float32Array(memory.buffer, x_index, cols);
-          var y_index = x_index + x.byteLength;
-          let y = new Float32Array(memory.buffer, y_index, rows);
 
           var t1, t2, tt = 0.0;
           if(symmetry == "symmetric"){
@@ -326,9 +353,75 @@ function spmv(callback){
               }
             }
           }
+          
+          // sort COO row-wise 
+          quick_sort(coo_row, coo_col, coo_val, 0, anz-1);          
+     
+          //convert COO to CSR
+          coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
+
+          //get DIA info
+          var result = num_diags(N, csr_row, csr_col);
+          var nd = result[0];
+          var stride = result[1];
+
+          //get ELL info
+          var nc = num_cols(csr_row, N);
+
+          //grow memory buffer size for DIA and ELL
+          var dia_length = Int32Array.BYTES_PER_ELEMENT * nd + Float32Array.BYTES_PER_ELEMENT * nd * stride;
+          var ell_length = Int32Array.BYTES_PER_ELEMENT * nc * N + Float32Array.BYTES_PER_ELEMENT * nc * N;
+          var grow_num_pages = Math.ceil((dia_length + ell_length)/bytesPerPage);
+          memory.grow(grow_num_pages);
+          console.log('grow num pages', grow_num_pages);
+          console.log(memory.buffer.byteLength / bytesPerPage);
+          console.log(memory.buffer instanceof SharedArrayBuffer);
+
+          //re-attach the CSR array buffers
+          /* Note: Since an ArrayBuffer’s byteLength is immutable, 
+          after a successful Memory.prototype.grow() operation the 
+          buffer getter will return a new ArrayBuffer object 
+          (with the new byteLength) and any previous ArrayBuffer 
+          objects become “detached”, or disconnected from the 
+          underlying memory they previously pointed to.*/
+          csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+          csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
+          csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+
+
+          // DIA memory allocation
+          var offset_index = csr_val_index + csr_val.byteLength;
+          let offset = new Int32Array(memory.buffer, offset_index, nd);
+          var dia_data_index = offset_index + offset.byteLength;
+          let dia_data = new Float32Array(memory.buffer, dia_data_index, nd * stride);
+          console.log("allocated memory");
+
+          // ELL memory allocation
+          var indices_index = dia_data_index + dia_data.byteLength;
+          let indices = new Int32Array(memory.buffer, indices_index, nc * N);
+          var ell_data_index = indices_index + indices.byteLength;
+          let ell_data = new Float32Array(memory.buffer,ell_data_index, nc * N);
+
+          //convert CSR to DIA
+          csr_dia(csr_row, csr_col, csr_val, offset, dia_data, anz, N, stride);
+
+
+          //convert CSR to ELL
+          csr_ell(csr_row, csr_col, csr_val, indices, ell_data, nc, N);
+
+          // vector x and y allocation
+          var x_index = ell_data_index + ell_data.byteLength;
+          console.log("x index is ", x_index);
+          let x = new Float32Array(memory.buffer, x_index, cols);
+          var y_index = x_index + x.byteLength;
+          console.log("y index is ", y_index);
+          let y = new Float32Array(memory.buffer, y_index, rows);
+
+          // initialize x array
           for(var i = 0; i < N; i++){
             x[i] = i;
           } 
+
           var nnz_per_worker = Math.floor(anz/num_workers);
           var rem = anz - nnz_per_worker * num_workers;
           var N_per_worker = Math.floor(N/num_workers);
@@ -366,7 +459,6 @@ function spmv(callback){
                 console.log(arg);
               }}});
               my_instance = await instance;
-              console.log(instance); 
             })();
             for(var i = 0; i < num_workers; i++){
               w[i].postMessage([0, i, mod, memory]);
@@ -406,6 +498,26 @@ function spmv(callback){
                   w[i].onmessage = storeCSR;
                 }
               }
+              else if(format == 2){
+                t1 = Date.now();
+                for(var i = 0; i < num_workers; i++){
+                  if(i == num_workers - 1)
+                    w[i].postMessage([3, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, offset_index, dia_data_index, nd, N, x_index, y_index, inside_max]);
+                  else
+                    w[i].postMessage([3, i, i * N_per_worker, (i+1) * N_per_worker, offset_index, dia_data_index, nd, N, x_index, y_index, inside_max]);
+                  w[i].onmessage = storeDIA;
+                }
+              }
+              else if(format == 3){
+                t1 = Date.now();
+                for(var i = 0; i < num_workers; i++){
+                  if(i == num_workers - 1)
+                    w[i].postMessage([4, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, indices_index, ell_data_index, nc, N, x_index, y_index, inside_max]);
+                  else
+                    w[i].postMessage([4, i, i * N_per_worker, (i+1) * N_per_worker, indices_index, ell_data_index, nc, N, x_index, y_index, inside_max]);
+                  w[i].onmessage = storeELL;
+                }
+              }
             }
 
             function storeCOO(event){
@@ -414,7 +526,6 @@ function spmv(callback){
                 my_date = Date.now();
                 my_instance.exports.sum(y_index, y_index + y.byteLength, N, num_workers);
                 t2 = Date.now();
-                console.log("TIME ", t1, t2, t2 - t1, my_date - t1);
                 if(t >= 10){
                   coo_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
                   //console.log(coo_flops[t-10]);
@@ -435,7 +546,6 @@ function spmv(callback){
                   console.log('coo mflops is ', coo_mflops);
                   console.log("Returned to main thread");
                   t = 0, tt = 0.0;
-                  coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
                   run_workers(1);
                 }
               }
@@ -445,7 +555,6 @@ function spmv(callback){
               pending_workers -= 1;
               if(pending_workers <= 0){
                 t2 = Date.now();
-                console.log("TIME ", t1, t2, t2 - t1);
                 if(t >= 10){
                   csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
                   //console.log(csr_flops[t-10]);
@@ -465,11 +574,70 @@ function spmv(callback){
                   csr_sum = parseInt(fletcher_sum(y));
                   console.log('csr mflops is ', csr_mflops);
                   console.log("Returned to main thread");
+                  t = 0, tt = 0.0;
+                  run_workers(2);
+                }
+              }
+            }
+            
+            function storeDIA(event){
+              pending_workers -= 1;
+              if(pending_workers <= 0){
+                t2 = Date.now();
+                //console.log("TIME ", t1, t2, t2 - t1);
+                if(t >= 10){
+                  dia_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
+                  tt += t2 - t1;
+                }
+                t++;
+                if(t < (outer_max + 10))
+                  run_workers(2);
+                else{
+                  tt = tt/1000;
+                  dia_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inside_max/ tt;
+                  variance = 0;
+                  for(var i = 0; i < outer_max; i++)
+                    variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
+                  variance /= outer_max;
+                  dia_sd = Math.sqrt(variance);
+                  dia_sum = parseInt(fletcher_sum(y));
+                  console.log('dia mflops is ', dia_mflops);
+                  console.log("Returned to main thread");
+                  t = 0, tt = 0.0;
+                  run_workers(3);
+                }
+              }
+            }
+           
+            function storeELL(event){
+              pending_workers -= 1;
+              if(pending_workers <= 0){
+                t2 = Date.now();
+                if(t >= 10){
+                  ell_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
+                  tt += t2 - t1;
+                }
+                t++;
+                if(t < (outer_max + 10))
+                  run_workers(3);
+                else{
+                  tt = tt/1000;
+                  ell_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inside_max/ tt;
+                  variance = 0;
+                  for(var i = 0; i < outer_max; i++)
+                    variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
+                  variance /= outer_max;
+                  ell_sd = Math.sqrt(variance);
+                  ell_sum = parseInt(fletcher_sum(y));
+                  console.log('ell mflops is ', ell_mflops);
+                  console.log("Returned to main thread");
                   console.log("Done");
                   callback();
                 }
               }
             }
+
+
           });
         }
         }
