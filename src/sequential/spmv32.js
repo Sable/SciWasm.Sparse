@@ -99,6 +99,37 @@ function csr_dia(csr_row, csr_col, csr_val, offset, data, nz, N, stride){
 }
 
 
+function quickSort(arr, arr2, arr3, left, right)
+{
+  var i = left
+  var j = right;
+  var pivot = arr[parseInt((left + right) / 2)];
+  var pivot_col = arr2[parseInt((left + right) / 2)];
+
+  /* partition */
+  while(i <= j) {
+    while((arr[i] < pivot) || (arr[i] == pivot && arr2[i] < pivot_col))
+      i++;
+    while((arr[j] > pivot) || (arr[j] == pivot && arr2[j] > pivot_col))
+      j--;
+    if(i <= j) {
+      arr[j] = [arr[i], arr[i] = arr[j]][0];
+      arr2[j] = [arr2[i], arr2[i] = arr2[j]][0];
+      arr3[j] = [arr3[i], arr3[i] = arr3[j]][0];
+      i++;
+      j--;
+    }
+  }
+
+  /* recursion */
+  if(left < j)
+    quickSort(arr, arr2, arr3, left, j);
+  if (i < right)
+    quickSort(arr, arr2, arr3, i, right);
+}
+
+
+
 function sort(start, end, array1, array2)
 { 
   var i, j, temp;
@@ -241,12 +272,16 @@ function spmv(callback){
             console.log("anz : cannot allocate this much");
             callback();
           }
+
+
           // Total Memory required  = COO + CSR + x + y 
           var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
-          var num_pages = Math.ceil((total_length + Float32Array.BYTES_PER_ELEMENT * N)/(64 * 1024));
+          const bytesPerPage = 64 * 1024;
+          var num_pages = Math.ceil((total_length + Float32Array.BYTES_PER_ELEMENT * N)/(bytesPerPage));
           console.log('num pages', num_pages);
-          let memory = new WebAssembly.Memory({initial:num_pages, maximum: num_pages});
-          let buffer = memory.buffer;
+          var max_pages = 16384;
+          let memory = new WebAssembly.Memory({initial:num_pages, maximum: max_pages});
+          console.log(memory.buffer.byteLength / bytesPerPage);
           
           // COO memory allocation
           var coo_row_index = 0;
@@ -256,24 +291,8 @@ function spmv(callback){
           var coo_val_index = coo_col_index + coo_col.byteLength;
           let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
 
-          // CSR memory allocation
-          var csr_row_index = coo_val_index + coo_val.byteLength;
-          let csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
-          var csr_col_index = csr_row_index + csr_row.byteLength;
-          let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
-          var csr_val_index = csr_col_index + csr_col.byteLength;
-          let csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
-
-          // vector x and y allocation
-          var x_index = csr_val_index + csr_val.byteLength;
-          console.log("x index is ", x_index);
-          let x = new Float32Array(memory.buffer, x_index, cols);
-          var y_index = x_index + x.byteLength;
-          console.log("y index is ", y_index);
-          let y = new Float32Array(memory.buffer, y_index, rows);
 
           var t1, t2, tt = 0.0;
-          console.log("allocated memory");
           if(symmetry == "symmetric"){
             if(field == "pattern"){
               for(var i = 0, n = 0; n < start; n++) {
@@ -327,6 +346,78 @@ function spmv(callback){
               }
             }
           }
+          
+          quickSort(coo_row, coo_col, coo_val, 0, anz-1);      
+
+          // CSR memory allocation
+          var csr_row_index = coo_val_index + coo_val.byteLength;
+          let csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+          var csr_col_index = csr_row_index + csr_row.byteLength;
+          let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
+          var csr_val_index = csr_col_index + csr_col.byteLength;
+          let csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+
+          //convert COO to CSR
+          coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
+
+          //get DIA info
+          var result = num_diags(N, csr_row, csr_col);
+          var nd = result[0];
+          var stride = result[1];
+
+          //get ELL info
+          var nc = num_cols(csr_row, N);
+
+          //grow memory buffer size for DIA and ELL
+          var dia_length = Int32Array.BYTES_PER_ELEMENT * nd + Float32Array.BYTES_PER_ELEMENT * nd * stride; 
+          var ell_length = Int32Array.BYTES_PER_ELEMENT * nc * N + Float32Array.BYTES_PER_ELEMENT * nc * N;
+          var grow_num_pages = Math.ceil((dia_length + ell_length)/bytesPerPage);
+          memory.grow(grow_num_pages);
+          console.log('grow num pages', grow_num_pages);
+          console.log(memory.buffer.byteLength / bytesPerPage);
+
+          //re-attach the CSR array buffers
+          /* Note: Since an ArrayBuffer’s byteLength is immutable, 
+          after a successful Memory.prototype.grow() operation the 
+          buffer getter will return a new ArrayBuffer object 
+          (with the new byteLength) and any previous ArrayBuffer 
+          objects become “detached”, or disconnected from the 
+          underlying memory they previously pointed to.*/ 
+          csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+          csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
+          csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+
+
+          // DIA memory allocation
+          var offset_index = csr_val_index + csr_val.byteLength;
+          let offset = new Int32Array(memory.buffer, offset_index, nd);
+          var dia_data_index = offset_index + offset.byteLength;
+          let dia_data = new Float32Array(memory.buffer, dia_data_index, nd * stride);
+          console.log("allocated memory");
+
+          // ELL memory allocation
+          var indices_index = dia_data_index + dia_data.byteLength; 
+          let indices = new Int32Array(memory.buffer, indices_index, nc * N);
+          var ell_data_index = indices_index + indices.byteLength; 
+          let ell_data = new Float32Array(memory.buffer,ell_data_index, nc * N);
+
+          //convert CSR to DIA
+          csr_dia(csr_row, csr_col, csr_val, offset, dia_data, anz, N, stride);
+
+
+          //convert CSR to ELL
+          csr_ell(csr_row, csr_col, csr_val, indices, ell_data, anz, N);
+           
+
+          // vector x and y allocation
+          var x_index = ell_data_index + ell_data.byteLength;
+          console.log("x index is ", x_index);
+          let x = new Float32Array(memory.buffer, x_index, cols);
+          var y_index = x_index + x.byteLength;
+          console.log("y index is ", y_index);
+          let y = new Float32Array(memory.buffer, y_index, rows);
+
+          // initialize x array
           for(var i = 0; i < N; i++){
             x[i] = i;
           } 
@@ -373,7 +464,6 @@ function spmv(callback){
             console.log('coo sd is ', coo_sd);
             console.log("CSR");
             tt = 0.0;
-            coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
             for(var i = 0; i < 10; i++){
               y.fill(0.0);
               instance.exports.spmv_csr_wrapper(csr_row_index, csr_col_index, csr_val_index, x_index, y_index, N, inside_max);
@@ -401,6 +491,62 @@ function spmv(callback){
             csr_sum = parseInt(fletcher_sum(y));
             console.log('csr sum is ', csr_sum);
             console.log('csr sd is ', csr_sd);
+            console.log("DIA");
+            tt = 0.0;
+            for(var i = 0; i < 10; i++){
+              y.fill(0.0);
+              instance.exports.spmv_dia_wrapper(offset_index, dia_data_index, N, nd, stride, x_index, y_index, inside_max);
+            }
+            console.log(outer_max);
+            console.log(inside_max);
+            for(var i = 0; i < outer_max; i++){
+              y.fill(0.0);
+              t1 = Date.now();
+              instance.exports.spmv_dia_wrapper(offset_index, dia_data_index, N, nd, stride, x_index, y_index, inside_max);
+              t2 = Date.now();
+              console.log(t1, t2, t2 - t1);
+              dia_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
+              console.log(dia_flops[i]);
+              tt = tt + t2 - t1;
+            }
+            tt = tt/1000; 
+            dia_mflops = 1/Math.pow(10,6) * 2 * anz * inside_max * outer_max/ tt;
+            variance = 0;
+            for(var i = 0; i < outer_max; i++)
+              variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
+            variance /= outer_max;
+            dia_sd = Math.sqrt(variance);
+            dia_sum = parseInt(fletcher_sum(y));
+            console.log('dia sum is ', dia_sum);
+            console.log('dia sd is ', dia_sd);
+            console.log("ELL");
+            tt = 0.0;
+            for(var i = 0; i < 10; i++){
+              y.fill(0.0);
+              instance.exports.spmv_ell_wrapper(indices_index, ell_data_index, N, nc, x_index, y_index, inside_max);
+            }
+            console.log(outer_max);
+            console.log(inside_max);
+            for(var i = 0; i < outer_max; i++){
+              y.fill(0.0);
+              t1 = Date.now();
+              instance.exports.spmv_ell_wrapper(indices_index, ell_data_index, N, nc, x_index, y_index, inside_max);
+              t2 = Date.now();
+              console.log(t1, t2, t2 - t1);
+              ell_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
+              console.log(ell_flops[i]);
+              tt = tt + t2 - t1;
+            }
+            tt = tt/1000; 
+            ell_mflops = 1/Math.pow(10,6) * 2 * anz * inside_max * outer_max/ tt;
+            variance = 0;
+            for(var i = 0; i < outer_max; i++)
+              variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
+            variance /= outer_max;
+            ell_sd = Math.sqrt(variance);
+            ell_sum = parseInt(fletcher_sum(y));
+            console.log('ell sum is ', ell_sum);
+            console.log('ell sd is ', ell_sd);
             console.log("done seqential");
             callback();
           })
