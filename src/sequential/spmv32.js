@@ -99,7 +99,7 @@ function csr_dia(csr_row, csr_col, csr_val, offset, data, nz, N, stride){
 }
 
 
-function quickSort(arr, arr2, arr3, left, right)
+function quick_sort(arr, arr2, arr3, left, right)
 {
   var i = left
   var j = right;
@@ -123,9 +123,9 @@ function quickSort(arr, arr2, arr3, left, right)
 
   /* recursion */
   if(left < j)
-    quickSort(arr, arr2, arr3, left, j);
+    quick_sort(arr, arr2, arr3, left, j);
   if (i < right)
-    quickSort(arr, arr2, arr3, i, right);
+    quick_sort(arr, arr2, arr3, i, right);
 }
 
 
@@ -347,7 +347,7 @@ function spmv(callback){
             }
           }
           
-          quickSort(coo_row, coo_col, coo_val, 0, anz-1);      
+          quick_sort(coo_row, coo_col, coo_val, 0, anz-1);      
 
           // CSR memory allocation
           var csr_row_index = coo_val_index + coo_val.byteLength;
@@ -429,7 +429,6 @@ function spmv(callback){
           else if(anz > 10000) inside_max = 100;
           else if(anz > 2000) inside_max = 1000;
           else if(anz > 100) inside_max = 10000;
-          console.log(inside_max);
           WebAssembly.compileStreaming(fetch('spmv_32.wasm'))
           .then(module => {
           WebAssembly.instantiate(module, { js: { mem: memory }, 
@@ -447,9 +446,9 @@ function spmv(callback){
               t1 = Date.now();
               instance.exports.spmv_coo_wrapper(coo_row_index, coo_col_index, coo_val_index, x_index, y_index, anz, inside_max);
               t2 = Date.now();
-              console.log(t1, t2, t2 - t1);
+              //console.log(t1, t2, t2 - t1);
               coo_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
-              console.log(coo_flops[i]);
+              //console.log(coo_flops[i]);
               tt = tt + t2 - t1;
             }
             tt = tt/1000; 
@@ -468,17 +467,12 @@ function spmv(callback){
               y.fill(0.0);
               instance.exports.spmv_csr_wrapper(csr_row_index, csr_col_index, csr_val_index, x_index, y_index, N, inside_max);
             }
-            console.log("here");
-            console.log(outer_max);
-            console.log(inside_max);
             for(var i = 0; i < outer_max; i++){
               y.fill(0.0);
               t1 = Date.now();
               instance.exports.spmv_csr_wrapper(csr_row_index, csr_col_index, csr_val_index, x_index, y_index, N, inside_max);
               t2 = Date.now();
-              console.log(t1, t2, t2 - t1);
               csr_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
-              console.log(csr_flops[i]);
               tt = tt + t2 - t1;
             }
             tt = tt/1000; 
@@ -497,16 +491,12 @@ function spmv(callback){
               y.fill(0.0);
               instance.exports.spmv_dia_wrapper(offset_index, dia_data_index, N, nd, stride, x_index, y_index, inside_max);
             }
-            console.log(outer_max);
-            console.log(inside_max);
             for(var i = 0; i < outer_max; i++){
               y.fill(0.0);
               t1 = Date.now();
               instance.exports.spmv_dia_wrapper(offset_index, dia_data_index, N, nd, stride, x_index, y_index, inside_max);
               t2 = Date.now();
-              console.log(t1, t2, t2 - t1);
               dia_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
-              console.log(dia_flops[i]);
               tt = tt + t2 - t1;
             }
             tt = tt/1000; 
@@ -525,16 +515,12 @@ function spmv(callback){
               y.fill(0.0);
               instance.exports.spmv_ell_wrapper(indices_index, ell_data_index, N, nc, x_index, y_index, inside_max);
             }
-            console.log(outer_max);
-            console.log(inside_max);
             for(var i = 0; i < outer_max; i++){
               y.fill(0.0);
               t1 = Date.now();
               instance.exports.spmv_ell_wrapper(indices_index, ell_data_index, N, nc, x_index, y_index, inside_max);
               t2 = Date.now();
-              console.log(t1, t2, t2 - t1);
               ell_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * anz/((t2 - t1)/1000);
-              console.log(ell_flops[i]);
               tt = tt + t2 - t1;
             }
             tt = tt/1000; 
