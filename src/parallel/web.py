@@ -21,6 +21,12 @@ def result(json_string):
   browser = parsed_json['browser']
   f.write(parsed_json['file'])
   f.write(",")
+  f.write(str(parsed_json['workers']))
+  f.write(",")
+  f.write(str(parsed_json['outer_max']))
+  f.write(",")
+  f.write(str(parsed_json['inner_max']))
+  f.write(",")
   f.write(str(parsed_json['N']))
   f.write(",")
   f.write(str(parsed_json['nnz']))
@@ -49,6 +55,13 @@ def result(json_string):
   f.write(",")
   f.write(str(parsed_json['ell_sum']))
   f.write(",")
+  f.write(str(parsed_json['diaII_sd']))
+  f.write(",")
+  f.write(str(parsed_json['diaII']))
+  f.write(",")
+  f.write(str(parsed_json['diaII_sum']))
+  f.write(",")
+
   f.write("\n")
   f.close()
 #  if browser == 0:

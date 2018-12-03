@@ -63,43 +63,6 @@ function num_diags(N,csr_row,csr_col)
 }
 
 
-function csr_diaII(csr_row, csr_col, csr_val, offset, data, nz, N, stride){
-  var ind = [], i, j, move;
-  for(i = 0; i < 2*N-1; i++){
-    ind[i] = 0;
-  }
-  for(i = 0; i < N; i++){
-    for(j = csr_row[i]; j < csr_row[i+1]; j++){
-      ind[N+csr_col[j]-i-1]++;
-    }
-  }
-  var diag_no = -(parseInt((2*N-1)/2));
-  var index = 0;
-  for(i = 0; i < 2*N-1; i++){
-    if(ind[i])
-      offset[index++] = diag_no;
-    diag_no++;
-  }
-  var c;
-
-  for(i = 0; i < N; i++){
-    for(j = csr_row[i]; j < csr_row[i+1]; j++){
-      c = csr_col[j];
-      for(k = 0; k < offset.length; k++){
-        move = 0;
-        if(c - i == offset[k]){
-          if(offset[k] < 0)
-            move = N - stride; 
-          data[k*stride+i-move] = csr_val[j];
-          break;
-        }
-      }
-    }
-  }
-  return stride;
-}
-
-
 function csr_dia(csr_row, csr_col, csr_val, offset, data, nz, N, stride){
   var ind = [], i, j, move;
   for(i = 0; i < 2*N-1; i++){
@@ -217,15 +180,14 @@ function coo_csr(row, col, val, N, nz, csr_row, csr_col, csr_val){
 
 
   
-var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1, diaII_mflops = -1;
-var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1, diaII_sum = -1;
-var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1, diaII_sd = -1;
+var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1;
+var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
+var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
 var anz = 0;
-var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [], diaII_flops = [];
+var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
 var inside = 0, inside_max = 100000, outer_max = 30;
-var workers = -1;
 function spmv(callback){
   var files = new Array(num);
   var fileno = 0;
@@ -311,9 +273,10 @@ function spmv(callback){
             callback();
           }
 
-          workers = num_workers;
           // Total Memory required  = COO + CSR + x + y 
-          var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N + num_workers * Float32Array.BYTES_PER_ELEMENT * N; 
+          var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float64Array.BYTES_PER_ELEMENT * 2 * anz + Float64Array.BYTES_PER_ELEMENT * 2 * N + num_workers * Float64Array.BYTES_PER_ELEMENT * N; 
+          console.log(total_length);
+          console.log(Float64Array.BYTES_PER_ELEMENT);
           const bytesPerPage = 64 * 1024;
           var num_pages = Math.ceil((total_length)/bytesPerPage);
           console.log('num_pages ', num_pages);
@@ -334,17 +297,26 @@ function spmv(callback){
           var coo_col_index = coo_row_index + coo_row.byteLength;
           let coo_col = new Int32Array(memory.buffer, coo_col_index, anz);
           var coo_val_index = coo_col_index + coo_col.byteLength;
-          let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
+          if(coo_val_index % 8 != 0)
+            coo_val_index +=4;
+          let coo_val = new Float64Array(memory.buffer, coo_val_index, anz);
 
           // CSR memory allocation
           var csr_row_index = coo_val_index + coo_val.byteLength;
           console.log("CSR index", csr_row_index);
           let csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
           var csr_col_index = csr_row_index + csr_row.byteLength;
+          console.log(csr_col_index);
           let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
           var csr_val_index = csr_col_index + csr_col.byteLength;
-          let csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+          if(csr_val_index % 8 != 0)
+            csr_val_index +=4;
+          console.log(csr_val_index);
+          console.log(anz);
+          console.log(memory.buffer.byteLength);
+          let csr_val = new Float64Array(memory.buffer, csr_val_index, anz);
 
+          console.log("csr allocated");
           var t1, t2, tt = 0.0;
           if(symmetry == "symmetric"){
             if(field == "pattern"){
@@ -402,25 +374,28 @@ function spmv(callback){
           
           // sort COO row-wise 
           quick_sort(coo_row, coo_col, coo_val, 0, anz-1);          
+          console.log("sorted");
      
           //convert COO to CSR
           coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
+          console.log("coo to csr converted");
 
           //get DIA info
           var result = num_diags(N, csr_row, csr_col);
           var nd = result[0];
           var stride = result[1];
+          console.log(nd);
 
           //get ELL info
           var nc = num_cols(csr_row, N);
+          console.log(nc);
 
           //grow memory buffer size for DIA and ELL
-          var dia_length = Int32Array.BYTES_PER_ELEMENT * nd + Float32Array.BYTES_PER_ELEMENT * nd * stride;
-          var ell_length = Int32Array.BYTES_PER_ELEMENT * nc * N + Float32Array.BYTES_PER_ELEMENT * nc * N;
-          var diaII_length = Int32Array.BYTES_PER_ELEMENT * nd + Float32Array.BYTES_PER_ELEMENT * nd * stride;
-          var grow_num_pages = Math.ceil((dia_length + ell_length + diaII_length)/bytesPerPage);
+          var dia_length = Int32Array.BYTES_PER_ELEMENT * nd + Float64Array.BYTES_PER_ELEMENT * nd * stride;
+          var ell_length = Int32Array.BYTES_PER_ELEMENT * nc * N + Float64Array.BYTES_PER_ELEMENT * nc * N;
+          var grow_num_pages = Math.ceil((dia_length + ell_length)/bytesPerPage);
 
-          var offset_index = obj.instance.exports._malloc(dia_length + ell_length + diaII_length);
+          var offset_index = obj.instance.exports._malloc(dia_length + ell_length);
           console.log("DIA index", offset_index);
           //memory.grow(grow_num_pages);
           //console.log('grow num pages', grow_num_pages);
@@ -436,21 +411,26 @@ function spmv(callback){
           underlying memory they previously pointed to.*/
           csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
           csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
-          csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
+          csr_val = new Float64Array(memory.buffer, csr_val_index, anz);
 
 
           // DIA memory allocation
           //var offset_index = csr_val_index + csr_val.byteLength;
           var offset = new Int32Array(memory.buffer, offset_index, nd);
           var dia_data_index = offset_index + offset.byteLength;
-          var dia_data = new Float32Array(memory.buffer, dia_data_index, nd * stride);
+          console.log(dia_data_index);
+          if(dia_data_index % 8 != 0)
+            dia_data_index +=4;
+          var dia_data = new Float64Array(memory.buffer, dia_data_index, nd * stride);
 
           // ELL memory allocation
           var indices_index = dia_data_index + dia_data.byteLength;
           console.log("ELL index", indices_index);
           let indices = new Int32Array(memory.buffer, indices_index, nc * N);
           var ell_data_index = indices_index + indices.byteLength;
-          let ell_data = new Float32Array(memory.buffer,ell_data_index, nc * N);
+          if(ell_data_index % 8 != 0)
+            ell_data_index +=4;
+          let ell_data = new Float64Array(memory.buffer,ell_data_index, nc * N);
 
           //convert CSR to DIA
           csr_dia(csr_row, csr_col, csr_val, offset, dia_data, anz, N, stride);
@@ -459,21 +439,18 @@ function spmv(callback){
           //convert CSR to ELL
           csr_ell(csr_row, csr_col, csr_val, indices, ell_data, nc, N);
 
-          var offset_indexII = ell_data_index + ell_data.byteLength
-          var offsetII = new Int32Array(memory.buffer, offset_indexII, nd);
-          var dia_data_indexII = offset_indexII + offsetII.byteLength;
-          var dia_dataII = new Float32Array(memory.buffer, dia_data_indexII, nd * stride);
-          //convert CSR to DIA II
-          csr_diaII(csr_row, csr_col, csr_val, offsetII, dia_dataII, anz, N, stride);
-
           // vector x and y allocation
           //var x_index = ell_data_index + ell_data.byteLength;
           var x_index = csr_val_index + csr_val.byteLength;
           console.log("x index is ", x_index);
-          let x = new Float32Array(memory.buffer, x_index, cols);
+          if(x_index % 8 != 0)
+            x_index +=4;
+          let x = new Float64Array(memory.buffer, x_index, cols);
           var y_index = x_index + x.byteLength;
+          if(y_index % 8 != 0)
+            y_index +=4;
           console.log("y index is ", y_index);
-          let y = new Float32Array(memory.buffer, y_index, rows);
+          let y = new Float64Array(memory.buffer, y_index, rows);
 
           console.log("allocated memory");
           // initialize x array
@@ -495,24 +472,25 @@ function spmv(callback){
           var temp = y_index + y.byteLength; 
           for(var i = 0; i < num_workers; i++){
             console.log('y%d is %d',i, temp);  
+            if(temp % 8 != 0)
+              temp +=4;
             w_y_index[i] = temp;
-            w_y[i] = new Float32Array(memory.buffer, temp, N);
-            w[i] = new Worker('worker32.js');
+            w_y[i] = new Float64Array(memory.buffer, temp, N);
+            w[i] = new Worker('worker64.js');
             temp += y.byteLength;
           }
-           
-          if(anz > 1000000) inside_max = 10;
-          else if (anz > 100000) inside_max = 250;
-          else if (anz > 50000) inside_max = 500;
-          else if(anz > 10000) inside_max = 1000;
-          else if(anz > 2000) inside_max = 10000;
-          else if(anz > 100) inside_max = 100000;
-          inside_max *= num_workers;
 
+          
+          if(anz > 1000000) inside_max = 1;
+          else if (anz > 100000) inside_max = 10;
+          else if (anz > 50000) inside_max = 50;
+          else if(anz > 10000) inside_max = 100;
+          else if(anz > 2000) inside_max = 1000;
+          else if(anz > 100) inside_max = 10000;
           console.log("inside max is ", inside_max);
 
           var my_instance;
-          WebAssembly.compileStreaming(fetch('spmv_32.wasm'))
+          WebAssembly.compileStreaming(fetch('spmv_64.wasm'))
           .then(mod => {
             (async () => {
               let instance = WebAssembly.instantiate(mod, { js: { mem: memory }, console: {
@@ -579,16 +557,6 @@ function spmv(callback){
                   w[i].onmessage = storeELL;
                 }
               }
-              else if(format == 4){
-                t1 = Date.now();
-                for(var i = 0; i < num_workers; i++){
-                  if(i == num_workers - 1)
-                    w[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, offset_indexII, dia_data_indexII, nd, N, stride, x_index, w_y_index[i], inside_max]);
-                  else
-                    w[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1, offset_indexII, dia_data_indexII, nd, N, stride, x_index, w_y_index[i], inside_max]);
-                  w[i].onmessage = storeDIAII;
-                }
-              }
             }
 
             function storeCOO(event){
@@ -616,8 +584,6 @@ function spmv(callback){
                   coo_sum = parseInt(fletcher_sum(y));
                   console.log('coo mflops is ', coo_mflops);
                   console.log("Returned to main thread");
-                  /*for(i=0; i < N;i++)
-                    console.log(y[i]);*/
                   t = 0, tt = 0.0;
                   run_workers(1);
                 }
@@ -704,38 +670,6 @@ function spmv(callback){
                   ell_sum = parseInt(fletcher_sum(y));
                   console.log('ell mflops is ', ell_mflops);
                   console.log("Returned to main thread");
-                  t = 0, tt = 0.0;
-                  run_workers(4);
-                }
-              }
-            }
-
-            function storeDIAII(event){
-              pending_workers -= 1; 
-              if(pending_workers <= 0){
-                my_date = Date.now();
-                my_instance.exports.sum(y_index, y_index + y.byteLength, N, num_workers);
-                t2 = Date.now();
-                if(t >= 10){
-                  diaII_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inside_max/ ((t2 - t1)/1000);
-                  tt += t2 - t1;
-                }
-                t++; 
-                if(t < (outer_max + 10))
-                  run_workers(4);
-                else{
-                  tt = tt/1000; 
-                  diaII_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inside_max/ tt;
-                  variance = 0;
-                  for(var i = 0; i < outer_max; i++)
-                    variance += (diaII_mflops - diaII_flops[i]) * (diaII_mflops - diaII_flops[i]);
-                  variance /= outer_max;
-                  diaII_sd = Math.sqrt(variance);
-                  diaII_sum = parseInt(fletcher_sum(y));
-                  console.log('dia II mflops is ', diaII_mflops);
-                  console.log("Returned to main thread");
-                  /*for(i=0; i < N;i++)
-                    console.log(y[i]);*/
                   console.log("Done");
                   callback();
                 }
