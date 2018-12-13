@@ -10,36 +10,36 @@ function sswasm_MM_info(){
   this.anz = 0;
 }
 
-function sswasm_COO_t(){
-  this.row_index;
-  this.col_index;
-  this.val_index;
-  this.nnz = 0;
+function sswasm_COO_t(row_index, col_index, val_index, nnz){
+  this.row_index = row_index;
+  this.col_index = col_index;
+  this.val_index = val_index;
+  this.nnz = nnz;
 }
 
-function sswasm_CSR_t(){
-  this.row_index;
-  this.col_index;
-  this.val_index;
-  this.nrows = 0;
-  this.nnz = 0;
+function sswasm_CSR_t(row_index, col_index, val_index, nrows, nnz){
+  this.row_index = row_index;
+  this.col_index = col_index;
+  this.val_index = val_index;
+  this.nrows = nrows;
+  this.nnz = nnz;
 }
 
-function sswasm_DIA_t(){
-  this.offset_index;
-  this.data_index;
-  this.ndiags = 0;
-  this.nrows = 0
-  this.stride = 0;
-  this.nnz = 0;
+function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
+  this.offset_index = offset_index;
+  this.data_index = data_index;;
+  this.ndiags = ndiags;
+  this.nrows = nrows;
+  this.stride = stride;
+  this.nnz = nnz;
 }
 
-function sswasm_ELL_t(){
-  this.indices_index;
-  this.data_index;
-  this.ncols = 0;
-  this.nrows = 0;
-  this.nnz = 0;
+function sswasm_ELL_t(indices_index, data_index, ncols, nrows, nnz){
+  this.indices_index = indices_index;
+  this.data_index = data_index;
+  this.ncols = ncols;
+  this.nrows = nrows;
+  this.nnz = nnz;
 }
 
 function sswasm_x_t(){
@@ -247,10 +247,8 @@ var sparse_instance;
 async function init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
-  malloc_instance = await obj.instance;
-  console.log(await malloc_instance);
+  return obj.instance;
 }
-
 function coo_test(A_coo, x_view, y_view)
 {
   console.log("COO");
@@ -363,83 +361,104 @@ function ell_test(A_ell, x_view, y_view)
   console.log('ell sd is ', ell_sd);
 }
 
+function read_header(file, mm_info)
+{
+  /* read the first line for arithmetic field 
+  e.g. real, integer, pattern etc.
+  and symmetry structure e.g. general, 
+  symmetric etc. */  
+  var first = file[0].split(" ");
+  mm_info.field = first[3];
+  mm_info.symmetry = first[4];
+
+  // skip over the comments
+  var n = 0;
+  while(file[n][0] == "%")
+    n++;
+
+  // read the entries info
+  var info = file[n++].split(" ");
+  mm_info.nrows = Number(info[0]);
+  mm_info.ncols = Number(info[1]);
+  mm_info.nentries = Number(info[2]);
+  console.log(mm_info.nrows, mm_info.ncols, mm_info.nentries);
+  return n;
+}
+
+
+function calculate_actual_nnz(file, index, start, mm_info)
+{
+  for(var j = start; index < file.length - 1; index++){
+    var coord = file[index].split(" ");
+    mm_info.row[j] = Number(coord[0]);
+    mm_info.col[j] = Number(coord[1]);
+    if(mm_info.symmetry == "symmetric"){
+      if(mm_info.field != "pattern"){
+        mm_info.val[j] = Number(coord[2]);
+         // exclude explicit zero entries
+        if(mm_info.val[j] < 0 || mm_info.val[j] > 0){
+          // only one non-zero for each diagonal entry
+          if(mm_info.row[j] == mm_info.col[j])
+            mm_info.anz++; 
+          // two non-zeros for each non-diagonal entry
+          else
+            mm_info.anz = mm_info.anz + 2;
+        }
+      }
+      else{
+        if(mm_info.row[j] == mm_info.col[j])
+          mm_info.anz++; 
+        else
+          mm_info.anz = mm_info.anz + 2;
+      } 
+    }
+    else{
+      if(mm_info.field != "pattern"){
+        mm_info.val[j] = Number(coord[2]);
+         // exclude explicit zero entries
+        if(mm_info.val[j] < 0 || mm_info.val[j] > 0)
+          mm_info.anz++;
+      }
+    }
+    j++;
+  }
+  return j;
+}
+
 function spmv_test(files, callback)
 {
   var start = 0;
-  var symmetry, field;
   var row, col, val;
-  var rows, cols, entries;
-  var n = 0;
+  var mm_info = new sswasm_MM_info();
   for(var i = 0; i < num; i++){
     var temp = files[i];
     var index = 0;
     if(i == 0){
-      var first = temp[0].split(" ");
-      field = first[3];
-      symmetry = first[4];
-      while(temp[n][0] == "%")
-        n++;
-      info = temp[n++].split(" ");
-      N = Number(info[0]);
-      rows = Number(info[0]);
-      cols = Number(info[1]);
-      entries = Number(info[2]);
-      console.log(rows, cols, entries);
-      index = n;
-      if(entries > Math.pow(2,27)){
+      index = read_header(temp, mm_info);
+      if(mm_info.nentries > Math.pow(2,27)){
         console.log("entries : cannot allocate this much");
         callback();
       }
-      row = new Int32Array(entries);
-      col = new Int32Array(entries);
-      if(field != "pattern")
-        val = new Float64Array(entries);
+      mm_info.row = row = new Int32Array(mm_info.nentries);
+      mm_info.col = col = new Int32Array(mm_info.nentries);
+      if(mm_info.field != "pattern")
+        mm_info.val = val = new Float64Array(mm_info.nentries);
     }
-    for(var j = start; index < temp.length - 1; index++){
-      coord = temp[index].split(" ");
-      row[j] = Number(coord[0]);
-      col[j] = Number(coord[1]);
-      if(symmetry == "symmetric"){
-        if(field != "pattern"){
-          val[j] = Number(coord[2]);
-            if(val[j] < 0 || val[j] > 0){
-              if(row[j] == col[j])
-                anz++; 
-              else
-                anz = anz + 2;
-            }
-          }
-          else{
-            if(row[j] == col[j])
-              anz++; 
-                else
-                  anz = anz + 2;
-              } 
-            }
-            else{
-              if(field != "pattern"){
-                val[j] = Number(coord[2]);
-                if(val[j] < 0 || val[j] > 0)
-                  anz++;
-              }
-            }
-            j++;
-    }
-    start = j;
+    start = calculate_actual_nnz(temp, index, start, mm_info)
   }
+  anz = mm_info.anz;
   if(anz == 0)
-    anz = entries;
+    anz = mm_info.nentries;
   console.log(anz);
   if(anz > Math.pow(2,28)){
     console.log("anz : cannot allocate this much");
     callback();
   }
 
-
   // Total Memory required  = COO + CSR + x + y 
-  var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (N + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * 2 * N; 
+  var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * mm_info.ncols; 
   const bytesPerPage = 64 * 1024;
-  var num_pages = Math.ceil((total_length + Float32Array.BYTES_PER_ELEMENT * N)/(bytesPerPage));
+  var num_pages = Math.ceil((total_length + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows)/(bytesPerPage));
   console.log('num pages', num_pages);
   var max_pages = 16384;
   //let memory = new WebAssembly.Memory({initial:num_pages, maximum: max_pages});
@@ -448,7 +467,7 @@ function spmv_test(files, callback)
   var coo_row_index = 0;
   
   console.log(total_length);
-
+  
   coo_row_index = malloc_instance.exports._malloc(total_length);
 
   // COO memory allocation
@@ -464,8 +483,8 @@ function spmv_test(files, callback)
 
 
   var t1, t2, tt = 0.0;
-  if(symmetry == "symmetric"){
-    if(field == "pattern"){
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
       for(var i = 0, n = 0; n < start; n++) {
         coo_row[i] = Number(row[n] - 1);
         coo_col[i] = Number(col[n] - 1);
@@ -499,7 +518,7 @@ function spmv_test(files, callback)
     }
   }
   else{
-    if(field == "pattern"){
+    if(mm_info.field == "pattern"){
       for(var i = 0, n = 0; n < start; n++, i++) {
         coo_row[i] = Number(row[n] - 1);
         coo_col[i] = Number(col[n] - 1);
@@ -522,26 +541,26 @@ function spmv_test(files, callback)
 
   // CSR memory allocation
   var csr_row_index = coo_val_index + coo_val.byteLength;
-  let csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+  let csr_row = new Int32Array(memory.buffer, csr_row_index, mm_info.nrows + 1);
   var csr_col_index = csr_row_index + csr_row.byteLength;
   let csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
   var csr_val_index = csr_col_index + csr_col.byteLength;
   let csr_val = new Float32Array(memory.buffer, csr_val_index, anz); 
 
   //convert COO to CSR
-  coo_csr(coo_row, coo_col, coo_val, N, anz, csr_row, csr_col, csr_val);
+  coo_csr(coo_row, coo_col, coo_val, mm_info.nrows, anz, csr_row, csr_col, csr_val);
   //get DIA info
-  var result = num_diags(N, csr_row, csr_col);
+  var result = num_diags(mm_info.nrows, csr_row, csr_col);
   var nd = result[0];
   var stride = result[1];
 
   //get ELL info
-  var nc = num_cols(csr_row, N);
+  var nc = num_cols(csr_row, mm_info.nrows);
 
   console.log(memory.buffer.byteLength / bytesPerPage);
   //grow memory buffer size for DIA and ELL
   var dia_length = Int32Array.BYTES_PER_ELEMENT * nd + Float32Array.BYTES_PER_ELEMENT * nd * stride; 
-  var ell_length = Int32Array.BYTES_PER_ELEMENT * nc * N + Float32Array.BYTES_PER_ELEMENT * nc * N;
+  var ell_length = Int32Array.BYTES_PER_ELEMENT * nc * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * nc * mm_info.nrows;
   var grow_num_pages = Math.ceil((dia_length + ell_length)/bytesPerPage);
   //memory.grow(grow_num_pages);
   var offset_index = malloc_instance.exports._malloc(dia_length + ell_length);
@@ -556,13 +575,13 @@ function spmv_test(files, callback)
   (with the new byteLength) and any previous ArrayBuffer 
   objects become “detached”, or disconnected from the 
   underlying memory they previously pointed to.*/ 
-  csr_row = new Int32Array(memory.buffer, csr_row_index, N + 1);
+  csr_row = new Int32Array(memory.buffer, csr_row_index, mm_info.nrows + 1);
   csr_col = new Int32Array(memory.buffer, csr_col_index, anz);
   csr_val = new Float32Array(memory.buffer, csr_val_index, anz);
 
   var indices_index, ell_data_index, dia_data_index;
 
-  if((nd*stride < Math.pow(2,27)) && (nc*N < Math.pow(2,27))) {
+  if((nd*stride < Math.pow(2,27)) && (nc*mm_info.nrows < Math.pow(2,27))) {
   // DIA memory allocation
   //var offset_index = csr_val_index + csr_val.byteLength;
   let offset = new Int32Array(memory.buffer, offset_index, nd);
@@ -572,59 +591,39 @@ function spmv_test(files, callback)
 
   // ELL memory allocation
   indices_index = dia_data_index + dia_data.byteLength; 
-  let indices = new Int32Array(memory.buffer, indices_index, nc * N);
+  let indices = new Int32Array(memory.buffer, indices_index, nc * mm_info.nrows);
   ell_data_index = indices_index + indices.byteLength; 
-  let ell_data = new Float32Array(memory.buffer,ell_data_index, nc * N);
+  let ell_data = new Float32Array(memory.buffer,ell_data_index, nc * mm_info.nrows);
 
   //convert CSR to DIA
-  csr_dia(csr_row, csr_col, csr_val, offset, dia_data, anz, N, stride);
+  csr_dia(csr_row, csr_col, csr_val, offset, dia_data, anz, mm_info.nrows, stride);
 
 
   //convert CSR to ELL
-  csr_ell(csr_row, csr_col, csr_val, indices, ell_data, anz, N);
+  csr_ell(csr_row, csr_col, csr_val, indices, ell_data, anz, mm_info.nrows);
   } 
   // vector x and y allocation
   var x_index = csr_val_index + csr_val.byteLength;
   console.log("x index is ", x_index);
-  let x = new Float32Array(memory.buffer, x_index, cols);
+  let x = new Float32Array(memory.buffer, x_index, mm_info.ncols);
   var y_index = x_index + x.byteLength;
   console.log("y index is ", y_index);
-  let y = new Float32Array(memory.buffer, y_index, rows);
+  let y = new Float32Array(memory.buffer, y_index, mm_info.nrows);
 
 
   // initialize x array
-  for(var i = 0; i < N; i++){
+  for(var i = 0; i < mm_info.ncols; i++){
     x[i] = i;
   } 
   console.log("populated arrays");
 
-  var A_coo = new sswasm_COO_t();
-  A_coo.row_index = coo_row_index;
-  A_coo.col_index = coo_col_index;
-  A_coo.val_index = coo_val_index;
-  A_coo.nnz = anz;
+  var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz);
  
-  var A_csr = new sswasm_CSR_t();
-  A_csr.row_index = csr_row_index;
-  A_csr.col_index = csr_col_index;
-  A_csr.val_index = csr_val_index;
-  A_csr.nrows = N;
-  A_csr.nnz = anz;
+  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
 
-  var A_dia = new sswasm_DIA_t();
-  A_dia.offset_index = offset_index;
-  A_dia.data_index = dia_data_index;  
-  A_dia.ndiags = nd;
-  A_dia.nrows = N;
-  A_dia.nnz = anz;
-  A_dia.stride = stride;
+  var A_dia = new sswasm_DIA_t(offset_index, dia_data_index, nd, mm_info.nrows, stride, anz);
 
-  var A_ell = new sswasm_ELL_t();
-  A_ell.indices_index = indices_index;
-  A_ell.data_index = ell_data_index;  
-  A_ell.ncols = nc;
-  A_ell.nrows = N;
-  A_ell.nnz = anz;
+  var A_ell = new sswasm_ELL_t(indices_index, ell_data_index, nc, mm_info.nrows, anz);
 
   var x_view = new sswasm_x_t();
   x_view.x = x;
@@ -654,6 +653,7 @@ function spmv_test(files, callback)
     dia_test(A_dia, x_view, y_view);
     ell_test(A_ell, x_view, y_view);
     console.log("done seqential");
+    N = mm_info.nrows;
     callback();
   })
   });
@@ -676,7 +676,7 @@ var load_files = function(fileno, files, num, callback1, callback2){
           callback2(files, callback1);
       }
       catch(e){
-        console.log('Error : ', e.stack);
+        console.log('Error : ', e);
         callback1();
       }
     } 
