@@ -42,14 +42,14 @@ function sswasm_ELL_t(indices_index, data_index, ncols, nrows, nnz){
   this.nnz = nnz;
 }
 
-function sswasm_x_t(){
-  this.x;
-  this.x_index;
+function sswasm_x_t(x, x_index){
+  this.x = x;
+  this.x_index = x_index;
 }
 
-function sswasm_y_t(){
-  this.y;
-  this.y_index;
+function sswasm_y_t(y, y_index){
+  this.y = y;
+  this.y_index = y_index;
 }
 
 function matlab_modulo(x, y) {
@@ -240,33 +240,44 @@ var anz = 0;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
-var inside = 0, inside_max = 100000, outer_max = 30;
+var inside = 0, inner_max = 100000, outer_max = 30;
 var malloc_instance;
 var sparse_instance;
+
+function get_inner_max()
+{
+  if(anz > 1000000) inner_max = 1;
+  else if (anz > 100000) inner_max = 10;
+  else if (anz > 50000) inner_max = 50;
+  else if(anz > 10000) inner_max = 100;
+  else if(anz > 2000) inner_max = 1000;
+  else if(anz > 100) inner_max = 10000;
+}
 
 async function init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   return obj.instance;
 }
+
 function coo_test(A_coo, x_view, y_view)
 {
   console.log("COO");
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     y_view.y.fill(0.0);
-    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inside_max);
+    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
   }
   for(var i = 0; i < outer_max; i++){
     y_view.y.fill(0.0);
     t1 = Date.now();
-    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inside_max);
+    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
     t2 = Date.now();
-    coo_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * A_coo.nnz/((t2 - t1)/1000);
+    coo_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_coo.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
-  coo_mflops = 1/Math.pow(10,6) * 2 * A_coo.nnz * inside_max * outer_max/ tt;
+  coo_mflops = 1/Math.pow(10,6) * 2 * A_coo.nnz * inner_max * outer_max/ tt;
   variance = 0;
   for(var i = 0; i < outer_max; i++)
     variance += (coo_mflops - coo_flops[i]) * (coo_mflops - coo_flops[i]);
@@ -283,18 +294,18 @@ function csr_test(A_csr, x_view, y_view)
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     y_view.y.fill(0.0);
-    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inside_max);
+    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
   }
   for(var i = 0; i < outer_max; i++){
     y_view.y.fill(0.0);
     t1 = Date.now();
-    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inside_max);
+    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
     t2 = Date.now();
-    csr_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * A_csr.nnz/((t2 - t1)/1000);
+    csr_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_csr.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
-  csr_mflops = 1/Math.pow(10,6) * 2 * A_csr.nnz * inside_max * outer_max/ tt;
+  csr_mflops = 1/Math.pow(10,6) * 2 * A_csr.nnz * inner_max * outer_max/ tt;
   variance = 0;
   for(var i = 0; i < outer_max; i++)
     variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -311,18 +322,18 @@ function dia_test(A_dia, x_view, y_view)
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     y_view.y.fill(0.0);
-    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inside_max);
+    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
   }
   for(var i = 0; i < outer_max; i++){
     y_view.y.fill(0.0);
     t1 = Date.now();
-    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inside_max);
+    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
     t2 = Date.now();
-    dia_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * A_dia.nnz/((t2 - t1)/1000);
+    dia_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_dia.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
-  dia_mflops = 1/Math.pow(10,6) * 2 * A_dia.nnz * inside_max * outer_max/ tt;
+  dia_mflops = 1/Math.pow(10,6) * 2 * A_dia.nnz * inner_max * outer_max/ tt;
   variance = 0;
   for(var i = 0; i < outer_max; i++)
     variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
@@ -339,18 +350,18 @@ function ell_test(A_ell, x_view, y_view)
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     y_view.y.fill(0.0);
-    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inside_max);
+    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
   }
   for(var i = 0; i < outer_max; i++){
     y_view.y.fill(0.0);
     t1 = Date.now();
-    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inside_max);
+    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
     t2 = Date.now();
-    ell_flops[i] = 1/Math.pow(10,6) * 2 * inside_max * A_ell.nnz/((t2 - t1)/1000);
+    ell_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_ell.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
-  ell_mflops = 1/Math.pow(10,6) * 2 * A_ell.nnz * inside_max * outer_max/ tt;
+  ell_mflops = 1/Math.pow(10,6) * 2 * A_ell.nnz * inner_max * outer_max/ tt;
   variance = 0;
   for(var i = 0; i < outer_max; i++)
     variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
@@ -361,7 +372,7 @@ function ell_test(A_ell, x_view, y_view)
   console.log('ell sd is ', ell_sd);
 }
 
-function read_header(file, mm_info)
+function read_MM_header(file, mm_info)
 {
   /* read the first line for arithmetic field 
   e.g. real, integer, pattern etc.
@@ -425,16 +436,15 @@ function calculate_actual_nnz(file, index, start, mm_info)
   return j;
 }
 
-function spmv_test(files, callback)
-{
+function read_matrix_MM_files(files, num, mm_info, callback)
+{ 
   var start = 0;
-  var row, col, val;
-  var mm_info = new sswasm_MM_info();
+  mm_info.anz = 0;
   for(var i = 0; i < num; i++){
-    var temp = files[i];
+    var file = files[i];
     var index = 0;
     if(i == 0){
-      index = read_header(temp, mm_info);
+      index = read_MM_header(file, mm_info);
       if(mm_info.nentries > Math.pow(2,27)){
         console.log("entries : cannot allocate this much");
         callback();
@@ -444,16 +454,29 @@ function spmv_test(files, callback)
       if(mm_info.field != "pattern")
         mm_info.val = val = new Float64Array(mm_info.nentries);
     }
-    start = calculate_actual_nnz(temp, index, start, mm_info)
+    start = calculate_actual_nnz(file, index, start, mm_info)
   }
-  anz = mm_info.anz;
-  if(anz == 0)
+  if(mm_info.anz == 0)
     anz = mm_info.nentries;
+  else
+    anz = mm_info.anz;
   console.log(anz);
   if(anz > Math.pow(2,28)){
     console.log("anz : cannot allocate this much");
     callback();
   }
+}
+
+
+
+function spmv_test(files, callback)
+{
+  var row, col, val;
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  row = mm_info.row;
+  col = mm_info.col;
+  val = mm_info.val;
 
   // Total Memory required  = COO + CSR + x + y 
   var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * mm_info.ncols; 
@@ -485,7 +508,7 @@ function spmv_test(files, callback)
   var t1, t2, tt = 0.0;
   if(mm_info.symmetry == "symmetric"){
     if(mm_info.field == "pattern"){
-      for(var i = 0, n = 0; n < start; n++) {
+      for(var i = 0, n = 0; n < mm_info.nentries; n++) {
         coo_row[i] = Number(row[n] - 1);
         coo_col[i] = Number(col[n] - 1);
         coo_val[i] = 1.0;
@@ -500,7 +523,7 @@ function spmv_test(files, callback)
       } 
     }
     else{
-      for(var i = 0, n = 0; n < start; n++) {
+      for(var i = 0, n = 0; n < mm_info.nentries; n++) {
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
@@ -519,14 +542,14 @@ function spmv_test(files, callback)
   }
   else{
     if(mm_info.field == "pattern"){
-      for(var i = 0, n = 0; n < start; n++, i++) {
+      for(var i = 0, n = 0; n < mm_info.nentries; n++, i++) {
         coo_row[i] = Number(row[n] - 1);
         coo_col[i] = Number(col[n] - 1);
         coo_val[i] = 1.0;
       }
     }
     else{
-      for(var i = 0, n = 0; n < start; n++) {
+      for(var i = 0, n = 0; n < mm_info.nentries; n++) {
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
@@ -618,27 +641,15 @@ function spmv_test(files, callback)
   console.log("populated arrays");
 
   var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz);
- 
   var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
-
   var A_dia = new sswasm_DIA_t(offset_index, dia_data_index, nd, mm_info.nrows, stride, anz);
-
   var A_ell = new sswasm_ELL_t(indices_index, ell_data_index, nc, mm_info.nrows, anz);
 
-  var x_view = new sswasm_x_t();
-  x_view.x = x;
-  x_view.x_index = x_index;
+  var x_view = new sswasm_x_t(x, x_index);
 
-  var y_view = new sswasm_y_t();
-  y_view.y = y;
-  y_view.y_index = y_index;
+  var y_view = new sswasm_y_t(y, y_index);
 
-  if(anz > 1000000) inside_max = 1;
-  else if (anz > 100000) inside_max = 10;
-  else if (anz > 50000) inside_max = 50;
-  else if(anz > 10000) inside_max = 100;
-  else if(anz > 2000) inside_max = 1000;
-  else if(anz > 100) inside_max = 10000;
+  get_inner_max();
 
   WebAssembly.compileStreaming(fetch('spmv_32.wasm'))
   .then(module => {
