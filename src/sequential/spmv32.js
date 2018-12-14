@@ -467,45 +467,8 @@ function read_matrix_MM_files(files, num, mm_info, callback)
   }
 }
 
-
-
-function spmv_test(files, callback)
+function create_COO_from_MM(mm_info, coo_row, coo_col, coo_val, row, col, val)
 {
-  var row, col, val;
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  row = mm_info.row;
-  col = mm_info.col;
-  val = mm_info.val;
-
-  // Total Memory required  = COO + CSR + x + y 
-  var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * mm_info.ncols; 
-  const bytesPerPage = 64 * 1024;
-  var num_pages = Math.ceil((total_length + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows)/(bytesPerPage));
-  console.log('num pages', num_pages);
-  var max_pages = 16384;
-  //let memory = new WebAssembly.Memory({initial:num_pages, maximum: max_pages});
-  let memory = Module['wasmMemory'];
-  console.log(memory.buffer.byteLength / bytesPerPage);
-  var coo_row_index = 0;
-  
-  console.log(total_length);
-  
-  coo_row_index = malloc_instance.exports._malloc(total_length);
-
-  // COO memory allocation
-  //var coo_row_index = 0;
-  let coo_row = new Int32Array(memory.buffer, coo_row_index, anz); 
-  console.log(coo_row_index);
-  var coo_col_index = coo_row_index + coo_row.byteLength; 
-  let coo_col = new Int32Array(memory.buffer, coo_col_index, anz);
-  console.log(coo_col_index);
-  var coo_val_index = coo_col_index + coo_col.byteLength;
-  console.log(coo_val_index);
-  let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
-
-
-  var t1, t2, tt = 0.0;
   if(mm_info.symmetry == "symmetric"){
     if(mm_info.field == "pattern"){
       for(var i = 0, n = 0; n < mm_info.nentries; n++) {
@@ -559,7 +522,43 @@ function spmv_test(files, callback)
       }
     }
   }
+}
+
+function spmv_test(files, callback)
+{
+  var row, col, val;
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  row = mm_info.row;
+  col = mm_info.col;
+  val = mm_info.val;
+  N = mm_info.nrows;
+
+  // Total Memory required  = COO + CSR + x + y 
+  var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * mm_info.ncols; 
+  const bytesPerPage = 64 * 1024;
+  var max_pages = 16384;
+  let memory = Module['wasmMemory'];
+  console.log(memory.buffer.byteLength / bytesPerPage);
+  var coo_row_index = 0;
   
+  console.log(total_length);
+  
+  coo_row_index = malloc_instance.exports._malloc(total_length);
+
+  // COO memory allocation
+  //var coo_row_index = 0;
+  let coo_row = new Int32Array(memory.buffer, coo_row_index, anz); 
+  console.log(coo_row_index);
+  var coo_col_index = coo_row_index + coo_row.byteLength; 
+  let coo_col = new Int32Array(memory.buffer, coo_col_index, anz);
+  console.log(coo_col_index);
+  var coo_val_index = coo_col_index + coo_col.byteLength;
+  console.log(coo_val_index);
+  let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
+
+ 
+  create_COO_from_MM(mm_info, coo_row, coo_col, coo_val, row, col, val); 
   quick_sort(coo_row, coo_col, coo_val, 0, anz-1);      
 
   // CSR memory allocation
@@ -664,7 +663,6 @@ function spmv_test(files, callback)
     dia_test(A_dia, x_view, y_view);
     ell_test(A_ell, x_view, y_view);
     console.log("done seqential");
-    N = mm_info.nrows;
     callback();
   })
   });
