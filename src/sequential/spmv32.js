@@ -528,7 +528,7 @@ function create_COO_from_MM(mm_info, coo_row, coo_col, coo_val, row, col, val)
 function allocate_memory_test(mm_info)
 {
   // Total Memory required  = COO + CSR + x + y 
-  var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * mm_info.ncols; 
+  var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz;
   const bytesPerPage = 64 * 1024;
   var max_pages = 16384;
   console.log(memory.buffer.byteLength / bytesPerPage);
@@ -617,10 +617,12 @@ function allocate_memory_test(mm_info)
   csr_ell(csr_row, csr_col, csr_val, indices, ell_data, anz, mm_info.nrows);
   } 
   // vector x and y allocation
-  var x_index = csr_val_index + csr_val.byteLength;
+  var x_length = Float32Array.BYTES_PER_ELEMENT * N; 
+  var x_index = malloc_instance.exports._malloc(x_length);
   console.log("x index is ", x_index);
   let x = new Float32Array(memory.buffer, x_index, mm_info.ncols);
-  var y_index = x_index + x.byteLength;
+  var y_length = Float32Array.BYTES_PER_ELEMENT * N; 
+  var y_index = malloc_instance.exports._malloc(y_length);
   console.log("y index is ", y_index);
   let y = new Float32Array(memory.buffer, y_index, mm_info.nrows);
 
