@@ -381,6 +381,18 @@ async function init()
 function coo_test(A_coo, x_view, y_view)
 {
   console.log("COO");
+  if(typeof A_coo === "undefined"){
+    console.log("matrix is undefined");
+    return;
+  }
+  if(typeof x_view === "undefined"){
+    console.log("vector x is undefined");
+    return;
+  }
+  if(typeof y_view === "undefined"){
+    console.log("vector y is undefined");
+    return;
+  }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
@@ -409,6 +421,18 @@ function coo_test(A_coo, x_view, y_view)
 function csr_test(A_csr, x_view, y_view)
 {
   console.log("CSR");
+  if(typeof A_csr === "undefined"){
+    console.log("matrix is undefined");
+    return;
+  }
+  if(typeof x_view === "undefined"){
+    console.log("vector x is undefined");
+    return;
+  }
+  if(typeof y_view === "undefined"){
+    console.log("vector y is undefined");
+    return;
+  }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
@@ -437,6 +461,18 @@ function csr_test(A_csr, x_view, y_view)
 function dia_test(A_dia, x_view, y_view)
 {
   console.log("DIA");
+  if(typeof A_dia === "undefined"){
+    console.log("matrix is undefined");
+    return;
+  }
+  if(typeof x_view === "undefined"){
+    console.log("vector x is undefined");
+    return;
+  }
+  if(typeof y_view === "undefined"){
+    console.log("vector y is undefined");
+    return;
+  }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
@@ -465,6 +501,18 @@ function dia_test(A_dia, x_view, y_view)
 function ell_test(A_ell, x_view, y_view)
 {
   console.log("ELL");
+  if(typeof A_ell === "undefined"){
+    console.log("matrix is undefined");
+    return;
+  }
+  if(typeof x_view === "undefined"){
+    console.log("vector x is undefined");
+    return;
+  }
+  if(typeof y_view === "undefined"){
+    console.log("vector y is undefined");
+    return;
+  }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
