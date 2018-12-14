@@ -648,6 +648,60 @@ function create_COO_from_MM(mm_info, A_coo)
       }
     }
   }
+  quick_sort_COO(A_coo, 0, anz-1);      
+}
+
+function allocate_COO(mm_info)
+{
+  // COO memory allocation
+  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
+  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
+  var coo_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
+  var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz); 
+  return A_coo;
+}
+
+function allocate_CSR(mm_info)
+{
+  // CSR memory allocation
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1));
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
+  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
+  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
+  return A_csr;
+}
+
+
+function allocate_DIA(mm_info, ndiags, stride)
+{
+  // DIA memory allocation
+  var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
+  var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ndiags * stride);
+  A_dia = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, anz);
+  return A_dia;
+}
+
+function allocate_ELL(mm_info, ncols)
+{
+  // ELL memory allocation
+  var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ncols * mm_info.nrows);
+  var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ncols * mm_info.nrows);
+  A_ell = new sswasm_ELL_t(indices_index, ell_data_index, ncols, mm_info.nrows, anz);
+  return A_ell;
+}
+
+function allocate_x(mm_info)
+{
+  var x_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.ncols);
+  var x_view = new sswasm_x_t(x_index, mm_info.ncols);
+  return x_view;
+}
+
+function allocate_y(mm_info)
+{
+  var y_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.nrows);
+  var y_view = new sswasm_y_t(y_index, mm_info.nrows);
+  return y_view;
 }
 
 /* Note: Since an ArrayBuffer’s byteLength is immutable, 
@@ -661,20 +715,10 @@ function allocate_memory_test(mm_info)
   const bytesPerPage = 64 * 1024;
   var max_pages = 16384;
   
-  // COO memory allocation
-  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var coo_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
-  var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz); 
+  var A_coo = allocate_COO(mm_info);
   create_COO_from_MM(mm_info, A_coo); 
-  quick_sort_COO(A_coo, 0, anz-1);      
 
-
-  // CSR memory allocation
-  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1));
-  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
-  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
+  var A_csr = allocate_CSR(mm_info);
   //convert COO to CSR
   coo_csr(A_coo, A_csr);
 
@@ -686,33 +730,58 @@ function allocate_memory_test(mm_info)
   var nc = num_cols(A_csr);
   var A_dia, A_ell;
 
-  if((nd*stride < Math.pow(2,27)) && (nc*mm_info.nrows < Math.pow(2,27))) {
-    // DIA memory allocation
-    var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nd);
-    var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nd * stride);
-    A_dia = new sswasm_DIA_t(offset_index, dia_data_index, nd, mm_info.nrows, stride, anz);
+  if(nd*stride < Math.pow(2,27)){ 
+    A_dia = allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia(A_csr, A_dia);
+  }
 
-    // ELL memory allocation
-    var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nc * mm_info.nrows);
-    var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nc * mm_info.nrows);
-    A_ell = new sswasm_ELL_t(indices_index, ell_data_index, nc, mm_info.nrows, anz);
+  if(nc*mm_info.nrows < Math.pow(2,27)){
+    A_ell = allocate_ELL(mm_info, nc);
     //convert CSR to ELL
     csr_ell(A_csr, A_ell);
   } 
 
-  // vector x and y allocation
-  var x_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * N);
-  var x_view = new sswasm_x_t(x_index, N);
+  var x_view = allocate_x(mm_info);
   init_x(x_view);
 
-  var y_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * N);
-  var y_view = new sswasm_y_t(y_index, N);
+  var y_view = allocate_y(mm_info);
   clear_y(y_view);
 
   return [A_coo, A_csr, A_dia, A_ell, x_view, y_view];
 }
+
+function free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view)
+{
+  if(typeof A_coo !== 'undefined'){ 
+    malloc_instance.exports._free(A_coo.row_index);
+    malloc_instance.exports._free(A_coo.col_index);
+    malloc_instance.exports._free(A_coo.col_index);
+  }
+
+  if(typeof A_csr !== 'undefined'){ 
+    malloc_instance.exports._free(A_csr.row_index);
+    malloc_instance.exports._free(A_csr.col_index);
+    malloc_instance.exports._free(A_csr.col_index);
+  }
+
+  if(typeof A_dia !== 'undefined'){ 
+    malloc_instance.exports._free(A_dia.offset_index);
+    malloc_instance.exports._free(A_dia.data_index);
+  }
+
+  if(typeof A_ell !== 'undefined'){ 
+    malloc_instance.exports._free(A_ell.indices_index);
+    malloc_instance.exports._free(A_ell.data_index);
+  }
+
+  if(typeof x_view !== 'undefined')
+    malloc_instance.exports._free(x_view.x_index);
+
+  if(typeof y_view !== 'undefined')
+    malloc_instance.exports._free(y_view.y_index);
+}
+
 
 function spmv_test(files, callback)
 {
@@ -736,13 +805,8 @@ function spmv_test(files, callback)
     csr_test(A_csr, x_view, y_view);
     dia_test(A_dia, x_view, y_view);
     ell_test(A_ell, x_view, y_view);
-    console.log("done seqential");
-    malloc_instance.exports._free(A_coo.row_index);
-    malloc_instance.exports._free(A_coo.col_index);
-    malloc_instance.exports._free(A_coo.col_index);
-    malloc_instance.exports._free(A_csr.row_index);
-    malloc_instance.exports._free(A_csr.col_index);
-    malloc_instance.exports._free(A_csr.col_index);
+    free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
+    console.log("done");
     callback();
   })
   });
