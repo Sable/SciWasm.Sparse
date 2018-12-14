@@ -241,6 +241,7 @@ var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
 var inside = 0, inner_max = 100000, outer_max = 30;
+let memory = Module['wasmMemory'];
 var malloc_instance;
 var sparse_instance;
 
@@ -524,21 +525,12 @@ function create_COO_from_MM(mm_info, coo_row, coo_col, coo_val, row, col, val)
   }
 }
 
-function spmv_test(files, callback)
+function allocate_memory_test(mm_info)
 {
-  var row, col, val;
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  row = mm_info.row;
-  col = mm_info.col;
-  val = mm_info.val;
-  N = mm_info.nrows;
-
   // Total Memory required  = COO + CSR + x + y 
   var total_length = Int32Array.BYTES_PER_ELEMENT * 3 * anz + Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1)  + Float32Array.BYTES_PER_ELEMENT * 2 * anz + Float32Array.BYTES_PER_ELEMENT * mm_info.nrows + Float32Array.BYTES_PER_ELEMENT * mm_info.ncols; 
   const bytesPerPage = 64 * 1024;
   var max_pages = 16384;
-  let memory = Module['wasmMemory'];
   console.log(memory.buffer.byteLength / bytesPerPage);
   var coo_row_index = 0;
   
@@ -558,7 +550,7 @@ function spmv_test(files, callback)
   let coo_val = new Float32Array(memory.buffer, coo_val_index, anz);
 
  
-  create_COO_from_MM(mm_info, coo_row, coo_col, coo_val, row, col, val); 
+  create_COO_from_MM(mm_info, coo_row, coo_col, coo_val, mm_info.row, mm_info.col, mm_info.val); 
   quick_sort(coo_row, coo_col, coo_val, 0, anz-1);      
 
   // CSR memory allocation
@@ -637,7 +629,6 @@ function spmv_test(files, callback)
   for(var i = 0; i < mm_info.ncols; i++){
     x[i] = i;
   } 
-  console.log("populated arrays");
 
   var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz);
   var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
@@ -648,7 +639,18 @@ function spmv_test(files, callback)
 
   var y_view = new sswasm_y_t(y, y_index);
 
+  return [A_coo, A_csr, A_dia, A_ell, x_view, y_view];
+}
+
+function spmv_test(files, callback)
+{
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
   get_inner_max();
+
+  var A_coo, A_csr, A_dia, A_ell, x_view, y_view;
+  [A_coo, A_csr, A_dia, A_ell, x_view, y_view] = allocate_memory_test(mm_info);
 
   WebAssembly.compileStreaming(fetch('spmv_32.wasm'))
   .then(module => {
