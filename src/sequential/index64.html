@@ -1,20 +1,30 @@
 <html>
   <head>
     <meta charset="utf-8"/>
+     <!--<input type='file' onchange='onFilePicked(event)'>
+    <script>
+      function onFilePicked(event) 
+      {
+        var input = event.target;
+        var file = input.files[0];
+        console.log(file.name);
+        parse_file(file);
+      };
+    </script>-->
     <script src="my.js"></script>
     <script src="matmachjs-lib.js"></script>
     <script src="spmv64.js"></script>
     <script type='text/javascript'>
-      //var result = JSON.stringify(myBundle.myFunc());
       (async () => {
-        malloc_instance = await init();
-        spmv(function(){
-        var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum, 'ell_sd':ell_sd, 'ell':ell_mflops, 'ell_sum':ell_sum});
-        var xmlhttp = new XMLHttpRequest();
-        xmlhttp.open("GET", "/result/" + result, false);
-        xmlhttp.send();
-        window.close()
-      });
+        await sswasm_init();
+        spmv(function()
+        {
+          var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum, 'ell_sd':ell_sd, 'ell':ell_mflops, 'ell_sum':ell_sum});
+          var xmlhttp = new XMLHttpRequest();
+          xmlhttp.open("GET", "/result/" + result, false);
+          xmlhttp.send();
+          window.close()
+        });
       })();
     </script>
 

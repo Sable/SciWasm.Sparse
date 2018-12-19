@@ -372,10 +372,15 @@ function get_inner_max()
   else if(anz > 100) inner_max = 10000;
 }
 
-async function init()
+async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
-  return obj.instance;
+  malloc_instance = obj.instance;
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_64.wasm'), { js: { mem: memory }, 
+    console: { log: function(arg) {
+      console.log(arg);}} 
+  });
+  sparse_instance = obj.instance;
 }
 
 function coo_test(A_coo, x_view, y_view)
@@ -841,23 +846,50 @@ function spmv_test(files, callback)
   var A_coo, A_csr, A_dia, A_ell, x_view, y_view;
   [A_coo, A_csr, A_dia, A_ell, x_view, y_view] = allocate_memory_test(mm_info);
 
-  WebAssembly.compileStreaming(fetch('spmv_64.wasm'))
-  .then(module => {
-  WebAssembly.instantiate(module, { js: { mem: memory }, 
-    console: { log: function(arg) {
-      console.log(arg);}} 
-  })
-  .then(instance => {
-    sparse_instance = instance;
-    coo_test(A_coo, x_view, y_view);
-    csr_test(A_csr, x_view, y_view);
-    dia_test(A_dia, x_view, y_view);
-    ell_test(A_ell, x_view, y_view);
-    free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
-    console.log("done");
-    callback();
-  })
-  });
+  coo_test(A_coo, x_view, y_view);
+  csr_test(A_csr, x_view, y_view);
+  dia_test(A_dia, x_view, y_view);
+  ell_test(A_ell, x_view, y_view);
+  free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
+  console.log("done");
+  callback();
+}
+
+/* 
+   Function to read the file
+   Input : File object (https://developer.mozilla.org/en-US/docs/Web/API/File)
+   Return : String containing the input file data 
+*/
+function parse_file(file)
+{
+  // 32MB blob size
+  var limit = 32 * 1024 * 1024;
+  var size = file.size;
+  console.log(size);
+  var num = Math.ceil(size/limit);
+  console.log("num of blocks : ", num);
+  var file_arr = [];
+
+  function read_file_block(file, i){
+    if(i >= num){
+      var file_data = file_arr.join("");
+      return file_data;
+    }
+    var start = i * limit;
+    var end = ((i + 1)* limit) > file.size ? file.size : (i+1) * limit;
+    console.log(start, end);
+    var reader = new FileReader();
+    reader.onloadend = function(evt) {
+      if (evt.target.readyState == FileReader.DONE) { 
+        file_arr.push(evt.target.result);
+        read_file_block(file, i + 1);
+      }
+    };
+    var blob = file.slice(start, end);
+    reader.readAsText(blob);
+  }
+
+  read_file_block(file, 0);
 }
 
 var load_files = function(fileno, files, num, callback1, callback2){
