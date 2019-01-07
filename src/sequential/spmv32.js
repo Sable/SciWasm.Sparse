@@ -846,6 +846,8 @@ function spmv_test(files, callback)
   var A_coo, A_csr, A_dia, A_ell, x_view, y_view;
   [A_coo, A_csr, A_dia, A_ell, x_view, y_view] = allocate_memory_test(mm_info);
 
+  console.log(A_coo);
+
   coo_test(A_coo, x_view, y_view);
   csr_test(A_csr, x_view, y_view);
   dia_test(A_dia, x_view, y_view);
@@ -894,7 +896,8 @@ function parse_file(file)
 
 
 
-var load_files = function(fileno, files, num, callback1, callback2){
+var load_files = function(fileno, files, num){
+  return new Promise(function(resolve, reject) {
   var request = new XMLHttpRequest();
   var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
   console.log(myname);
@@ -904,22 +907,27 @@ var load_files = function(fileno, files, num, callback1, callback2){
         files[fileno] = request.responseText.split("\n");
         fileno++;
         if(fileno < num)
-          load_files(fileno, files, num, callback1, callback2);
+          load_files(fileno, files, num);
         else
-          callback2(files, callback1);
+          resolve(files);
       }
       catch(e){
         console.log('Error : ', e);
-        callback1();
+        reject(new Error(e));
       }
     } 
   }
   request.open('GET', myname, true);
   request.send();
+  });
 }
 
 function spmv(callback)
 {
   var files = new Array(num);
-  load_files(0, files, num, callback, spmv_test);
+  let promise = load_files(0, files, num);
+  promise.then(
+    files => spmv_test(files, callback),
+    error => callback()
+  ); 
 }
