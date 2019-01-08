@@ -20,7 +20,6 @@ function sswasm_workers_t(nworkers)
   this.worker = [];
   this.loaded = 0;
   this.running = false;
-  this.w_y_view = []; 
 }
 
 function sswasm_MM_info()
@@ -45,6 +44,7 @@ function sswasm_COO_t(row_index, col_index, val_index, nnz)
   this.col_index = col_index;
   this.val_index = val_index;
   this.nnz = nnz;
+  this.w_y_view = []; 
 }
 
 function sswasm_CSR_t(row_index, col_index, val_index, nrows, nnz){
@@ -67,6 +67,7 @@ function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
   this.nrows = nrows;
   this.stride = stride;
   this.nnz = nnz;
+  this.w_y_view = []; 
 }
 
 function sswasm_ELL_t(indices_index, data_index, ncols, nrows, nnz){
@@ -120,9 +121,9 @@ function init_x(x_view){
 }
 
 
-function clear_w_y(workers){
+function clear_w_y(A){
   for(var i = 0; i < num_workers; i++){
-    var w_y = new Float64Array(memory.buffer, workers.w_y_view[i].y_index, workers.w_y_view[i].y_nelem);
+    var w_y = new Float64Array(memory.buffer, A.w_y_view[i].y_index, A.w_y_view[i].y_nelem);
     w_y.fill(0);
   }
 }
@@ -502,6 +503,9 @@ async function sswasm_init()
   });
   sparse_instance = obj.instance;
   sparse_module = obj.module;
+  var workers_promise = init_workers();
+  workers = await workers_promise;
+  console.log("workers loaded");
 }
 
 function sswasm_spmv_coo(A_coo, x_view, y_view, workers)
@@ -525,9 +529,9 @@ function sswasm_spmv_coo(A_coo, x_view, y_view, workers)
       pending_workers = num_workers;
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, workers.w_y_view[i].y_index, 1]);
+          workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, 1]);
         else
-          workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, workers.w_y_view[i].y_index, 1]);
+          workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, 1]);
         workers.worker[i].onmessage = storeCOO;
       }
     }
@@ -535,7 +539,7 @@ function sswasm_spmv_coo(A_coo, x_view, y_view, workers)
       pending_workers -= 1;
       if(pending_workers <= 0){
         for(var i = 0; i < num_workers; i++)
-          sparse_instance.exports.sum(y_view.y_index, workers.w_y_view[i].y_index, N);
+          sparse_instance.exports.sum(y_view.y_index, A_coo.w_y_view[i].y_index, N);
         resolve(0);
       }
     }
@@ -567,13 +571,13 @@ function coo_test(A_coo, x_view, y_view, workers)
   function runCOO(){
     pending_workers = num_workers;
     clear_y(y_view);
-    clear_w_y(workers);
+    clear_w_y(A_coo);
     t1 = Date.now();
     for(var i = 0; i < num_workers; i++){
       if(i == num_workers - 1)
-        workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, workers.w_y_view[i].y_index, inner_max]);
+        workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, inner_max]);
       else
-        workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, workers.w_y_view[i].y_index, inner_max]);
+        workers.worker[i].postMessage([1, i, i * nnz_per_worker, (i+1) * nnz_per_worker, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, inner_max]);
       workers.worker[i].onmessage = storeCOO;
     }
   }
@@ -582,7 +586,7 @@ function coo_test(A_coo, x_view, y_view, workers)
     pending_workers -= 1;
     if(pending_workers <= 0){
       for(var i = 0; i < num_workers; i++)
-        sparse_instance.exports.sum(y_view.y_index, workers.w_y_view[i].y_index, N);
+        sparse_instance.exports.sum(y_view.y_index, A_coo.w_y_view[i].y_index, N);
       t2 = Date.now();
       if(t >= 10){
         coo_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
@@ -764,13 +768,13 @@ function diaII_test(A_diaII, x_view, y_view, workers)
     {
       pending_workers = num_workers;
       clear_y(y_view);
-      clear_w_y(workers);
+      clear_w_y(A_diaII);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, workers.w_y_view[i].y_index, inner_max]);
+          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, A_diaII.w_y_view[i].y_index, inner_max]);
         else
-          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, workers.w_y_view[i].y_index, inner_max]);
+          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, A_diaII.w_y_view[i].y_index, inner_max]);
         workers.worker[i].onmessage = storeDIAII;
       }
     }
@@ -778,7 +782,7 @@ function diaII_test(A_diaII, x_view, y_view, workers)
       pending_workers -= 1;
       if(pending_workers <= 0){
         for(var i = 0; i < num_workers; i++)
-          sparse_instance.exports.sum(y_view.y_index, workers.w_y_view[i].y_index, N);
+          sparse_instance.exports.sum(y_view.y_index, A_diaII.w_y_view[i].y_index, N);
         t2 = Date.now();
         if(t >= 10){
           diaII_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
@@ -1043,6 +1047,10 @@ function allocate_COO(mm_info)
   var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
   var coo_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * anz);
   var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz); 
+  for(var i = 0; i < num_workers; i++){
+    var w_y_view = allocate_y(mm_info);
+    A_coo.w_y_view.push(w_y_view);
+  }
   return A_coo;
 }
 
@@ -1062,6 +1070,10 @@ function allocate_DIAII(mm_info, ndiags, stride)
   var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
   var dia_data_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * ndiags * stride);
   var A_diaII = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, anz);
+  for(var i = 0; i < num_workers; i++){
+    var w_y_view = allocate_y(mm_info);
+    A_diaII.w_y_view.push(w_y_view);
+  }
   return A_diaII;
 }
 
@@ -1127,7 +1139,7 @@ function allocate_memory_test(mm_info)
 
   if(nd*stride < Math.pow(2,27)){ 
     A_dia = allocate_DIA(mm_info, nd, stride);
-    A_diaII = allocate_DIA(mm_info, nd, stride);
+    A_diaII = allocate_DIAII(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia(A_csr, A_dia);
     //convert CSR to DIAII
@@ -1187,8 +1199,6 @@ function init_workers(mm_info)
   pending_workers = num_workers;
   for(var i = 0; i < num_workers; i++){
     w.worker[i] = new Worker('worker64.js'); 
-    var w_y_view = allocate_y(mm_info);
-    w.w_y_view.push(w_y_view);
     w.worker[i].onmessage = loaded;
     w.worker[i].postMessage([0, i, sparse_module, memory]);
   }
@@ -1196,7 +1206,6 @@ function init_workers(mm_info)
   {
     pending_workers -= 1;
     if(pending_workers <= 0){
-      console.log("all workers loaded");
       resolve(w);
     }
   }
@@ -1217,23 +1226,19 @@ function spmv_test(files, callback)
   
   console.log("memory allocated");
 
-  var workers_promise = init_workers(mm_info);
-  workers_promise.then(w => {
-    console.log("workers loaded");
-    var coo_promise = coo_test(A_coo, x_view, y_view, w);
-    coo_promise.then(coo_value => {
-      var csr_promise = csr_test(A_csr, x_view, y_view, w);
-      csr_promise.then(csr_value => {
-        var dia_promise = dia_test(A_dia, x_view, y_view, w);
-        dia_promise.then(dia_value => {
-          var ell_promise = ell_test(A_ell, x_view, y_view, w);
-          ell_promise.then(ell_value => {
-            var diaII_promise = diaII_test(A_diaII, x_view, y_view, w);
-            diaII_promise.then(diaII_value => {
-              free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
-              console.log("done");
-              callback();
-            });
+  var coo_promise = coo_test(A_coo, x_view, y_view, workers);
+  coo_promise.then(coo_value => {
+    var csr_promise = csr_test(A_csr, x_view, y_view, workers);
+    csr_promise.then(csr_value => {
+      var dia_promise = dia_test(A_dia, x_view, y_view, workers);
+      dia_promise.then(dia_value => {
+        var ell_promise = ell_test(A_ell, x_view, y_view, workers);
+        ell_promise.then(ell_value => {
+          var diaII_promise = diaII_test(A_diaII, x_view, y_view, workers);
+          diaII_promise.then(diaII_value => {
+            free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
+            console.log("done");
+            callback();
           });
         });
       });
