@@ -21,7 +21,7 @@ def result(json_string):
   browser = parsed_json['browser']
   f.write(parsed_json['file'])
   f.write(",")
-  f.write(str(parsed_json['workers']))
+  f.write(str(parsed_json['num_workers']))
   f.write(",")
   f.write(str(parsed_json['outer_max']))
   f.write(",")
