@@ -1285,32 +1285,38 @@ function parse_file(file)
 
 
 
-var load_files = function(fileno, files, num, callback1, callback2){
-  var request = new XMLHttpRequest();
-  var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
-  console.log(myname);
-  request.onreadystatechange = function() {
-    if(request.readyState == 4 && request.status == 200){
-      try{
-        files[fileno] = request.responseText.split("\n");
-        fileno++;
-        if(fileno < num)
-          load_files(fileno, files, num, callback1, callback2);
-        else
-          callback2(files, callback1);
-      }
-      catch(e){
-        console.log('Error : ', e);
-        callback1();
-      }
-    } 
-  }
-  request.open('GET', myname, true);
-  request.send();
+var load_files = function(fileno, files, num){
+  return new Promise(function(resolve, reject) {
+    var request = new XMLHttpRequest();
+    var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
+    console.log(myname);
+    request.onreadystatechange = function() {
+      if(request.readyState == 4 && request.status == 200){
+        try{
+          files[fileno] = request.responseText.split("\n");
+          fileno++;
+          if(fileno < num)
+            load_files(fileno, files, num);
+          else
+            resolve(files);
+        }
+        catch(e){
+          console.log('Error : ', e);
+          reject(new Error(e));
+        }
+      } 
+    }
+    request.open('GET', myname, true);
+    request.send();
+  });
 }
 
 function spmv(callback)
 {
   var files = new Array(num);
-  load_files(0, files, num, callback, spmv_test);
+  let promise = load_files(0, files, num);
+  promise.then(
+    files => spmv_test(files, callback),
+    error => callback()
+  ); 
 }
