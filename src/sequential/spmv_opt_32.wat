@@ -175,7 +175,7 @@
       (i32.sub (i32.mul (get_local $i) (get_local $stride)) (get_local $index))
       (set_local $exp3) 
       (loop $inner_loop
-        (i32.add (get_local $y) (i32.mul (get_local $n) (i32.const 4)))
+        (i32.add (get_local $y) (i32.shl (get_local $n) (i32.const 2)))
         (i32.add (get_local $data) (i32.shl (i32.add (get_local $exp3) (get_local $n)) (i32.const 2)))
         f32.load 
         (i32.add (get_local $x) (i32.shl (i32.add (get_local $n) (get_local $k)) (i32.const 2)))
@@ -218,30 +218,54 @@
   (func $spmv_ell (export "spmv_ell") (param $indices i32) (param $data i32) (param $N i32) (param $nc i32) (param $x i32) (param $y i32)
     (local $i i32)
     (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $exp2 i32) ;; j * N + i
+    (local $this_y i32)
+    (get_local $nc)
     i32.const 0
-    set_local $j
-    (block $outer (loop $outer_loop
-      (br_if $outer (i32.eq (get_local $j) (get_local $nc)))
+    tee_local $j
+    i32.gt_s
+    (get_local $N)
+    i32.const 0
+    i32.gt_s 
+    i32.and
+    i32.eqz
+    if
+      (return)
+    end
+    (i32.const 0)
+    (set_local $exp1)
+    (loop $outer_loop
       i32.const 0
       set_local $i
-      (block $inner (loop $inner_loop
-        (br_if $inner (i32.eq (get_local $i) (get_local $N)))
-        (i32.add (get_local $y) (i32.mul (get_local $i) (i32.const 4)))
-        (i32.add (get_local $data) (i32.mul (i32.add (i32.mul (get_local $j) (get_local $N)) (get_local $i)) (i32.const 4)))
+      (i32.shl (get_local $exp1) (i32.const 2))
+      (set_local $exp2)
+      (loop $inner_loop
+        (i32.add (get_local $y) (i32.shl (get_local $i) (i32.const 2)))
+        (tee_local $this_y)
+        (i32.add (get_local $data) (get_local $exp2))
         f32.load
-        (i32.add (get_local $x) (i32.mul (i32.load (i32.add (get_local $indices) (i32.mul (i32.add (i32.mul (get_local $j) (get_local $N)) (get_local $i)) (i32.const 4)))) (i32.const 4)))
+        (i32.add (get_local $x) (i32.shl (i32.load (i32.add (get_local $indices) (get_local $exp2))) (i32.const 2)))
         f32.load
         f32.mul
-        (i32.add (get_local $y) (i32.mul (get_local $i) (i32.const 4)))
+        (get_local $this_y)
         f32.load
         f32.add
         f32.store
-        (set_local $i (i32.add (get_local $i) (i32.const 1)))
-        (br $inner_loop)
-      ))
-      (set_local $j (i32.add (get_local $j) (i32.const 1)))
-      (br $outer_loop)
-    ))
+        (i32.add (get_local $exp2) (i32.const 4))
+        (set_local $exp2)
+        (tee_local $i (i32.add (get_local $i) (i32.const 1)))
+        (get_local $N)
+        (i32.ne) 
+        (br_if $inner_loop)
+      )
+      (i32.add (get_local $exp1) (get_local $N))
+      (set_local $exp1)
+      (tee_local $j (i32.add (get_local $j) (i32.const 1)))
+      (get_local $nc)
+      (i32.ne) 
+      (br_if $outer_loop)
+    )
   )    
    
         
