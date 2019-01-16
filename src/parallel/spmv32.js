@@ -1,8 +1,8 @@
-var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1, diaII_mflops = -1;
-var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1, diaII_sum = -1;
-var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1, diaII_sd = -1;
+var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1, diaII_mflops = -1, ellII_mflops = -1;
+var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1, diaII_sum = -1, ellII_sum = -1;
+var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1, diaII_sd = -1, ellII_sd = -1;
 var anz = 0;
-var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [], diaII_flops = [];
+var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [], diaII_flops = [], ellII_flops = [];
 var N;
 var variance;
 var inner_max = 100000, outer_max = 30;
@@ -68,7 +68,6 @@ function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
   this.nrows = nrows;
   this.stride = stride;
   this.nnz = nnz;
-  this.w_y_view = []; 
 }
 
 function sswasm_ELL_t(indices_index, data_index, ncols, nrows, nnz){
@@ -183,13 +182,33 @@ function pretty_print_ELL(A_ell){
   var data = new Float32Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.nrows); 
 
   console.log("nnz : ", A_ell.nnz);
+  console.log("nrows : ", A_ell.nrows);
+  console.log("ncols : ", A_ell.ncols);
   console.log("ell_indices_index :", A_ell.indices_index);
   console.log("ell_data_index :", A_ell.data_index);
 
-  for(var j = 0; j < A_ell.ncols; j++){
-    for(var i = 0; i < A_ell.nrows; i++){
-      if (data[j * A_ell.nrows + i] != 0)
-        console.log(i, indices[j * A_ell.nrows + i] , data[j * A_ell.nrows + i], A_ell.data_index + 4 * (j * A_ell.nrows + i));
+  for(var i = 0; i < A_ell.nrows; i++){
+    for(var j = 0; j < A_ell.ncols; j++){
+      if (data[i * A_ell.ncols + j] != 0)
+        console.log(i, indices[i * A_ell.ncols + j] , data[i * A_ell.ncols + j], A_ell.data_index + 4 * (i * A_ell.ncols + j));
+    }
+  }
+}
+
+function pretty_print_ELLII(A_ellII){
+  var indices = new Int32Array(memory.buffer, A_ellII.indices_index, A_ellII.ncols * A_ellII.nrows);
+  var data = new Float32Array(memory.buffer, A_ellII.data_index, A_ellII.ncols * A_ellII.nrows);
+
+  console.log("nnz : ", A_ellII.nnz);
+  console.log("nrows : ", A_ellII.nrows);
+  console.log("ncols : ", A_ellII.ncols);
+  console.log("ell_indices_index :", A_ellII.indices_index);
+  console.log("ell_data_index :", A_ellII.data_index);
+
+  for(var i = 0; i < A_ellII.ncols; i++){
+    for(var j = 0; j < A_ellII.nrows; j++){
+      if (data[i * A_ellII.nrows + j] > 0)
+        console.log(j, indices[i * A_ellII.nrows + j] , data[i * A_ellII.nrows + j], A_ellII.data_index + 4 * (i * A_ellII.nrows + j));
     }
   }
 }
@@ -222,6 +241,34 @@ function num_cols(A_csr)
   return max;
 }
 
+// data array is stored column-wise 
+function csr_ellII(A_csr, A_ellII)
+{
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
+  var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
+
+  var indices = new Int32Array(memory.buffer, A_ellII.indices_index, A_ellII.ncols * A_ellII.nrows);
+  var data = new Float32Array(memory.buffer, A_ellII.data_index, A_ellII.ncols * A_ellII.nrows);
+  indices.fill(-1);
+  data.fill(0);
+
+  var nz = A_csr.nnz; 
+  var N = A_csr.nrows;
+  var nc = A_ellII.ncols;
+ 
+  var i, j, k;
+  for(i = 0; i < N; i++){
+    k = 0;
+    for(j = csr_row[i]; j < csr_row[i+1]; j++){
+      data[k*N+i] = csr_val[j];
+      indices[k*N+i] = csr_col[j];
+      k++;
+    }
+  }
+}
+
+
 // data array is stored row-wise 
 function csr_ell(A_csr, A_ell)
 {
@@ -231,12 +278,14 @@ function csr_ell(A_csr, A_ell)
 
   var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.nrows);
   var data = new Float32Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.nrows);
+  indices.fill(-1);
+  data.fill(0);
 
   var nz = A_csr.nnz; 
   var N = A_csr.nrows;
   var nc = A_ell.ncols;
  
-   var i, j, k, temp, max = 0;
+  var i, j, k;
   for(i = 0; i < N; i++){
     k = 0;
     for(j = csr_row[i]; j < csr_row[i+1]; j++){
@@ -471,12 +520,12 @@ function coo_csr(A_coo, A_csr)
 
 function get_inner_max()
 {
-  if(anz > 1000000) inner_max = 1;
-  else if (anz > 100000) inner_max = 10;
-  else if (anz > 50000) inner_max = 50;
-  else if(anz > 10000) inner_max = 100;
-  else if(anz > 2000) inner_max = 1000;
-  else if(anz > 100) inner_max = 10000;
+  if(anz > 1000000) inner_max = 50;
+  else if (anz > 100000) inner_max = 1250;
+  else if (anz > 50000) inner_max = 2500;
+  else if(anz > 10000) inner_max = 5000;
+  else if(anz > 2000) inner_max = 10000;
+  else if(anz > 100) inner_max = 500000;
 }
 
 async function sswasm_init()
@@ -671,15 +720,15 @@ function dia_test(A_dia, x_view, y_view, workers)
     console.log("DIA");
     if(typeof A_dia === "undefined"){
       console.log("matrix is undefined");
-      return;
+      resolve(-1);
     }
     if(typeof x_view === "undefined"){
       console.log("vector x is undefined");
-      return;
+      resolve(-1);
     }
     if(typeof y_view === "undefined"){
       console.log("vector y is undefined");
-      return;
+      resolve(-1);
     }
     var t1, t2, tt = 0.0;
     var N_per_worker = Math.floor(N/num_workers);
@@ -736,15 +785,15 @@ function diaII_test(A_diaII, x_view, y_view, workers)
     console.log("DIA II");
     if(typeof A_diaII === "undefined"){
       console.log("matrix is undefined");
-      return;
+      resolve(-1);
     }
     if(typeof x_view === "undefined"){
       console.log("vector x is undefined");
-      return;
+      resolve(-1);
     }
     if(typeof y_view === "undefined"){
       console.log("vector y is undefined");
-      return;
+      resolve(-1);
     }
     var t1, t2, tt = 0.0;
     var N_per_worker = Math.floor(N/num_workers);
@@ -754,21 +803,18 @@ function diaII_test(A_diaII, x_view, y_view, workers)
     {
       pending_workers = num_workers;
       clear_y(y_view);
-      clear_w_y(A_diaII);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, A_diaII.w_y_view[i].y_index, inner_max]);
+          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
         else
-          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, A_diaII.w_y_view[i].y_index, inner_max]);
+          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeDIAII;
       }
     }
     function storeDIAII(event){
       pending_workers -= 1;
       if(pending_workers <= 0){
-        for(var i = 0; i < num_workers; i++)
-          sparse_instance.exports.sum(y_view.y_index, A_diaII.w_y_view[i].y_index, N);
         t2 = Date.now();
         if(t >= 10){
           diaII_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
@@ -805,15 +851,15 @@ function ell_test(A_ell, x_view, y_view, workers)
     console.log("ELL");
     if(typeof A_ell === "undefined"){
       console.log("matrix is undefined");
-      return;
+      resolve(-1);
     }
     if(typeof x_view === "undefined"){
       console.log("vector x is undefined");
-      return;
+      resolve(-1);
     }
     if(typeof y_view === "undefined"){
       console.log("vector y is undefined");
-      return;
+      resolve(-1);
     }
     var t1, t2, tt = 0.0;
     var N_per_worker = Math.floor(N/num_workers);
@@ -862,6 +908,73 @@ function ell_test(A_ell, x_view, y_view, workers)
       }
     }
     runELL();
+  });
+}
+
+
+function ellII_test(A_ellII, x_view, y_view, workers)
+{
+  return new Promise(function(resolve){
+    console.log("ELL II");
+    if(typeof A_ellII === "undefined"){
+      console.log("matrix is undefined");
+      resolve(-1);
+    }
+    if(typeof x_view === "undefined"){
+      console.log("vector x is undefined");
+      resolve(-1);
+    }
+    if(typeof y_view === "undefined"){
+      console.log("vector y is undefined");
+      resolve(-1);
+    }
+    var t1, t2, tt = 0.0;
+    var N_per_worker = Math.floor(N/num_workers);
+    var rem_N  = N - N_per_worker * num_workers;
+    var t = 0;
+    function runELLII()
+    {
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([6, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ellII.indices_index, A_ellII.data_index, A_ellII.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+        else
+          workers.worker[i].postMessage([6, i, i * N_per_worker, (i+1) * N_per_worker, A_ellII.indices_index, A_ellII.data_index, A_ellII.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeELLII;
+      }
+    }
+
+    function storeELLII(event)
+    {
+      pending_workers -= 1;
+      if(pending_workers <= 0){
+        t2 = Date.now();
+        if(t >= 10){
+          ellII_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          tt += t2 - t1;
+        }
+        t++;
+        if(t < (outer_max + 10))
+          runELLII();
+        else{
+          tt = tt/1000;
+          ellII_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+	  variance = 0;
+	  for(var i = 0; i < outer_max; i++)
+	    variance += (ellII_mflops - ellII_flops[i]) * (ellII_mflops - ellII_flops[i]);
+	  variance /= outer_max;
+	  ellII_sd = Math.sqrt(variance);
+	  ellII_sum = fletcher_sum_y(y_view);
+          console.log('ell II sum is ', ellII_sum);
+	  console.log('ell II mflops is ', ellII_mflops);
+	  console.log("Returned to main thread");
+          resolve(0);
+        }
+      }
+    }
+    runELLII();
   });
 }
 
@@ -1050,18 +1163,6 @@ function allocate_CSR(mm_info)
   return A_csr;
 }
 
-function allocate_DIAII(mm_info, ndiags, stride)
-{ 
-  // DIA II memory allocation
-  var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
-  var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ndiags * stride);
-  var A_diaII = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, anz);
-  for(var i = 0; i < num_workers; i++){
-    var w_y_view = allocate_y(mm_info);
-    A_diaII.w_y_view.push(w_y_view);
-  }
-  return A_diaII;
-}
 
 function allocate_DIA(mm_info, ndiags, stride)
 {
@@ -1121,21 +1222,24 @@ function allocate_memory_test(mm_info)
   var stride = result[1];
   //get ELL info
   var nc = num_cols(A_csr);
-  var A_dia, A_diaII, A_ell;
+  var A_dia, A_diaII, A_ell, A_ellII;
 
-  if(nd*stride < Math.pow(2,27)){ 
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 3)){ 
     A_dia = allocate_DIA(mm_info, nd, stride);
-    A_diaII = allocate_DIAII(mm_info, nd, stride);
+    A_diaII = allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia(A_csr, A_dia);
     //convert CSR to DIAII
     csr_diaII(A_csr, A_diaII);
   }
 
-  if(nc*mm_info.nrows < Math.pow(2,27)){
+  if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 3)){
     A_ell = allocate_ELL(mm_info, nc);
+    A_ellII = allocate_ELL(mm_info, nc);
     //convert CSR to ELL
     csr_ell(A_csr, A_ell);
+    //convert CSR to ELLII
+    csr_ellII(A_csr, A_ellII);
   } 
 
   var x_view = allocate_x(mm_info);
@@ -1144,7 +1248,7 @@ function allocate_memory_test(mm_info)
   var y_view = allocate_y(mm_info);
   clear_y(y_view);
 
-  return [A_coo, A_csr, A_dia, A_ell, A_diaII, x_view, y_view];
+  return [A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, y_view];
 }
 
 function free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view)
@@ -1169,6 +1273,16 @@ function free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view)
   if(typeof A_ell !== 'undefined'){ 
     malloc_instance.exports._free(A_ell.indices_index);
     malloc_instance.exports._free(A_ell.data_index);
+  }
+
+  if(typeof A_diaII !== 'undefined'){ 
+    malloc_instance.exports._free(A_diaII.offset_index);
+    malloc_instance.exports._free(A_diaII.data_index);
+  }
+
+  if(typeof A_ellII !== 'undefined'){ 
+    malloc_instance.exports._free(A_ellII.indices_index);
+    malloc_instance.exports._free(A_ellII.data_index);
   }
 
   if(typeof x_view !== 'undefined')
@@ -1206,10 +1320,11 @@ function spmv_test(files, callback)
   N = mm_info.nrows;
   get_inner_max();
 
-  var A_coo, A_csr, A_dia, A_ell, A_diaII, x_view, y_view;
-  [A_coo, A_csr, A_dia, A_ell, A_diaII, x_view, y_view] = allocate_memory_test(mm_info);
+  var A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, y_view;
+  [A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, y_view] = allocate_memory_test(mm_info);
   
   console.log("memory allocated");
+  //pretty_print_ELLII(A_ellII);
 
   var coo_promise = coo_test(A_coo, x_view, y_view, workers);
   coo_promise.then(coo_value => {
@@ -1221,9 +1336,13 @@ function spmv_test(files, callback)
         ell_promise.then(ell_value => {
           var diaII_promise = diaII_test(A_diaII, x_view, y_view, workers);
           diaII_promise.then(diaII_value => {
-            free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
-            console.log("done");
-            callback();
+            var ellII_promise = ellII_test(A_ellII, x_view, y_view, workers);
+            ellII_promise.then(ellII_value => {
+              //pretty_print_y(y_view);
+              free_memory_test(A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, y_view);
+              console.log("done");
+              callback();
+            });
           });
         });
       });
@@ -1236,36 +1355,38 @@ function spmv_test(files, callback)
    Input : File object (https://developer.mozilla.org/en-US/docs/Web/API/File)
    Return : String containing the input file data 
 */
-function parse_file(file)
+function sswasm_load_matrix_file(file)
 {
-  // 32MB blob size
-  var limit = 32 * 1024 * 1024;
-  var size = file.size;
-  console.log(size);
-  var num = Math.ceil(size/limit);
-  console.log("num of blocks : ", num);
-  var file_arr = [];
+  return new Promise(function(resolve) {
+    // 32MB blob size
+    var limit = 32 * 1024 * 1024;
+    var size = file.size;
+    console.log(size);
+    var num = Math.ceil(size/limit);
+    console.log("num of blocks : ", num);
+    var file_arr = [];
 
-  function read_file_block(file, i){
-    if(i >= num){
-      var file_data = file_arr.join("");
-      return file_data;
-    }
-    var start = i * limit;
-    var end = ((i + 1)* limit) > file.size ? file.size : (i+1) * limit;
-    console.log(start, end);
-    var reader = new FileReader();
-    reader.onloadend = function(evt) {
-      if (evt.target.readyState == FileReader.DONE) { 
-        file_arr.push(evt.target.result);
-        read_file_block(file, i + 1);
+    function read_file_block(file, i){
+      if(i >= num){
+        var file_data = file_arr.join("").split("\n");
+        resolve(file_data);
       }
-    };
-    var blob = file.slice(start, end);
-    reader.readAsText(blob);
-  }
+      var start = i * limit;
+      var end = ((i + 1)* limit) > file.size ? file.size : (i+1) * limit;
+      console.log(start, end);
+      var reader = new FileReader();
+      reader.onloadend = function(evt) {
+        if (evt.target.readyState == FileReader.DONE) { 
+          file_arr.push(evt.target.result);
+          read_file_block(file, i + 1);
+        }
+      };
+      var blob = file.slice(start, end);
+      reader.readAsText(blob);
+    }
 
-  read_file_block(file, 0);
+    read_file_block(file, 0);
+  });
 }
 
 

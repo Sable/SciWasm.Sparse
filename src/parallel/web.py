@@ -61,6 +61,12 @@ def result(json_string):
   f.write(",")
   f.write(str(parsed_json['diaII_sum']))
   f.write(",")
+  f.write(str(parsed_json['ellII_sd']))
+  f.write(",")
+  f.write(str(parsed_json['ellII']))
+  f.write(",")
+  f.write(str(parsed_json['ellII_sum']))
+  f.write(",")
 
   f.write("\n")
   f.close()
