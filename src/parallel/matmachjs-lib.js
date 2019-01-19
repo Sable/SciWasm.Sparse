@@ -51,7 +51,7 @@ if (TOTAL_MEMORY < TOTAL_STACK)
 // Use a provided buffer, if there is one, or else allocate a new one
   // Use a WebAssembly memory where available
 assert(TOTAL_MEMORY % WASM_PAGE_SIZE === 0);
-var max_pages = 16384;
+var max_pages = 32767;
 Module['wasmMemory'] = new WebAssembly.Memory({ 'initial': TOTAL_MEMORY / WASM_PAGE_SIZE, maximum: max_pages, shared:true});
 buffer = Module['wasmMemory'].buffer;
 assert(buffer.byteLength === TOTAL_MEMORY);

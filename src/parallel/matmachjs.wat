@@ -8,7 +8,7 @@
     (import "env" "DYNAMICTOP_PTR" (global $2 i32))
     (import "env" "STACKTOP" (global $5 i32))
     (import "env" "STACK_MAX" (global $6 i32))
-    (import "env" "memory" (memory $mem 256 16384 shared))
+    (import "env" "memory" (memory $mem 256 32767 shared))
     (import "env" "enlargeMemory" (func $enlargeMemory (type $2)))
     (import "env" "___setErrNo" (func $___setErrNo (type $3)))
     (import "env" "memoryBase" (global $0 i32))
@@ -4717,7 +4717,7 @@
     )
     (func $set_mxarray_dimensions (param $dim_array i32) (param $loop_dim_number i32) (result i32)
         (local $dim_number i32)(local $array_length f64)(local $input_dim_array_byte_size i32)
-        (local $loop_dim_number i32)(local $temp f64)(local $i i32)(local $dim_array_ptr i32)
+        (local $temp f64)(local $i i32)(local $dim_array_ptr i32)
         (local $input_dim_array_ptr i32)
         ;; Get length dimension 
         (set_local $input_dim_array_byte_size (call $get_array_byte_size (get_local $dim_array)))
