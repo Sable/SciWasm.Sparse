@@ -5,7 +5,7 @@ var anz = 0;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [], diaII_flops = [], ellII_flops = [];
 var N;
 var variance;
-var inner_max = 5000000, outer_max = 30;
+var inner_max = 100000, outer_max = 30;
 let memory = Module['wasmMemory'];
 var pending_workers = num_workers; 
 var workers;
@@ -537,19 +537,20 @@ function coo_csr(A_coo, A_csr)
 
 function get_inner_max()
 {
-  if(anz > 1000000) inner_max = 50;
-  else if (anz > 100000) inner_max = 500;
-  else if (anz > 50000) inner_max = 2500;
-  else if(anz > 10000) inner_max = 5000;
-  else if(anz > 2000) inner_max = 50000;
-  else if(anz > 100) inner_max = 500000;
+  if(anz > 1000000) inner_max = 1;
+  else if (anz > 100000) inner_max = 10;
+  else if (anz > 50000) inner_max = 50;
+  else if(anz > 10000) inner_max = 100;
+  else if(anz > 2000) inner_max = 1000;
+  else if(anz > 100) inner_max = 10000;
+  inner_max *= num_workers;
 }
 
 async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_32.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
       console.log(arg);}} 
   });
@@ -1277,6 +1278,9 @@ function free_memory_coo(A_coo)
     malloc_instance.exports._free(A_coo.row_index);
     malloc_instance.exports._free(A_coo.col_index);
     malloc_instance.exports._free(A_coo.col_index);
+    for(var i = 0; i < num_workers; i++){
+      free_memory_y(A_coo.w_y_view[i]);
+    }
   }
 }
 
