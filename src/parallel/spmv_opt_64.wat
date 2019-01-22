@@ -4,7 +4,6 @@
   (import "console" "log" (func $logf (param f64)))
   (func $spmv_coo (export "spmv_coo") (param $id i32) (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $x i32) (param $y i32) (param $len i32)
     (local $i i32)
-    (local $this_y i32)
     get_local $len
     i32.const 0
     tee_local $i
@@ -14,12 +13,11 @@
     end
     (loop $top
         (i32.add (get_local $y) (i32.shl (i32.load (get_local $coo_row)) (i32.const 3)))
-        (tee_local $this_y)
         (f64.load (get_local $coo_val))
         (i32.add (get_local $x) (i32.shl (i32.load (get_local $coo_col)) (i32.const 3)))
         f64.load
         f64.mul
-        (get_local $this_y)
+        (i32.add (get_local $y) (i32.shl (i32.load (get_local $coo_row)) (i32.const 3)))
         f64.load
         f64.add
         f64.store
@@ -35,9 +33,13 @@
   (func (export "sum") (param $y i32) (param $w i32) (param $N i32)
     (local $i i32)
     (local $j i32)
-    (set_local $i (i32.const 0))
-    (block $break (loop $loop
-      (br_if $break (i32.eq (get_local $i) (get_local $N)))
+    (tee_local $i (i32.const 0))
+    (get_local $N)
+    i32.ge_s
+    if
+      (return)
+    end
+    (loop $loop
       (get_local $y)
       (f64.load (get_local $y))
       (f64.load (get_local $w))
@@ -46,8 +48,9 @@
       (set_local $i (i32.add (get_local $i) (i32.const 1)))
       (set_local $y (i32.add (get_local $y) (i32.const 8)))
       (set_local $w (i32.add (get_local $w) (i32.const 8)))
-      (br $loop)
-    ))
+      (i32.ne (get_local $i) (get_local $N))
+      (br_if $loop)
+    )
   )
   (func (export "spmv_coo_wrapper") (param $id i32) (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $x i32) (param $y i32) (param $len i32) (param $inside_max i32)
     (local $i i32)
