@@ -1,5 +1,5 @@
 (module
-  (import "js" "mem" (memory 1 16384 shared))
+  (import "js" "mem" (memory 1 32767 shared))
   (import "console" "log" (func $logi (param i32)))
   (import "console" "log" (func $logf (param f64)))
   (func $spmv_coo (export "spmv_coo") (param $id i32) (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $x i32) (param $y i32) (param $len i32)
