@@ -5,7 +5,7 @@
   (func $spmv_coo (export "spmv_coo") (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $x i32) (param $y i32) (param $len i32)
     (local $i i32)
     (local $this_y i32)
-    get_local $len
+    local.get $len
     i32.const 0
     tee_local $i
     i32.le_s
@@ -13,28 +13,28 @@
       (return) 
     end
     (loop $top
-        (i32.add (get_local $y) (i32.shl (i32.load (get_local $coo_row)) (i32.const 2))) 
+        (i32.add (local.get $y) (i32.shl (i32.load (local.get $coo_row)) (i32.const 2))) 
         (tee_local $this_y)
-        (f32.load (get_local $coo_val))
-        (i32.add (get_local $x) (i32.shl (i32.load (get_local $coo_col)) (i32.const 2)))
+        (f32.load (local.get $coo_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $coo_col)) (i32.const 2)))
         f32.load 
         f32.mul 
-        (get_local $this_y)
+        (local.get $this_y)
         f32.load
         f32.add
         f32.store
-        (set_local $coo_row (i32.add (get_local $coo_row) (i32.const 4)))
-        (set_local $coo_col (i32.add (get_local $coo_col) (i32.const 4)))
-        (set_local $coo_val (i32.add (get_local $coo_val) (i32.const 4)))
-        (tee_local $i (i32.add (get_local $i) (i32.const 1)))
-        (get_local $len)
+        (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+        (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+        (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $len)
         i32.ne
         br_if $top      
     )
   )
   (func (export "spmv_coo_wrapper") (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $x i32) (param $y i32) (param $len i32) (param $inner_max i32)
     (local $i i32)
-    (get_local $inner_max)
+    (local.get $inner_max)
     i32.const 0
     tee_local $i
     i32.le_s
@@ -42,15 +42,15 @@
       (return)
     end
     (loop $top
-      get_local $coo_row
-      get_local $coo_col
-      get_local $coo_val
-      get_local $x
-      get_local $y
-      get_local $len
+      local.get $coo_row
+      local.get $coo_col
+      local.get $coo_val
+      local.get $x
+      local.get $y
+      local.get $len
       call $spmv_coo
-      (get_local $inner_max)
-      (tee_local $i (i32.add (get_local $i) (i32.const 1)))
+      (local.get $inner_max)
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
       (i32.ne)
       (br_if $top)
     )
@@ -61,7 +61,7 @@
     (local $j i32)
     (local $temp f32)
     (local $end i32)
-    (get_local $N)
+    (local.get $N)
     (i32.const 0)
     (tee_local $i)
     (i32.le_s)
@@ -69,46 +69,39 @@
       (return)
     end
     (loop $outer_loop
-      (i32.add (get_local $csr_rowptr) (i32.const 4))
+      (i32.add (local.get $csr_rowptr) (i32.const 4))
       (i32.load)
       (tee_local $end)
-      (i32.load (get_local $csr_rowptr)) 
+      (i32.load (local.get $csr_rowptr)) 
       (tee_local $j)
-      (i32.le_s)
+      (i32.gt_s)
       if
-        (set_local $y (i32.add (get_local $y) (i32.const 4)))
-        (i32.add (get_local $csr_rowptr) (i32.const 4))
-        (set_local $csr_rowptr)
-        (tee_local $i (i32.add (get_local $i) (i32.const 1)))
-        (get_local $N)
-        (i32.ne)     
-        (br_if $outer_loop) 
+        (f32.load (local.get $y))
+        (local.set $temp)
+        (loop $inner_loop
+          (f32.load (local.get $csr_val))
+          (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+          (f32.load) 
+          (f32.mul) 
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+          (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+          (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+          (local.get $end)
+          (i32.ne)
+          (br_if $inner_loop)
+        )
+        (local.get $y)
+        (local.get $temp)
+        (f32.store)
       end
-      (f32.load (get_local $y))
-      (set_local $temp)
-      (loop $inner_loop
-        (f32.load (get_local $csr_val))
-        (i32.add (get_local $x) (i32.shl (i32.load (get_local $csr_col)) (i32.const 2)))
-        (f32.load) 
-        (f32.mul) 
-        (get_local $temp)
-        (f32.add)
-        (set_local $temp)
-        (set_local $csr_col (i32.add (get_local $csr_col) (i32.const 4)))
-        (set_local $csr_val (i32.add (get_local $csr_val) (i32.const 4)))
-        (tee_local $j (i32.add (get_local $j) (i32.const 1)))
-        (get_local $end)
-        (i32.ne)
-        (br_if $inner_loop)
-      )
-      (get_local $y)
-      (get_local $temp)
-      (f32.store)
-      (set_local $y (i32.add (get_local $y) (i32.const 4)))
-      (i32.add (get_local $csr_rowptr) (i32.const 4))
-      (set_local $csr_rowptr)
-      (tee_local $i (i32.add (get_local $i) (i32.const 1)))
-      (get_local $N)
+      (local.set $y (i32.add (local.get $y) (i32.const 4)))
+      (i32.add (local.get $csr_rowptr) (i32.const 4))
+      (local.set $csr_rowptr)
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $N)
       (i32.ne)     
       (br_if $outer_loop)
     )
@@ -116,17 +109,17 @@
   (func (export "spmv_csr_wrapper") (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $N i32) (param $inside_max i32)
     (local $i i32)
     i32.const 0
-    set_local $i
+    local.set $i
     (block $break (loop $top
-      (br_if $break (i32.eq (get_local $i) (get_local $inside_max)))        
-      get_local $csr_rowptr
-      get_local $csr_col
-      get_local $csr_val
-      get_local $x
-      get_local $y
-      get_local $N
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))        
+      local.get $csr_rowptr
+      local.get $csr_col
+      local.get $csr_val
+      local.get $x
+      local.get $y
+      local.get $N
       call $spmv_csr
-      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br $top)
     ))
   )
@@ -141,70 +134,70 @@
     (local $exp2 i32)
     (local $exp3 i32)
     (local $exp4 i32)
-    (get_local $nd)
+    (local.get $nd)
     (i32.const 0)
     (tee_local $i)
     (i32.le_s)
     if
       (return)
     end
-    (get_local $N)
-    (get_local $stride)
+    (local.get $N)
+    (local.get $stride)
     (i32.sub)
-    (set_local $exp1)
-    (get_local $N)
+    (local.set $exp1)
+    (local.get $N)
     (i32.const 1)
     (i32.sub)
-    (set_local $exp2)
+    (local.set $exp2)
     (i32.const 0)
-    (set_local $exp3)
+    (local.set $exp3)
     (loop $outer_loop
-      (i32.load (get_local $offset))
-      set_local $k
+      (i32.load (local.get $offset))
+      local.set $k
       i32.const 0
-      set_local $index
-      (if (result i32) (i32.lt_s (get_local $k) (i32.const 0)) 
+      local.set $index
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0)) 
         (then 
-          get_local $exp1
-          set_local $index
-          (i32.sub (i32.const 0)(get_local $k))
+          local.get $exp1
+          local.set $index
+          (i32.sub (i32.const 0)(local.get $k))
         )
         (else
           i32.const 0 
         )
       ) 
-      (set_local $n)
-      (if (result i32) (i32.lt_s (get_local $exp2) (i32.sub (get_local $exp2) (get_local $k)))
+      (local.set $n)
+      (if (result i32) (i32.lt_s (local.get $exp2) (i32.sub (local.get $exp2) (local.get $k)))
         (then 
-          (get_local $exp2)
+          (local.get $exp2)
         )
         (else
-          (i32.sub (get_local $exp2) (get_local $k))
+          (i32.sub (local.get $exp2) (local.get $k))
         )
       ) 
-      (set_local $iend)
-      (i32.sub (get_local $exp3) (get_local $index))
-      (set_local $exp4) 
+      (local.set $iend)
+      (i32.sub (local.get $exp3) (local.get $index))
+      (local.set $exp4) 
       (loop $inner_loop
-        (i32.add (get_local $y) (i32.shl (get_local $n) (i32.const 2)))
-        (i32.add (get_local $data) (i32.shl (i32.add (get_local $exp4) (get_local $n)) (i32.const 2)))
+        (i32.add (local.get $y) (i32.shl (local.get $n) (i32.const 2)))
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp4) (local.get $n)) (i32.const 2)))
         f32.load 
-        (i32.add (get_local $x) (i32.shl (i32.add (get_local $n) (get_local $k)) (i32.const 2)))
+        (i32.add (local.get $x) (i32.shl (i32.add (local.get $n) (local.get $k)) (i32.const 2)))
         f32.load 
         f32.mul
-        (f32.load (i32.add (get_local $y) (i32.shl (get_local $n) (i32.const 2))))
+        (f32.load (i32.add (local.get $y) (i32.shl (local.get $n) (i32.const 2))))
         f32.add
         f32.store
-        (tee_local $n (i32.add (get_local $n) (i32.const 1)))
-        (get_local $iend) 
+        (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+        (local.get $iend) 
         (i32.le_s)
         (br_if $inner_loop)
       )
-      (set_local $offset (i32.add (get_local $offset) (i32.const 4)))
-      (i32.add (get_local $exp3) (get_local $stride))
-      (set_local $exp3)
-      (tee_local $i (i32.add (get_local $i) (i32.const 1)))
-      (get_local $nd)
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp3) (local.get $stride))
+      (local.set $exp3)
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nd)
       (i32.ne)     
       (br_if $outer_loop)
     )
@@ -213,18 +206,18 @@
   (func (export "spmv_dia_wrapper") (param $offset i32) (param $data i32) (param $N i32) (param $nd i32) (param $stride i32) (param $x i32) (param $y i32) (param $inside_max i32)
     (local $i i32)
     i32.const 0
-    set_local $i
+    local.set $i
     (block $break (loop $top
-      (br_if $break (i32.eq (get_local $i) (get_local $inside_max)))
-      get_local $offset
-      get_local $data
-      get_local $N
-      get_local $nd
-      get_local $stride
-      get_local $x
-      get_local $y
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))
+      local.get $offset
+      local.get $data
+      local.get $N
+      local.get $nd
+      local.get $stride
+      local.get $x
+      local.get $y
       call $spmv_dia
-      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br $top)
     ))
   )
@@ -233,11 +226,11 @@
     (local $j i32)
     (local $exp1 i32) ;; j * N
     (local $exp2 i32) ;; j * N + i
-    (get_local $nc)
+    (local.get $nc)
     i32.const 0
     tee_local $j
     i32.gt_s
-    (get_local $N)
+    (local.get $N)
     i32.const 0
     i32.gt_s 
     i32.and
@@ -246,34 +239,34 @@
       (return)
     end
     (i32.const 0)
-    (set_local $exp1)
+    (local.set $exp1)
     (loop $outer_loop
       i32.const 0
-      set_local $i
-      (i32.shl (get_local $exp1) (i32.const 2))
-      (set_local $exp2)
+      local.set $i
+      (i32.shl (local.get $exp1) (i32.const 2))
+      (local.set $exp2)
       (loop $inner_loop
-        (i32.add (get_local $y) (i32.shl (get_local $i) (i32.const 2)))
-        (i32.add (get_local $data) (get_local $exp2))
+        (i32.add (local.get $y) (i32.shl (local.get $i) (i32.const 2)))
+        (i32.add (local.get $data) (local.get $exp2))
         f32.load
-        (i32.add (get_local $x) (i32.shl (i32.load (i32.add (get_local $indices) (get_local $exp2))) (i32.const 2)))
+        (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (local.get $exp2))) (i32.const 2)))
         f32.load
         f32.mul
-        (i32.add (get_local $y) (i32.shl (get_local $i) (i32.const 2)))
+        (i32.add (local.get $y) (i32.shl (local.get $i) (i32.const 2)))
         f32.load
         f32.add
         f32.store
-        (i32.add (get_local $exp2) (i32.const 4))
-        (set_local $exp2)
-        (tee_local $i (i32.add (get_local $i) (i32.const 1)))
-        (get_local $N)
+        (i32.add (local.get $exp2) (i32.const 4))
+        (local.set $exp2)
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $N)
         (i32.ne) 
         (br_if $inner_loop)
       )
-      (i32.add (get_local $exp1) (get_local $N))
-      (set_local $exp1)
-      (tee_local $j (i32.add (get_local $j) (i32.const 1)))
-      (get_local $nc)
+      (i32.add (local.get $exp1) (local.get $N))
+      (local.set $exp1)
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $nc)
       (i32.ne) 
       (br_if $outer_loop)
     )
@@ -283,17 +276,17 @@
   (func (export "spmv_ell_wrapper") (param $indices i32) (param $data i32) (param $N i32) (param $nc i32) (param $x i32) (param $y i32) (param $inside_max i32)
     (local $i i32)
     i32.const 0
-    set_local $i
+    local.set $i
     (block $break (loop $top
-      (br_if $break (i32.eq (get_local $i) (get_local $inside_max)))
-      get_local $indices
-      get_local $data
-      get_local $N
-      get_local $nc
-      get_local $x
-      get_local $y
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))
+      local.get $indices
+      local.get $data
+      local.get $N
+      local.get $nc
+      local.get $x
+      local.get $y
       call $spmv_ell
-      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br $top)
     ))
   )    

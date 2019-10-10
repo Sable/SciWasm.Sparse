@@ -61,26 +61,31 @@ def main(argv):
   line3 = "var len = 0"
   line4 = "var browser = " + str(browser)
   line5 = "var output_file = '" + output_file + "'"
+  line6 = "let TOTAL_MEMORY = 2147418112"
+  if browser == 1:
+    line6 = "let TOTAL_MEMORY = 16777216" 
   with open('my.js', 'w') as g:
-    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5 + '\n')
+    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5 + '\n' + line6 + '\n')
   httpd = subprocess.Popen(["python", "web.py"], stdout=subprocess.PIPE)
   url = "http://localhost:8080/static/index32.html"
   if precision == 1:
     url = "http://localhost:8080/static/index64.html"
   #browser_path = r'google-chrome'
-  browser_path = r'/mnt/local/cheetah/chrome66/opt/google/chrome/chrome'
+  browser_path = r'/mnt/local/cheetah/chrome74/opt/google/chrome/chrome'
   browser_opts = ' '
+  browser_opts = ' '.join(["--js-flags=\"--experimental-wasm-simd --wasm-no-bounds-checks --wasm-no-stack-checks\""])
   if browser == 1:
-    browser_path = r'/home/sable/psandh3/Documents/Firefox_nightly/firefox/firefox'
+    browser_path = r'/mnt/cheetah/firefox68/firefox/firefox'
+    browser_opts = '-new-instance'
     #browser_path = r'firefox'
     #browser_path = r'/mnt/local/cheetah/firefox59/firefox'
   #browser_opts = ' '.join(["--no-sandbox", "--incognito", "--js-flags=\"--print-opt-code --print-opt-code-filter=spmv_coo --code-comments\""])
   #browser_opts = ' '.join(["--js-flags=\"--max-new-space-size=8192\""])
-  #browser_opts = ' '.join(["--private"])
   invocation = browser_path + " " + browser_opts + " " + url 
   print invocation
   p = subprocess.Popen(invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-  p.communicate()
+  out, err = p.communicate()
+  print out
   httpd.terminate()
   files = os.path.splitext(basename)[0]
   for i in range(num):

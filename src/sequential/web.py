@@ -22,6 +22,10 @@ def result(json_string):
   browser = parsed_json['browser']
   f.write(parsed_json['file'])
   f.write(",")
+  f.write(str(parsed_json['outer_max']))
+  f.write(",")
+  f.write(str(parsed_json['inner_max']))
+  f.write(",")
   f.write(str(parsed_json['N']))
   f.write(",")
   f.write(str(parsed_json['nnz']))
@@ -52,9 +56,9 @@ def result(json_string):
   f.write(",")
   f.write("\n")
   f.close()
-#  if browser == 0:
-#    subprocess.call(['killall', '-9', 'chrome']);
-#  elif browser == 1:
-#    subprocess.call(['killall', '-9', 'firefox']);
+  #if browser == 0:
+    #subprocess.call(['killall', '-9', 'chrome']);
+  #if browser == 1:
+    #subprocess.call(['killall', '-9', 'firefox-bin']);
   return "OK"
 run(host='localhost', port=8080, quiet=True)

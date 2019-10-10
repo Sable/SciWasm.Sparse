@@ -8,7 +8,6 @@ let Module = {};
 const WASM_PAGE_SIZE = 65536;
 const MIN_TOTAL_MEMORY = 16777216;
 let TOTAL_STACK = 5242880; 
-let TOTAL_MEMORY = 16777216;
 
 let HEAP,
 /** @type {ArrayBuffer} */
@@ -51,7 +50,8 @@ if (TOTAL_MEMORY < TOTAL_STACK)
 // Use a provided buffer, if there is one, or else allocate a new one
   // Use a WebAssembly memory where available
 assert(TOTAL_MEMORY % WASM_PAGE_SIZE === 0);
-Module['wasmMemory'] = new WebAssembly.Memory({ 'initial': TOTAL_MEMORY / WASM_PAGE_SIZE});
+var max_pages = 32767;
+Module['wasmMemory'] = new WebAssembly.Memory({ 'initial': TOTAL_MEMORY / WASM_PAGE_SIZE, maximum: max_pages});
 buffer = Module['wasmMemory'].buffer;
 assert(buffer.byteLength === TOTAL_MEMORY);
 Module['buffer'] = buffer;

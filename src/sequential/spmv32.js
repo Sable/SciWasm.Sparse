@@ -5,7 +5,7 @@ var anz = 0;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
-var inside = 0, inner_max = 100000, outer_max = 30;
+var inside = 0, inner_max = 1000000, outer_max = 30;
 let memory = Module['wasmMemory'];
 var malloc_instance;
 var sparse_instance;
@@ -212,6 +212,7 @@ function num_diags(A_csr)
     diag_no++; 
   }
   stride = N - min;
+  //stride = N;
   return [num_diag,stride];
 }
 
@@ -365,20 +366,20 @@ function coo_csr(A_coo, A_csr)
 function get_inner_max()
 {
   if(anz > 1000000) inner_max = 1;
-  else if (anz > 100000) inner_max = 10;
-  else if (anz > 50000) inner_max = 50;
-  else if(anz > 10000) inner_max = 100;
-  else if(anz > 2000) inner_max = 1000;
-  else if(anz > 100) inner_max = 10000;
+  else if (anz > 100000) inner_max = 500;
+  else if (anz > 50000) inner_max = 1000;
+  else if(anz > 20000) inner_max = 5000;
+  else if(anz > 5000) inner_max = 10000;
+  else if(anz > 500) inner_max = 100000;
 }
 
 async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_simd_32.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
-      console.log(arg);}} 
+      console.log(arg);}}
   });
   sparse_instance = obj.instance;
 }
@@ -478,6 +479,10 @@ function dia_test(A_dia, x_view, y_view)
     console.log("vector y is undefined");
     return;
   }
+  if((A_dia.nrows * A_dia.ndiags)/A_dia.nnz > 5){
+    console.log("too many elements in dia data array to compute spmv");
+    return;
+  }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
@@ -489,6 +494,7 @@ function dia_test(A_dia, x_view, y_view)
     sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
     t2 = Date.now();
     dia_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_dia.nnz/((t2 - t1)/1000);
+    console.log(dia_flops[i]);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
@@ -669,12 +675,16 @@ function create_COO_from_MM(mm_info, A_coo)
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
+          if(!(Number.isSafeInteger(val[n])))
+            val[n] = 0.0
           coo_val[i] = Number(val[n]);
           if(row[n] == col[n])
             i++;
           else{
             coo_row[i+1] = Number(col[n] - 1);
             coo_col[i+1] = Number(row[n] - 1);
+            if(!(Number.isSafeInteger(val[n])))
+              val[n] = 0.0
             coo_val[i+1] = Number(val[n]);
             i = i + 2;
           }
@@ -695,6 +705,8 @@ function create_COO_from_MM(mm_info, A_coo)
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
+          if(!(Number.isSafeInteger(val[n])))
+            val[n] = 0.0
           coo_val[i] = Number(val[n]);
           i++;
         }
@@ -782,14 +794,16 @@ function allocate_memory_test(mm_info)
   //get ELL info
   var nc = num_cols(A_csr);
   var A_dia, A_ell;
+  
+  console.log((stride * nd)/anz);
 
-  if(nd*stride < Math.pow(2,27)){ 
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){ 
     A_dia = allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia(A_csr, A_dia);
   }
 
-  if(nc*mm_info.nrows < Math.pow(2,27)){
+  if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 5)){
     A_ell = allocate_ELL(mm_info, nc);
     //convert CSR to ELL
     csr_ell(A_csr, A_ell);
@@ -894,40 +908,47 @@ function parse_file(file)
   read_file_block(file, 0);
 }
 
-
-
-var load_files = function(fileno, files, num){
+var load_file = function(){
   return new Promise(function(resolve, reject) {
-  var request = new XMLHttpRequest();
-  var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
-  console.log(myname);
-  request.onreadystatechange = function() {
-    if(request.readyState == 4 && request.status == 200){
-      try{
-        files[fileno] = request.responseText.split("\n");
-        fileno++;
-        if(fileno < num)
-          load_files(fileno, files, num);
-        else
-          resolve(files);
+    var files = new Array(num);
+    var load_files = function(fileno, files, num){
+      var request = new XMLHttpRequest();
+      var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
+      console.log(myname);
+      request.onreadystatechange = function() {
+        console.log("state change " + myname, request.readyState, request.status);
+        if(request.readyState == 4 && request.status == 200){
+          try{
+            files[fileno] = request.responseText.split("\n");
+            fileno++;
+            if(fileno < num)
+              load_files(fileno, files, num);
+            else{
+              console.log("resolved");
+              return resolve(files);
+            }
+          }
+          catch(e){
+            console.log('Error : ', e);
+            reject(new Error(e));
+          }
+        }
       }
-      catch(e){
-        console.log('Error : ', e);
-        reject(new Error(e));
-      }
-    } 
-  }
-  request.open('GET', myname, true);
-  request.send();
+      request.open('GET', myname, true);
+      request.send();
+      console.log(myname + " request sent");
+    }
+    load_files(0, files, num);
   });
 }
 
 function spmv(callback)
 {
-  var files = new Array(num);
-  let promise = load_files(0, files, num);
+  let promise = load_file();
   promise.then(
     files => spmv_test(files, callback),
     error => callback()
-  ); 
+  );
 }
+
+
