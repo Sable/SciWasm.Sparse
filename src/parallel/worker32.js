@@ -35,13 +35,17 @@ onmessage = function(e) {
     assert(id == e.data[1], "Worker IDs don't match."); 
     let start = e.data[2];
     let end = e.data[3];
-    let csr_row_index = start * 4 + e.data[4];
-    let csr_col_index = e.data[5];
-    let csr_val_index = e.data[6];
-    let x_index = e.data[7];
-    let y_index = start * 4 + e.data[8];
-    let inside_max = e.data[9];
-    my_instance.exports.spmv_csr_wrapper(id, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, end-start, inside_max);
+    let one = e.data[4];
+    let two = e.data[5];
+    let three = e.data[6];
+    let four = e.data[7];
+    let csr_row_index = one * 4 + e.data[8];
+    let csr_col_index = e.data[9];
+    let csr_val_index = e.data[10];
+    let x_index = e.data[11];
+    let y_index = one * 4 + e.data[12];
+    let inside_max = e.data[13];
+    my_instance.exports.spmv_csr_wrapper(id, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, end-four, two-one, three-two, four-three, inside_max);
     postMessage(id); 
   }
   if(e.data[0] == 3){

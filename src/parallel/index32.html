@@ -1,9 +1,10 @@
 <html>
   <head>
     <meta charset="utf-8"/>
-    <script src="my.js"></script>
+    <script src="input.js"></script>
     <script src="matmachjs-lib.js"></script>
     <script src="spmv32.js"></script>
+    <script src="main32.js"></script>
     <script type='text/javascript'>
       (async () => {
         await sswasm_init(); 
@@ -12,7 +13,7 @@
           var xmlhttp = new XMLHttpRequest();
           xmlhttp.open("GET", "/result/" + result, false);
           xmlhttp.send();
-          window.close()
+          //window.close()
         });
       })();
     </script>
