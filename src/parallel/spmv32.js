@@ -166,7 +166,8 @@ function pretty_print_CSR(A_csr){
 
 function pretty_print_CSR_permutation(A_csr){
   var permutation = new Int32Array(memory.buffer, A_csr.permutation_index, A_csr.nrows); 
-  for(var i = 0; i < A_csr.nrows; i++){
+  //for(var i = 0; i < A_csr.nrows; i++){
+  for(var i = 0; i < 20; i++){
       console.log(i, permutation[i]);
   }
 }
@@ -633,6 +634,213 @@ function sort_y_rows_by_nnz(y_view, A_csr)
   y_view.y_index = y_index;
 }
 
+function find_next_row(nn, index, visited, nlines, alines, dissim, last_used, csr_row, csr_col, N)
+{
+  var i, j, min, max, next;
+  if(visited[index] == 0){ // this node is a new neighbour
+    // set the new neighbour vertex (row) as visited 
+    visited[index] = 1;
+    alines[nn].fill(0);
+    dissim[nn].fill(-1);
+    //console.log(index);
+    // calulate the used cache lines vector
+    for(j = csr_row[index]; j < csr_row[index+1]; j++){
+      //console.log(index, csr_col[j], last_used[Math.floor(csr_col[j]/16)]);
+      if(last_used[Math.floor(csr_col[j]/16)] != index){
+        last_used[Math.floor(csr_col[j]/16)] = index;
+      }       
+    }
+
+    // calculate same and different number of cache lines between the current vertex and all other rows
+    for(i = 0; i < N; i++){
+      if(visited[i] != 0)
+        continue;
+      j = csr_row[i];
+      while(j < csr_row[i+1]){
+        if(last_used[Math.floor(csr_col[j]/16)] == index){
+          alines[nn][i]++;
+        }
+        j++;
+        while(j < csr_row[i+1] && (Math.floor(csr_col[j-1]/16) == Math.floor(csr_col[j]/16))){ 
+          j++;
+        }
+      }
+      dissim[nn][i] = nlines[index] + nlines[i] - (2 * alines[nn][i]);
+      //console.log(dissim[i]);
+      //for(j = csr_row[i]; j < csr_row[i+1]; j++){
+        //if(last_used2[Math.floor(csr_col[j]/16)] != i){
+          //last_used2[Math.floor(csr_col[j]/16)] = i;
+        //}
+    }
+  }
+    
+  // set min to N
+  min = N;
+  // set next to N
+  next = N;
+  //set max to 0
+  max = 0;
+  // calculate the next vertex (row)
+  for(i = 0; i < N; i++){
+    if(dissim[nn][i] >= 0 && visited[i] == 0 && min >= dissim[nn][i]){
+      if(min == dissim[nn][i] && max >= alines[nn][i])
+	continue;
+      min = dissim[nn][i];
+      next = i;
+      max = alines[nn][i];
+    }
+  }
+  return [next, min, max];
+}
+
+
+function reorder_NN(A_csr, w)
+{
+  // original CSR
+  var N = A_csr.nrows;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz);
+
+  // new CSR 	
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (N + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nz);
+  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nz);
+  var A_csr_new = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, N, nz);
+  A_csr_new.permutation_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var permutation = new Int32Array(memory.buffer, A_csr_new.permutation_index, N);
+  var nnz_per_row = new Int32Array(memory.buffer, A_csr_new.nnz_row_index, N);
+  var csr_row_new = new Int32Array(memory.buffer, A_csr_new.row_index, A_csr_new.nrows + 1);
+  var csr_col_new = new Int32Array(memory.buffer, A_csr_new.col_index, A_csr_new.nnz);
+  var csr_val_new = new Float32Array(memory.buffer, A_csr_new.val_index, A_csr_new.nnz);
+  csr_row_new.fill(0);
+  csr_col_new.fill(0);
+  csr_val_new.fill(0);
+
+  var index = 0, i, j, min, max, next, pos = 0, nnb = 0, count = 0;
+  var values;
+  var windexes = new Int32Array(w);
+  var nlines = new Int32Array(N);
+  nlines.fill(0);
+  var visited = new Int32Array(N);
+  visited.fill(0);
+  var tot_num_lines = Math.floor(N/16)+1;
+  console.log("total number of cache lines : ", tot_num_lines);
+  var last_used = new Int32Array(tot_num_lines);
+  last_used.fill(-1);
+  var alines = new Array(w);
+  var dissim = new Array(w);
+  for(i = 0; i < w; i++){
+    alines[i] = new Int32Array(N);
+    dissim[i] = new Int32Array(N);
+  }
+  //var last_used2 = new Int32Array(tot_num_lines);
+  //last_used2.fill(-1);
+
+  // calculate nnz per row and set empty rows as visited
+  console.log("calculate nnz per row and set empty rows as visited");
+  for(i = 0; i < N; i++){
+    permutation[i] = i;
+    nnz_per_row[i] = csr_row[i+1] - csr_row[i];
+    //console.log(nnz_per_row[i], permutation[i]);
+    if(nnz_per_row[i] == 0)
+      visited[i] = 2;  // set visited equal to 2 for empty rows
+  }
+
+  console.log("calculate the number of cache lines for all non-empty rows");
+  // calculate the number of cache lines for all non-empty rows
+  for(i = 0; i < N; i++){
+    if(visited[i] != 0)
+      continue;
+    //last_used.fill(-1);
+    j = csr_row[i];
+    while(j < csr_row[i+1]){
+      nlines[i]++;
+      j++;
+      //if(last_used[Math.floor(csr_col[j]/16)] == -1){
+        //last_used[Math.floor(csr_col[j]/16)] = i;
+	
+      // checks if next column index belongs to the same cache line, and if the next column belongs to current row
+      while(j < csr_row[i+1] && (Math.floor(csr_col[j-1]/16) == Math.floor(csr_col[j]/16))){ 
+        j++;
+      }
+    }
+    //console.log(nlines[i]);
+  }
+
+  console.log("select the first vertex");
+  // select the first vertex
+  while(visited[index] != 0){
+    index++;
+  }	  
+
+  console.log("loop start");
+  while(index != N){
+    // assign the new neighbour in the set of w nearest neigbours
+    windexes[count++] = index;
+    if(nnb < w)
+      nnb++;
+    if(count == w)
+      count = 0;
+    // set the permutation and the pos
+    permutation[pos++] = index;
+    // set min to N
+    min = N;
+    // set next to N
+    next = N;
+    //set max to 0
+    max = 0;
+    //console.log(index, count, nnb);
+    for(i = 0; i < nnb; i++){
+      // reset the new neighbour info to visted row info for all other neighbours (so that this node can't be chosen again) 
+      dissim[i][index] = -1;
+      alines[i][index] = 0;
+      values = find_next_row(i, windexes[i], visited, nlines, alines, dissim, last_used, csr_row, csr_col, N);
+      if(min >= values[1]){
+	if(min == values[1] && max >= values[2])
+	  continue;
+	next = values[0];
+        min = values[1];
+	max = values[2];
+      }
+    }
+    index = next;
+  }
+  console.log("loop end");
+
+  console.log("set empty rows on the permutation vector");
+  // set empty rows on the permutation vector
+  for(i = 0; i < N; i++){
+    if(visited[i] == 2){
+      permutation[pos++] = i;
+    }
+  }
+
+  pretty_print_CSR_permutation(A_csr_new);
+
+
+  // calculate reordered CSR
+  console.log("calculate new CSR")
+  var temp, k;
+  j = 0;
+  csr_row_new[0] = 0;
+  for(i = 0; i < N; i++){
+   k = csr_row[permutation[i]];
+   temp = nnz_per_row[permutation[i]];
+   //console.log(i, temp);
+   csr_row_new[i+1] = csr_row_new[i] + temp;
+   while(temp != 0){
+     csr_col_new[j] = csr_col[k];
+     csr_val_new[j++] = csr_val[k++];
+     temp--;
+   }
+  }
+  //pretty_print_CSR(A_csr_new);
+  return A_csr_new;
+}
+
 function get_inner_max()
 {
   if(anz > 1000000) inner_max = 1;
@@ -648,7 +856,7 @@ async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_unroll2x2_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_32.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
       console.log(arg);}} 
   });

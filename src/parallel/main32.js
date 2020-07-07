@@ -77,11 +77,11 @@ function coo_test(A_coo, x_view, y_view, workers)
 }
 
 
-function csr_test(A_csr, x_view, y_view, workers)
+function csr_test(A_csr_original, x_view, y_view, workers)
 {
   return new Promise(function(resolve){
     console.log("CSR");
-    if(typeof A_csr === "undefined"){
+    if(typeof A_csr_original === "undefined"){
       console.log("matrix is undefined");
       return resolve(-1);
     }
@@ -93,6 +93,9 @@ function csr_test(A_csr, x_view, y_view, workers)
       console.log("vector y is undefined");
       return resolve(-1);
     }
+    console.log("reordering A_csr");
+    var A_csr = reorder_NN(A_csr_original, 16);
+    console.log("reordered A_csr");
     var t1, t2, tt = 0.0;
     var N_per_worker = Math.floor(N/num_workers);
     var rem_N  = N - N_per_worker * num_workers;
@@ -129,7 +132,7 @@ function csr_test(A_csr, x_view, y_view, workers)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
           variance /= outer_max;
           csr_sd = Math.sqrt(variance);
-          //sort_y_rows_by_nnz(y_view, A_csr);
+          sort_y_rows_by_nnz(y_view, A_csr);
           csr_sum = fletcher_sum_y(y_view);
           pretty_print_y(y_view);
           console.log('csr sum is ', csr_sum);
@@ -143,11 +146,11 @@ function csr_test(A_csr, x_view, y_view, workers)
   });
 }
 
-function static_nnz_csr_test(A_csr, x_view, y_view, workers)
+function static_nnz_csr_test(A_csr_original, x_view, y_view, workers, unroll_factor)
 {
   return new Promise(function(resolve){
     console.log("CSR static nnz");
-    if(typeof A_csr === "undefined"){
+    if(typeof A_csr_original === "undefined"){
       console.log("matrix is undefined");
       return resolve(-1);
     }
@@ -159,6 +162,9 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers)
       console.log("vector y is undefined");
       return resolve(-1);
     }
+    // sort CSR format by nnz per row
+    var A_csr = sort_rows_by_nnz(A_csr_original);
+    console.log("CSR sorted");
     var t1, t2, tt = 0.0;
     var t = 0;
     var row_start = new Int32Array(num_workers);
@@ -167,16 +173,69 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers)
     var two_row = new Int32Array(num_workers);
     var three_row = new Int32Array(num_workers);
     var four_row = new Int32Array(num_workers);
+    // distribute almost equal number of nnzs to each worker & calculate number of rows with short length : 0, 1, 2, 3  
     static_nnz(A_csr, num_workers, row_start, row_end, one_row, two_row, three_row, four_row);
+
+    // CSR run for sorted format with static nnz partitioning  
     function runCSR(){
+      console.log("CSR run");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
-        workers.worker[i].postMessage([2, i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].postMessage([2, i, row_start[i], row_end[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
+
+    // CSR run for sorted format with static nnz partitioning and unroll factor 2
+    function run_unrolled2_CSR(){
+      console.log("unrolled CSR run");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage([3, i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    // CSR run for sorted format with static nnz partitioning and unroll factor 3
+    function run_unrolled3_CSR(){
+      console.log("unrolled CSR run");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage([4, i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    // CSR run for sorted format with static nnz partitioning and unroll factor 4
+    function run_unrolled4_CSR(){
+      console.log("unrolled 4 CSR run");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage([5, i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    // CSR run for sorted format with static nnz partitioning and unroll factor 6
+    function run_unrolled6_CSR(){
+      console.log("unrolled CSR run");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage([6, i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }	  
+ 
     function storeCSR(event){
       pending_workers -= 1;
       if(pending_workers <= 0){
@@ -186,8 +245,18 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers)
           tt += t2 - t1;
         }
         t++;
-        if(t < (outer_max + 10))
-          runCSR();
+        if(t < (outer_max + 10)){
+          if(unroll_factor == 1)
+            runCSR();
+	  else if(unroll_factor == 2) 
+            run_unrolled2_CSR();
+	  else if(unroll_factor == 3) 
+            run_unrolled3_CSR();
+          else if(unroll_factor == 4)
+            run_unrolled4_CSR();
+          else if(unroll_factor == 6)
+            run_unrolled6_CSR();
+	}
         else{
           tt = tt/1000;
           csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
@@ -206,7 +275,16 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers)
         }
       }
     }
-    runCSR();
+    if(unroll_factor == 1)
+      runCSR();
+    else if(unroll_factor == 2) 
+      run_unrolled2_CSR();
+    else if(unroll_factor == 3) 
+      run_unrolled3_CSR();
+    else if(unroll_factor == 4)
+      run_unrolled4_CSR();
+    else if(unroll_factor == 6)
+      run_unrolled6_CSR();
   });
 }
 
@@ -238,9 +316,9 @@ function dia_test(A_dia, x_view, y_view, workers)
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([3, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_dia.offset_index, A_dia.data_index, A_dia.ndiags, N, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([7, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_dia.offset_index, A_dia.data_index, A_dia.ndiags, N, x_view.x_index, y_view.y_index, inner_max]);
         else
-          workers.worker[i].postMessage([3, i, i * N_per_worker, (i+1) * N_per_worker, A_dia.offset_index, A_dia.data_index, A_dia.ndiags, N, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([7, i, i * N_per_worker, (i+1) * N_per_worker, A_dia.offset_index, A_dia.data_index, A_dia.ndiags, N, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeDIA;
       }
     }
@@ -306,9 +384,9 @@ function diaII_test(A_diaII, x_view, y_view, workers)
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([8, i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
         else
-          workers.worker[i].postMessage([5, i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([8, i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeDIAII;
       }
     }
@@ -372,9 +450,9 @@ function ell_test(A_ell, x_view, y_view, workers)
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([4, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([9, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
         else
-          workers.worker[i].postMessage([4, i, i * N_per_worker, (i+1) * N_per_worker, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([9, i, i * N_per_worker, (i+1) * N_per_worker, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeELL;
       }
     }
@@ -439,9 +517,9 @@ function ellII_test(A_ellII, x_view, y_view, workers)
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         if(i == num_workers - 1)
-          workers.worker[i].postMessage([6, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ellII.indices_index, A_ellII.data_index, A_ellII.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([10, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ellII.indices_index, A_ellII.data_index, A_ellII.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
         else
-          workers.worker[i].postMessage([6, i, i * N_per_worker, (i+1) * N_per_worker, A_ellII.indices_index, A_ellII.data_index, A_ellII.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+          workers.worker[i].postMessage([10, i, i * N_per_worker, (i+1) * N_per_worker, A_ellII.indices_index, A_ellII.data_index, A_ellII.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeELLII;
       }
     }
@@ -510,12 +588,10 @@ function spmv_test(files, callback)
     coo_csr(A_coo, A_csr);
     free_memory_coo(A_coo);
     console.log("CSR allocated");
-    //var csr_promise = csr_test(A_csr, x_view, y_view, workers);
-    //csr_promise.then(csr_value => {
-      var A_csr_new = sort_rows_by_nnz(A_csr);
-      console.log("CSR sorted");
-      var csr_sorted_nnz_promise = static_nnz_csr_test(A_csr_new, x_view, y_view, workers);
-      csr_sorted_nnz_promise.then(csr_sorted_nnz_value => {
+    var csr_promise = csr_test(A_csr, x_view, y_view, workers);
+    csr_promise.then(csr_value => {
+      //var csr_sorted_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 4);
+      //csr_sorted_nnz_promise.then(csr_sorted_nnz_value => {
       //get DIA info
         var result = num_diags(A_csr);
         var nd = result[0];
