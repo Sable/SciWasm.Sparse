@@ -610,6 +610,7 @@ function sort_rows_by_nnz(A_csr)
    csr_row_new[i+1] = csr_row_new[i] + temp; 
    while(temp != 0){
      csr_col_new[j] = csr_col[k];  
+     //csr_col_new[j] = 0;
      csr_val_new[j++] = csr_val[k++];  
      temp--;
    }
@@ -634,15 +635,85 @@ function sort_y_rows_by_nnz(y_view, A_csr)
   y_view.y_index = y_index;
 }
 
-function find_next_row(nn, index, visited, nlines, alines, dissim, last_used, csr_row, csr_col, N)
+
+function calculate_csr_locality_index(A_csr)
 {
-  var i, j, min, max, next;
-  if(visited[index] == 0){ // this node is a new neighbour
+  var N = A_csr.nrows;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var tot_num_lines = Math.floor(N/16)+1;
+  console.log("total number of cache lines : ", tot_num_lines);
+  var last_used = new Int32Array(tot_num_lines);
+  last_used.fill(-1);
+  var i, j, distance, sum = 0;
+  var reuse_distance = new Int32Array(N);
+  reuse_distance.fill(0);
+
+  for(i = 0; i < N; i++){
+    for(j = csr_row[i]; j < csr_row[i+1]; j++){
+      if(last_used[Math.floor(csr_col[j]/16)] == -1){
+        last_used[Math.floor(csr_col[j]/16)] = i; 
+	continue;
+      }
+      distance = i - last_used[Math.floor(csr_col[j]/16)];
+      if(distance <= i)
+        reuse_distance[distance]++;
+      last_used[Math.floor(csr_col[j]/16)] = i;
+    }
+  }
+  for(i = 0; i < 16; i++){
+    sum += reuse_distance[i];
+  }
+  return (sum*100)/nz;
+}
+
+function assign_w_min_elems(alines, dissim, nindex, next, min, max, w)
+{
+  var i = 0; j = 0;
+  // find the pos where new value fits
+  while(i < w && dissim[i] >= 0 && dissim[i] <= min){
+    if(dissim[i] == min && alines[i] > max)
+      break;
+    i++;
+  }
+  // not found
+  if(i == w)
+    return;
+  // new position
+  if(dissim[i] == -1){
+    dissim[i] = min;
+    alines[i] = max;
+    nindex[i] = next;
+    return;
+  }
+  // replacing the old position
+  j = w-1;
+  while(dissim[j] == -1)
+    j--;
+  while(j != i){
+    dissim[j] = dissim[j-1];  
+    alines[j] = alines[j-1];  
+    nindex[j] = nindex[j-1];  
+    j--;
+  }
+  dissim[i] = min;
+  alines[i] = max;
+  nindex[i] = next;
+  return;
+}
+
+
+function find_next_row(index, visited, nlines, alines, dissim, nindex, last_used, csr_row, csr_col, N, w)
+{
+  var i, j, min, max, next, alines_temp, dissim_temp;
+  if(visited[index] == 3){ // this node is a new neighbour
     // set the new neighbour vertex (row) as visited 
     visited[index] = 1;
-    alines[nn].fill(0);
-    dissim[nn].fill(-1);
-    //console.log(index);
+    alines.fill(0);
+    dissim.fill(-1);
+    nindex.fill(N);
+    //console.log("find next row :", index);
     // calulate the used cache lines vector
     for(j = csr_row[index]; j < csr_row[index+1]; j++){
       //console.log(index, csr_col[j], last_used[Math.floor(csr_col[j]/16)]);
@@ -656,16 +727,20 @@ function find_next_row(nn, index, visited, nlines, alines, dissim, last_used, cs
       if(visited[i] != 0)
         continue;
       j = csr_row[i];
+      alines_temp = 0;
       while(j < csr_row[i+1]){
         if(last_used[Math.floor(csr_col[j]/16)] == index){
-          alines[nn][i]++;
+          alines_temp++;
+	  //alines[i]++;
         }
         j++;
         while(j < csr_row[i+1] && (Math.floor(csr_col[j-1]/16) == Math.floor(csr_col[j]/16))){ 
           j++;
         }
       }
-      dissim[nn][i] = nlines[index] + nlines[i] - (2 * alines[nn][i]);
+      dissim_temp = nlines[index] + nlines[i] - (2 * alines_temp);
+      assign_w_min_elems(alines, dissim, nindex, i, dissim_temp, alines_temp, w);
+      //dissim[i] = nlines[index] + nlines[i] - (2 * alines[i]);
       //console.log(dissim[i]);
       //for(j = csr_row[i]; j < csr_row[i+1]; j++){
         //if(last_used2[Math.floor(csr_col[j]/16)] != i){
@@ -681,16 +756,35 @@ function find_next_row(nn, index, visited, nlines, alines, dissim, last_used, cs
   //set max to 0
   max = 0;
   // calculate the next vertex (row)
-  for(i = 0; i < N; i++){
-    if(dissim[nn][i] >= 0 && visited[i] == 0 && min >= dissim[nn][i]){
-      if(min == dissim[nn][i] && max >= alines[nn][i])
-	continue;
-      min = dissim[nn][i];
-      next = i;
-      max = alines[nn][i];
+  for(i = 0; i < w; i++){
+    if(dissim[i] >= 0 && visited[nindex[i]] == 0){
+      min = dissim[i];
+      next = nindex[i];
+      max = alines[i];
+      break;
     }
   }
+  //console.log(next, min, max);
   return [next, min, max];
+}
+
+function print_nnz_per_worker(A_csr, nworkers)
+{
+  var N = A_csr.nrows;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz);
+
+  var N_per_worker = Math.floor(N/nworkers);
+  var rem_N  = N - N_per_worker * nworkers;
+  var ideal_work = Math.floor(nz/nworkers);
+  var i = 0;
+  console.log("work load");
+  for(i = 0; i < nworkers - 1; i++){
+    console.log((100 * (csr_row[(i+1)*N_per_worker] - csr_row[i*N_per_worker]))/ideal_work);
+  }
+  console.log((100 * (csr_row[((i+1)*N_per_worker) + rem_N ] - csr_row[i*N_per_worker]))/ideal_work);
 }
 
 
@@ -732,9 +826,11 @@ function reorder_NN(A_csr, w)
   last_used.fill(-1);
   var alines = new Array(w);
   var dissim = new Array(w);
+  var nindex = new Array(w);
   for(i = 0; i < w; i++){
-    alines[i] = new Int32Array(N);
-    dissim[i] = new Int32Array(N);
+    alines[i] = new Int32Array(w);
+    dissim[i] = new Int32Array(w);
+    nindex[i] = new Int32Array(w);
   }
   //var last_used2 = new Int32Array(tot_num_lines);
   //last_used2.fill(-1);
@@ -778,6 +874,9 @@ function reorder_NN(A_csr, w)
 
   console.log("loop start");
   while(index != N){
+    //console.log("new index :", index);
+    // for new neighbour, set vistited = 3
+    visited[index] = 3;
     // assign the new neighbour in the set of w nearest neigbours
     windexes[count++] = index;
     if(nnb < w)
@@ -794,10 +893,10 @@ function reorder_NN(A_csr, w)
     max = 0;
     //console.log(index, count, nnb);
     for(i = 0; i < nnb; i++){
-      // reset the new neighbour info to visted row info for all other neighbours (so that this node can't be chosen again) 
-      dissim[i][index] = -1;
-      alines[i][index] = 0;
-      values = find_next_row(i, windexes[i], visited, nlines, alines, dissim, last_used, csr_row, csr_col, N);
+      // not needed anymore : reset the new neighbour info to visted row info for all other neighbours (so that this node can't be chosen again) 
+      //dissim[i][index] = -1;
+      //alines[i][index] = 0;
+      values = find_next_row(windexes[i], visited, nlines, alines[i], dissim[i], nindex[i], last_used, csr_row, csr_col, N, w);
       if(min >= values[1]){
 	if(min == values[1] && max >= values[2])
 	  continue;
@@ -833,6 +932,7 @@ function reorder_NN(A_csr, w)
    csr_row_new[i+1] = csr_row_new[i] + temp;
    while(temp != 0){
      csr_col_new[j] = csr_col[k];
+     //csr_col_new[j] = 0;
      csr_val_new[j++] = csr_val[k++];
      temp--;
    }
@@ -907,7 +1007,61 @@ function sswasm_spmv_coo(A_coo, x_view, y_view, workers)
 }
 
 
-function static_nnz(A_csr, num_workers, row_start, row_end, one_row, two_row, three_row, four_row)
+function static_nnz(A_csr, num_workers, row_start, row_end)
+{
+  var N = A_csr.nrows;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
+
+  var nnz_per_row = new Int32Array(memory.buffer, A_csr.nnz_row_index, N);
+  // Calculate number of non-zeros in each row
+  for(i = 0; i < N; i++){
+    nnz_per_row[i] = csr_row[i+1] - csr_row[i];
+  }
+
+  var rem_nnz = nz;
+  var rem_nw = num_workers;
+  var ideal_nnz_worker;
+  var index = 0, sum = 0, i, j;
+
+  // For each worker
+  for(i = 0; i < num_workers; i++){
+    // If all the rows have been assigned, and some workers are left
+    if(index == N){
+      row_start[i] = row_end[i] = N;
+      continue;
+    }
+    ideal_nnz_worker = rem_nnz/rem_nw;
+    // Assign the row_ptr start
+    row_start[i] = index;
+	  
+    sum = 0;
+    for(j = index; j < N; j++){
+      if(sum < ideal_nnz_worker){
+        sum += nnz_per_row[j];
+        index++;
+      }
+      else{
+        // Assign the row_ptr end
+        row_end[i] = index;
+        break;
+      }
+    }
+    // Update the remaining work
+    rem_nnz -= sum;
+    rem_nw--;
+  }
+
+  // Add remaining nnz if any to the last worker
+  row_end[i-1] = N;
+  for(i = 0; i < num_workers; i++){
+    console.log(row_start[i], row_end[i]);
+  }
+
+}
+
+
+function static_nnz_special_codes(A_csr, num_workers, row_start, row_end, one_row, two_row, three_row, four_row)
 {
   var N = A_csr.nrows;
   var nz = A_csr.nnz;
