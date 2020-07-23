@@ -2522,8 +2522,398 @@
     ))
   )
 
+ (func $spmv_ell_row_gs (export "spmv_ell_row_gs") (param $id i32) (param $indices i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_cols i32) (param $N i32) (param $x i32) (param $y i32)
+    (local $i i32)
+    (local $k i32)
+    (local $temp f32)
+    (local $col i32)
+    (local $exp i32)
+    (local $temp_v v128)
+    (local $x_index v128)
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+    (local.get $num_cols)
+    (i32.const 0)
+    (i32.le_s)
+    if
+      (return)
+    end
+    (local.get $start_row)
+    (local.get $num_cols)
+    (i32.mul)
+    (local.set $exp)
+    (local.get $num_cols)
+    (i32.const 4)
+    (i32.lt_s)
+    (if
+      (then
+      (loop $outer_loop
+        (local.set $i (i32.const 0))
+        (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+        (local.set $temp)
+        (loop $inner_loop
+          (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          local.set $col
+          (if (i32.ge_s (local.get $col) (i32.const 0))
+            (then
+              (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))
+              f32.load
+              (i32.add (local.get $x) (i32.shl (local.get $col) (i32.const 2)))
+              f32.load
+              f32.mul
+              (local.get $temp)
+              f32.add
+              (local.set $temp)
+              (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+              (local.get $num_cols)
+              (i32.lt_s)
+              (br_if $inner_loop)
+            )
+          )
+        )
+        (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2)))
+        (local.get $temp)
+        (f32.store)
+        (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+        (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $outer_loop)
+      ))
+    (else
+      (local.get $num_cols)
+      (i32.const 4)
+      (i32.rem_u)
+      (local.tee $k)
+      (i32.const 0)
+      (i32.eq)
+      (if
+        (then
+        (loop $outer_loop_4
+          (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+          (local.set $temp)
+          (f32.const 0.0)
+          f32x4.splat
+          (local.set $temp_v)
+          (local.set $i (i32.const 0))
+          (loop $inner_loop_4
+            (v128.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
 
-(func $spmv_dia_col (export "spmv_dia_col") (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $nd i32) (param $N i32) (param $stride i32) (param $x i32) (param $y i32)
+            (i32x4.splat(local.get $x))
+            (v128.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+            (i32.const 2)
+            (i32x4.shl)
+            (i32x4.add)
+            (local.set $x_index)
+            (f32x4.replace_lane 3
+              (f32x4.replace_lane 2
+                (f32x4.replace_lane 1
+                  (f32x4.replace_lane 0
+                    (f32x4.splat(f32.const 0.0))
+                    (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                  )
+                  (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+            )
+            f32x4.mul
+            (local.get $temp_v)
+            f32x4.add
+            (local.set $temp_v)
+            (local.tee $i (i32.add (local.get $i) (i32.const 4)))
+            (local.get $num_cols)
+            (i32.lt_s)
+            (br_if $inner_loop_4)
+          )
+          (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2)))
+          (local.get $temp)
+          (f32x4.extract_lane 0 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 1 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 2 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 3 (local.get $temp_v))
+          (f32.add)
+          (f32.store)
+          (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+          (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+          (local.get $end_row)
+          (i32.lt_s)
+          (br_if $outer_loop_4)
+      )))
+      (local.get $k)
+      (i32.const 1)
+      (i32.eq)
+      (if
+        (then 
+        (loop $outer_loop_5
+
+          (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+          (local.set $temp)
+          (local.set $i (i32.const 0))
+	  
+          (f32.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          (f32.load (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))) (i32.const 2))))
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+
+          (f32.const 0.0)
+          f32x4.splat
+          (local.set $temp_v)
+	  
+          (loop $inner_loop_5
+            (v128.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+            
+            (i32x4.splat(local.get $x))
+            (v128.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+            (i32.const 2)
+            (i32x4.shl)
+            (i32x4.add)
+            (local.set $x_index)
+            (f32x4.replace_lane 3 
+              (f32x4.replace_lane 2 
+                (f32x4.replace_lane 1 
+                  (f32x4.replace_lane 0
+                    (f32x4.splat(f32.const 0.0))
+                    (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                  )
+                  (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+            )
+            f32x4.mul
+            (local.get $temp_v)
+            f32x4.add
+            (local.set $temp_v)
+            (local.tee $i (i32.add (local.get $i) (i32.const 4)))
+            (local.get $num_cols)
+            (i32.lt_s)
+            (br_if $inner_loop_5)
+          )
+          (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2)))
+          (local.get $temp)
+          (f32x4.extract_lane 0 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 1 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 2 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 3 (local.get $temp_v))
+          (f32.add)
+          (f32.store)
+          (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+          (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+          (local.get $end_row)
+          (i32.lt_s)
+          (br_if $outer_loop_5)
+      ))) 
+      (local.get $k)
+      (i32.const 2)
+      (i32.eq)
+      (if
+        (then
+        (loop $outer_loop_6
+
+          (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+          (local.set $temp)
+          (local.set $i (i32.const 0))
+
+          (f32.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          (f32.load (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))) (i32.const 2))))
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+
+
+          (f32.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          (f32.load (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))) (i32.const 2))))
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+
+          (f32.const 0.0)
+          f32x4.splat
+          (local.set $temp_v)
+
+          (loop $inner_loop_6
+            (v128.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+
+            (i32x4.splat(local.get $x))
+            (v128.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+            (i32.const 2)
+            (i32x4.shl)
+            (i32x4.add)
+            (local.set $x_index)
+            (f32x4.replace_lane 3
+              (f32x4.replace_lane 2
+                (f32x4.replace_lane 1
+                  (f32x4.replace_lane 0
+                    (f32x4.splat(f32.const 0.0))
+                    (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                  )
+                  (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+            )
+            f32x4.mul
+            (local.get $temp_v)
+            f32x4.add
+            (local.set $temp_v)
+            (local.tee $i (i32.add (local.get $i) (i32.const 4)))
+            (local.get $num_cols)
+            (i32.lt_s)
+            (br_if $inner_loop_6)
+          )
+          (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2)))
+          (local.get $temp)
+          (f32x4.extract_lane 0 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 1 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 2 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 3 (local.get $temp_v))
+          (f32.add)
+          (f32.store)
+          (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+          (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+          (local.get $end_row)
+          (i32.lt_s)
+          (br_if $outer_loop_6)
+      )))
+      (local.get $k)
+      (i32.const 3)
+      (i32.eq)
+      (if
+        (then
+        (loop $outer_loop_7
+
+          (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+          (local.set $temp)
+          (local.set $i (i32.const 0))
+
+          (f32.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          (f32.load (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))) (i32.const 2))))
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+
+          (f32.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          (f32.load (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))) (i32.const 2))))
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+
+          (f32.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          (f32.load (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))) (i32.const 2))))
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $i (i32.add (local.get $i) (i32.const 1)))
+
+          (f32.const 0.0)
+          f32x4.splat
+          (local.set $temp_v)
+
+          (loop $inner_loop_7
+            (v128.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+
+            (i32x4.splat(local.get $x))
+            (v128.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+            (i32.const 2)
+            (i32x4.shl)
+            (i32x4.add)
+            (local.set $x_index)
+            (f32x4.replace_lane 3
+              (f32x4.replace_lane 2
+                (f32x4.replace_lane 1
+                  (f32x4.replace_lane 0
+                    (f32x4.splat(f32.const 0.0))
+                    (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                  )
+                  (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+            )
+            f32x4.mul
+            (local.get $temp_v)
+            f32x4.add
+            (local.set $temp_v)
+            (local.tee $i (i32.add (local.get $i) (i32.const 4)))
+            (local.get $num_cols)
+            (i32.lt_s)
+            (br_if $inner_loop_7)
+          )
+          (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2)))
+          (local.get $temp)
+          (f32x4.extract_lane 0 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 1 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 2 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 3 (local.get $temp_v))
+          (f32.add)
+          (f32.store)
+          (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+          (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+          (local.get $end_row)
+          (i32.lt_s)
+          (br_if $outer_loop_7)
+      )))
+    ))
+  )
+  
+  (func (export "spmv_ell_row_gs_wrapper") (param $id i32) (param $indices i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_cols i32) (param $N i32) (param $x i32) (param $y i32) (param $inside_max i32)
+    (local $i i32)
+    i32.const 0
+    local.set $i
+    (block $break (loop $top
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))
+      local.get $id
+      local.get $indices
+      local.get $data
+      local.get $start_row
+      local.get $end_row
+      local.get $num_cols
+      local.get $N
+      local.get $x
+      local.get $y
+      call $spmv_ell_row_gs
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br $top)
+    ))
+  )
+
+
+
+
+  (func $spmv_dia_col (export "spmv_dia_col") (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $nd i32) (param $N i32) (param $stride i32) (param $x i32) (param $y i32)
     (local $i i32)
     (local $k i32)
     (local $n i32)
@@ -2756,7 +3146,7 @@
     (local $i i32)
     (local $temp f32)
     (local $col i32)
-    (local $temp_v v128)
+    ;;(local $temp_v v128)
     (local $x_index v128)
     (local $exp i32)
     (local $row i32)
@@ -2822,13 +3212,27 @@
           (i32x4.shl)
           (i32x4.add)
           (local.set $x_index)
-          (f32x4.replace_lane 0 (f32x4.splat(f32.const 0.0)) (f32.load (i32x4.extract_lane 0 (local.get $x_index))))
-          (local.set $temp_v)
-          (f32x4.replace_lane 1 (local.get $temp_v) (f32.load (i32x4.extract_lane 1 (local.get $x_index))))
-          (local.set $temp_v)
-          (f32x4.replace_lane 2 (local.get $temp_v) (f32.load (i32x4.extract_lane 2 (local.get $x_index))))
-          (local.set $temp_v)
-          (f32x4.replace_lane 3 (local.get $temp_v) (f32.load (i32x4.extract_lane 3 (local.get $x_index))))
+	  (f32x4.replace_lane 3
+            (f32x4.replace_lane 2
+              (f32x4.replace_lane 1
+                (f32x4.replace_lane 0
+                  (f32x4.splat(f32.const 0.0))
+                  (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+            )
+            (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+          )
+
+          ;;(f32x4.replace_lane 0 (f32x4.splat(f32.const 0.0)) (f32.load (i32x4.extract_lane 0 (local.get $x_index))))
+          ;;(local.set $temp_v)
+          ;;(f32x4.replace_lane 1 (local.get $temp_v) (f32.load (i32x4.extract_lane 1 (local.get $x_index))))
+          ;;(local.set $temp_v)
+          ;;(f32x4.replace_lane 2 (local.get $temp_v) (f32.load (i32x4.extract_lane 2 (local.get $x_index))))
+          ;;(local.set $temp_v)
+          ;;(f32x4.replace_lane 3 (local.get $temp_v) (f32.load (i32x4.extract_lane 3 (local.get $x_index))))
 
           f32x4.mul
           (v128.load (i32.add (local.get $y) (i32.shl (local.get $row) (i32.const 2))))

@@ -382,10 +382,8 @@
     (local $temp f32)
     (local $col i32)
     (local $exp i32)
-    (local.get $start_row)
-    (local.get $num_cols)
-    (i32.mul)
-    (local.set $exp)
+    (local $temp_v v128)
+    (local $x_index v128)
     (local.get $start_row)
     (local.get $end_row)
     i32.ge_s
@@ -398,38 +396,112 @@
     if
       (return)
     end 
-    (loop $outer_loop
-      (local.set $i (i32.const 0))
-      (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
-      (local.set $temp)
-      (loop $inner_loop
-        (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
-        local.set $col
-        (if (i32.ge_s (local.get $col) (i32.const 0))
-          (then
-            (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))
-            f32.load
-            (i32.add (local.get $x) (i32.shl (local.get $col) (i32.const 2)))
-            f32.load
-            f32.mul
-            (local.get $temp)
-            f32.add
-            (local.set $temp)
-            (local.tee $i (i32.add (local.get $i) (i32.const 1)))
-            (local.get $num_cols) 
-            (i32.lt_s)
-            (br_if $inner_loop)
+    (local.get $start_row)
+    (local.get $num_cols)
+    (i32.mul)
+    (local.set $exp)
+    (local.get $num_cols)
+    (i32.const 4)
+    (i32.lt_s)
+    (if
+      (then
+      (loop $outer_loop
+        (local.set $i (i32.const 0))
+        (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+        (local.set $temp)
+        (loop $inner_loop
+          (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+          local.set $col
+          (if (i32.ge_s (local.get $col) (i32.const 0))
+            (then
+              (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2)))
+              f32.load
+              (i32.add (local.get $x) (i32.shl (local.get $col) (i32.const 2)))
+              f32.load
+              f32.mul
+              (local.get $temp)
+              f32.add
+              (local.set $temp)
+              (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+              (local.get $num_cols) 
+              (i32.lt_s)
+              (br_if $inner_loop)
+            )
           )
         )
-      )
-      (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))) 
-      (local.get $temp)
-      (f32.store)
-      (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
-      (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
-      (local.get $end_row)
-      (i32.lt_s)
-      (br_if $outer_loop)
+        (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))) 
+        (local.get $temp)
+        (f32.store)
+        (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+        (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $outer_loop)
+      ))
+    (else
+      (local.get $num_cols)
+      (i32.const 4)
+      (i32.rem_u)
+      (i32.const 0)
+      (i32.eq)
+      (if
+	(then
+        (loop $outer_loop_4
+          (f32.load (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2))))
+	  (local.set $temp)
+	  (f32.const 0.0)
+          f32x4.splat
+          (local.set $temp_v)
+          (local.set $i (i32.const 0))
+	  (loop $inner_loop_4
+            (v128.load (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+
+	    (i32x4.splat(local.get $x))
+            (v128.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $i)) (i32.const 2))))
+	    (i32.const 2)
+            (i32x4.shl)
+            (i32x4.add)
+	    (local.set $x_index)
+	    (f32x4.replace_lane 3
+              (f32x4.replace_lane 2
+                (f32x4.replace_lane 1
+                  (f32x4.replace_lane 0
+                    (f32x4.splat(f32.const 0.0))
+                    (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                  )
+                  (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+            )
+	    f32x4.mul
+            (local.get $temp_v)
+            f32x4.add
+            (local.set $temp_v)
+            (local.tee $i (i32.add (local.get $i) (i32.const 4)))
+            (local.get $num_cols)
+            (i32.lt_s)
+            (br_if $inner_loop_4)
+          )
+          (i32.add (local.get $y) (i32.shl (local.get $start_row) (i32.const 2)))
+          (local.get $temp)
+	  (f32x4.extract_lane 0 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 1 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 2 (local.get $temp_v))
+          (f32.add)
+          (f32x4.extract_lane 3 (local.get $temp_v))
+          (f32.add)
+          (f32.store)
+          (local.set $exp (i32.add (local.get $exp) (local.get $num_cols)))
+          (local.tee $start_row (i32.add (local.get $start_row) (i32.const 1)))
+          (local.get $end_row)
+          (i32.lt_s)
+          (br_if $outer_loop_4)
+        ))
+      ))
     )
   )
 

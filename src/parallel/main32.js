@@ -637,7 +637,7 @@ function diaII_test(A_diaII, x_view, y_view, workers)
   });
 }
 
-function ell_test(A_ell, x_view, y_view, workers)
+function ell_test(A_ell, x_view, y_view, workers, gs)
 {
   return new Promise(function(resolve){
     console.log("ELL");
@@ -659,6 +659,7 @@ function ell_test(A_ell, x_view, y_view, workers)
     var t = 0;
     function runELL()
     {
+      console.log("unvectorized");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
@@ -667,6 +668,21 @@ function ell_test(A_ell, x_view, y_view, workers)
           workers.worker[i].postMessage(["ell_row", i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
         else
           workers.worker[i].postMessage(["ell_row", i, i * N_per_worker, (i+1) * N_per_worker, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeELL;
+      }
+    }
+
+    function runELL_gs()
+    {
+      console.log("vectorized");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage(["ell_row_gs", i, i * N_per_worker, (i+1) * N_per_worker + rem_N, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
+        else
+          workers.worker[i].postMessage(["ell_row_gs", i, i * N_per_worker, (i+1) * N_per_worker, A_ell.indices_index, A_ell.data_index, A_ell.ncols, N, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeELL;
       }
     }
@@ -681,8 +697,12 @@ function ell_test(A_ell, x_view, y_view, workers)
           tt += t2 - t1;
         }
         t++;
-        if(t < (outer_max + 10))
-          runELL();
+        if(t < (outer_max + 10)){
+	  if(gs == 0)
+            runELL();
+	  else if(gs == 1)
+            runELL_gs();
+	}
         else{
           tt = tt/1000;
           ell_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
@@ -700,7 +720,10 @@ function ell_test(A_ell, x_view, y_view, workers)
         }
       }
     }
-    runELL();
+    if(gs == 0)
+      runELL();
+    else if(gs == 1)
+      runELL_gs();
   });
 }
 
@@ -851,7 +874,7 @@ function spmv_test(files, callback)
             //convert CSR to ELL
             csr_ell(A_csr, A_ell);
           }
-          var ell_promise = ell_test(A_ell, x_view, y_view, workers);
+          var ell_promise = ell_test(A_ell, x_view, y_view, workers, 1);
           ell_promise.then(ell_value => {
             free_memory_ell(A_ell);
             if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 12)){
