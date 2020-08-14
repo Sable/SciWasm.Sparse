@@ -70,6 +70,23 @@ onmessage = function(e) {
     my_instance.exports.spmv_csr_gs_wrapper(id, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, end-start, inside_max);
     postMessage(id);
   }
+  if(e.data[0] == "csr_sorted_short_rows"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let one = e.data[4];
+    let two = e.data[5];
+    let three = e.data[6];
+    let four = e.data[7];
+    let csr_row_index = one * 4 + e.data[8];
+    let csr_col_index = e.data[9];
+    let csr_val_index = e.data[10];
+    let x_index = e.data[11];
+    let y_index = one * 4 + e.data[12];
+    let inside_max = e.data[13];
+    my_instance.exports.spmv_csr_short_rows_wrapper(id, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, end-four, two-one, three-two, four-three, inside_max);
+    postMessage(id);
+  }
   if(e.data[0] == "csr_unroll_2"){
     assert(id == e.data[1], "Worker IDs don't match."); 
     let start = e.data[2];
@@ -165,6 +182,23 @@ onmessage = function(e) {
     let y_index = e.data[10];
     let inside_max = e.data[11];
     my_instance.exports.spmv_dia_col_wrapper(id, offset_index, dia_data_index, start, end, num_diag, N, stride, x_index, y_index, inside_max);
+    postMessage(id);
+  }
+  if(e.data[0] == "bdia_col"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let istart_index = e.data[6];
+    let iend_index = e.data[7];
+    let num_diag = e.data[8];
+    let N = e.data[9];
+    let stride = e.data[10];
+    let x_index = e.data[11];
+    let y_index = e.data[12];
+    let inside_max = e.data[13];
+    my_instance.exports.spmv_bdia_col_wrapper(id, offset_index, dia_data_index, istart_index, iend_index, start, end, num_diag, N, stride, x_index, y_index, inside_max);
     postMessage(id);
   }
   if(e.data[0] == "ell_row"){

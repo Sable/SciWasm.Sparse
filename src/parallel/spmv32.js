@@ -1,6 +1,6 @@
 var anz = 0;
 var N;
-var inner_max = 1000000, outer_max = 30;
+var inner_max = 100000, outer_max = 30;
 let memory = Module['wasmMemory'];
 var pending_workers = num_workers; 
 var workers;
@@ -64,8 +64,12 @@ function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz
 function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
   this.offset;
   this.data;
+  this.istart;
+  this.iend;
   this.offset_index = offset_index;
   this.data_index = data_index;;
+  this.w_istart_index = [];
+  this.w_iend_index = [];
   this.ndiags = ndiags;
   this.nrows = nrows;
   this.stride = stride;
@@ -631,7 +635,8 @@ function sort_y_rows_by_nnz(y_view, A_csr)
   for(i = 0; i < N; i++){
     y_new[permutation[i]] = y[i];
   }
-
+  
+  free_memory_y(y_view);
   y_view.y_index = y_index;
 }
 
@@ -943,12 +948,12 @@ function reorder_NN(A_csr, w)
 
 function get_inner_max()
 {
-  if(anz > 1000000) inner_max = 1;
-  else if (anz > 100000) inner_max = 500;
-  else if (anz > 50000) inner_max = 1000;
-  else if(anz > 20000) inner_max = 5000;
-  else if(anz > 5000) inner_max = 10000;
-  else if(anz > 500) inner_max = 100000;
+  if(anz > 1000000) inner_max = 5;
+  else if (anz > 100000) inner_max = 100;
+  else if (anz > 50000) inner_max = 500;
+  else if(anz > 10000) inner_max = 1000;
+  else if(anz > 2000) inner_max = 5000;
+  else if(anz > 100) inner_max = 50000;
   inner_max *= 5;
 }
 
@@ -1352,6 +1357,12 @@ function allocate_DIA(mm_info, ndiags, stride)
   var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
   var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ndiags * stride);
   var A_dia = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, anz);
+  for(var i = 0; i < num_workers; i++){
+    var w_istart_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
+    var w_iend_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
+    A_dia.w_istart_index.push(w_istart_index);
+    A_dia.w_iend_index.push(w_iend_index);
+  }
   return A_dia;
 }
 

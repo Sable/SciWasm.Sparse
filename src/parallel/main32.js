@@ -3,6 +3,9 @@ var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1, diaII_sum = -1, ellII_sum = 
 var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1, diaII_sd = -1, ellII_sd = -1;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [], diaII_flops = [], ellII_flops = [];
 var variance;
+var csr_row_mflops = -1, csr_row_gs_mflops = -1, csr_nnz_mflops = -1, csr_nnz_gs_mflops = -1;
+var csr_row_sum = -1, csr_row_gs_sum = -1, csr_nnz_sum = -1, csr_nnz_sum = -1;
+var csr_row_sd = -1, csr_row_gs_sd = -1, csr_nnz_sd = -1, csr_nnz_gs_sd = -1;
 
 function coo_test(A_coo, x_view, y_view, workers, gs)
 {
@@ -174,6 +177,16 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs)
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
           console.log("Returned to main thread");
+	  if(gs == 0){
+	    csr_nnz_mflops = csr_mflops;
+	    csr_nnz_sum = csr_sum;
+	    csr_nnz_sd = csr_sd;
+	  }
+          else if(gs == 1){
+	    csr_nnz_gs_mflops = csr_mflops;
+	    csr_nnz_gs_sum = csr_sum;
+	    csr_nnz_gs_sd = csr_sd;
+          }
           return resolve(0);
         }
       }
@@ -347,6 +360,16 @@ function csr_test(A_csr, x_view, y_view, workers, gs)
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
           console.log("Returned to main thread");
+	  if(gs == 0){
+	    csr_row_mflops = csr_mflops;
+	    csr_row_sum = csr_sum;
+	    csr_row_sd = csr_sd;
+	  }
+          else if(gs == 1){
+	    csr_row_gs_mflops = csr_mflops;
+	    csr_row_gs_sum = csr_sum;
+	    csr_row_gs_sd = csr_sd;
+          }
           return resolve(0);
         }
       }
@@ -358,11 +381,11 @@ function csr_test(A_csr, x_view, y_view, workers, gs)
   });
 }
 
-function static_nnz_sorted_unrolled_csr_test(A_csr_original, x_view, y_view, workers, unroll_factor)
+function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unroll_factor, short_rows)
 {
   return new Promise(function(resolve){
     console.log("CSR static nnz");
-    if(typeof A_csr_original === "undefined"){
+    if(typeof A_csr === "undefined"){
       console.log("matrix is undefined");
       return resolve(-1);
     }
@@ -374,11 +397,6 @@ function static_nnz_sorted_unrolled_csr_test(A_csr_original, x_view, y_view, wor
       console.log("vector y is undefined");
       return resolve(-1);
     }
-    console.log(calculate_csr_locality_index(A_csr_original));
-    // sort CSR format by nnz per row
-    var A_csr = sort_rows_by_nnz(A_csr_original);
-    console.log("CSR sorted");
-    console.log(calculate_csr_locality_index(A_csr));
     var t1, t2, tt = 0.0;
     var t = 0;
     var row_start = new Int32Array(num_workers);
@@ -398,6 +416,18 @@ function static_nnz_sorted_unrolled_csr_test(A_csr_original, x_view, y_view, wor
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         workers.worker[i].postMessage(["csr", i, row_start[i], row_end[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    // CSR run for sorted format with special codes for short rows and static nnz partitioning
+    function run_short_rows_CSR(){
+      console.log("short rows CSR run");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage(["csr_sorted_short_rows", i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
@@ -460,8 +490,10 @@ function static_nnz_sorted_unrolled_csr_test(A_csr_original, x_view, y_view, wor
         }
         t++;
         if(t < (outer_max + 10)){
-          if(unroll_factor == 1)
+          if(unroll_factor == 1 && short_rows == 0)
             runCSR();
+	  else if(unroll_factor == 1 && short_rows == 1)
+            run_short_rows_CSR();
 	  else if(unroll_factor == 2) 
             run_unrolled2_CSR();
 	  else if(unroll_factor == 3) 
@@ -482,6 +514,16 @@ function static_nnz_sorted_unrolled_csr_test(A_csr_original, x_view, y_view, wor
           sort_y_rows_by_nnz(y_view, A_csr);
           csr_sum = fletcher_sum_y(y_view);
           pretty_print_y(y_view);
+	  if(short_rows == 0){
+            csr_nnz_mflops = csr_mflops;
+            csr_nnz_sum = csr_sum;
+            csr_nnz_sd = csr_sd;
+          }
+	  if(short_rows == 1){
+            csr_nnz_gs_mflops = csr_mflops;
+            csr_nnz_gs_sum = csr_sum;
+            csr_nnz_gs_sd = csr_sd;
+          }
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
           console.log("Returned to main thread");
@@ -489,8 +531,10 @@ function static_nnz_sorted_unrolled_csr_test(A_csr_original, x_view, y_view, wor
         }
       }
     }
-    if(unroll_factor == 1)
+    if(unroll_factor == 1 && short_rows == 0)
       runCSR();
+    else if(unroll_factor == 1 && short_rows == 1)
+      run_short_rows_CSR();
     else if(unroll_factor == 2) 
       run_unrolled2_CSR();
     else if(unroll_factor == 3) 
@@ -570,7 +614,7 @@ function dia_test(A_dia, x_view, y_view, workers)
   });
 }
 
-function diaII_test(A_diaII, x_view, y_view, workers)
+function diaII_test(A_diaII, x_view, y_view, workers, blocked)
 {
   return new Promise(function(resolve){
     console.log("DIA II");
@@ -591,6 +635,7 @@ function diaII_test(A_diaII, x_view, y_view, workers)
     var rem_N  = N - N_per_worker * num_workers;
     console.log(N_per_worker, rem_N);
     var t = 0;
+
     function runDIAII()
     {
       pending_workers = num_workers;
@@ -604,6 +649,20 @@ function diaII_test(A_diaII, x_view, y_view, workers)
         workers.worker[i].onmessage = storeDIAII;
       }
     }
+    function runBDIAII()
+    {
+      console.log("blocking DIA");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage(["bdia_col", i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_diaII.offset_index, A_diaII.data_index, A_diaII.w_istart_index[i], A_diaII.w_iend_index[i], A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
+        else
+          workers.worker[i].postMessage(["bdia_col", i, i * N_per_worker, (i+1) * N_per_worker - 1, A_diaII.offset_index, A_diaII.data_index, A_diaII.w_istart_index[i], A_diaII.w_iend_index[i], A_diaII.ndiags, N, A_diaII.stride, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeDIAII;
+      }
+    }
     function storeDIAII(event){
       pending_workers -= 1;
       if(pending_workers <= 0){
@@ -613,8 +672,12 @@ function diaII_test(A_diaII, x_view, y_view, workers)
           tt += t2 - t1;
         }
         t++;
-        if(t < (outer_max + 10))
-          runDIAII();
+        if(t < (outer_max + 10)){
+	  if(blocked == 0)
+            runDIAII();
+          else if(blocked == 1)
+            runBDIAII();
+	}
         else{
           tt = tt/1000;
           diaII_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
@@ -633,7 +696,10 @@ function diaII_test(A_diaII, x_view, y_view, workers)
         }
       }
     }
-    runDIAII();
+    if(blocked == 0)
+      runDIAII();
+    else if(blocked == 1)
+      runBDIAII();
   });
 }
 
@@ -815,7 +881,74 @@ function ellII_test(A_ellII, x_view, y_view, workers, gs)
   });
 }
 
+function all_csr_test(files, callback)
+{
+  console.log("all csr test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
 
+  var A_coo, A_csr, x_view, y_view;
+  console.log("memory allocated");
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  free_memory_coo(A_coo);
+  console.log("CSR allocated");
+  
+  /*console.log(calculate_csr_locality_index(A_csr));
+  // sort CSR format by nnz per row
+  var A_csr_sorted = sort_rows_by_nnz(A_csr);
+  console.log("CSR sorted");
+  console.log(calculate_csr_locality_index(A_csr_sorted));
+  free_memory_csr(A_csr);*/
+
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  /*var csr_nnz_promise = static_nnz_sorted_unrolled_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 0);
+  csr_nnz_promise.then(csr_nnz_value => {
+    var csr_nnz_short_rows_promise = static_nnz_sorted_unrolled_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 1)
+    csr_nnz_short_rows_promise.then(csr_nnz_short_rows_value => {
+      free_memory_csr(A_csr_sorted);
+      free_memory_x(x_view);
+      free_memory_y(y_view);
+      console.log("done");
+      callback();
+    });
+  });*/
+
+  // CSR row
+  var csr_row_promise = csr_test(A_csr, x_view, y_view, workers, 0);
+  csr_row_promise.then(csr_row_value => {
+    // CSR row gather/scatter
+    var csr_row_gs_promise = csr_test(A_csr, x_view, y_view, workers, 1);
+    csr_row_gs_promise.then(csr_row_gs_value => {
+      // CSR nnz
+      var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0);
+      csr_nnz_promise.then(csr_nnz_value => {
+        // CSR nnz gather/scatter
+        var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1);
+        csr_nnz_gs_promise.then(csr_nnz_gs_value => {
+          free_memory_csr(A_csr);
+          free_memory_x(x_view);
+          free_memory_y(y_view);
+          console.log("done");
+          callback();
+	});
+      });
+    });
+  });
+}
 
 function spmv_test(files, callback)
 {
@@ -839,37 +972,37 @@ function spmv_test(files, callback)
   y_view = allocate_y(mm_info);
   clear_y(y_view);
 
-  var coo_promise = coo_test(A_coo, x_view, y_view, workers, 1);
+  var coo_promise = coo_test(A_coo, x_view, y_view, workers, 0);
   coo_promise.then(coo_value => {
     A_csr = allocate_CSR(mm_info);
     //convert COO to CSR
     coo_csr(A_coo, A_csr);
     free_memory_coo(A_coo);
     console.log("CSR allocated");
-    //var csr_promise = static_nnz_reorder_csr_test(A_csr, x_view, y_view, workers);
-    //var csr_promise = csr_test(A_csr, x_view, y_view, workers);
-    var csr_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1);
-    csr_promise.then(csr_value => {
-      //var csr_sorted_nnz_promise = static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, 4);
-      //csr_sorted_nnz_promise.then(csr_sorted_nnz_value => {
+    // CSR row
+    var csr_row_promise = csr_test(A_csr, x_view, y_view, workers, 0);
+    csr_row_promise.then(csr_row_value => {
+      // CSR nnz
+      var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0);
+      csr_nnz_promise.then(csr_nnz_value => {
       //get DIA info
-        var result = num_diags(A_csr);
+        /*var result = num_diags(A_csr);
         var nd = result[0];
         var stride = result[1];
         if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 12)){
           A_dia = allocate_DIA(mm_info, nd, stride);
           //convert CSR to DIA
-          csr_dia(A_csr, A_dia);
+          csr_dia(A_csr, A_dia);*/
 	  /*var my_offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
           for(var j = 0; j < A_dia.ndiags; j++)
             console.log(my_offset[j]);*/
-        }
+        /*}
         var dia_promise = dia_test(A_dia, x_view, y_view, workers);
-        dia_promise.then(dia_value => {
-          free_memory_dia(A_dia);
+        dia_promise.then(dia_value => {*/
+          //free_memory_dia(A_dia);
           //get ELL info
           var nc = num_cols(A_csr);
-          if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 12)){
+          if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 5)){
             A_ell = allocate_ELL(mm_info, nc);
             //convert CSR to ELL
             csr_ell(A_csr, A_ell);
@@ -877,17 +1010,20 @@ function spmv_test(files, callback)
           var ell_promise = ell_test(A_ell, x_view, y_view, workers, 1);
           ell_promise.then(ell_value => {
             free_memory_ell(A_ell);
-            if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 12)){
+            var result = num_diags(A_csr);
+            var nd = result[0];
+            var stride = result[1];
+            if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){
               A_diaII = allocate_DIA(mm_info, nd, stride);
               //convert CSR to DIAII
               csr_diaII(A_csr, A_diaII);
             }
-            var diaII_promise = diaII_test(A_diaII, x_view, y_view, workers);
+            var diaII_promise = diaII_test(A_diaII, x_view, y_view, workers, 1);
             diaII_promise.then(diaII_value => {
               //pretty_print_DIAII(A_diaII);
               //pretty_print_y(y_view);
               free_memory_dia(A_diaII);
-              if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 12)){
+              if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 5)){
                 A_ellII = allocate_ELL(mm_info, nc);
                 //convert CSR to ELLII
                 csr_ellII(A_csr, A_ellII);
@@ -905,9 +1041,9 @@ function spmv_test(files, callback)
               });
             });
           });
-        });
+        //});
       });
-    //});
+    });
   });
 }
 
@@ -918,6 +1054,7 @@ function spmv(callback)
   let promise = load_file();
   promise.then(
     files => spmv_test(files, callback),
+    //files => all_csr_test(files, callback),
     error => callback()
   ); 
 }

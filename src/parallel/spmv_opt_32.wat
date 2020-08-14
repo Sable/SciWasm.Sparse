@@ -363,6 +363,205 @@
     ))
   )
 
+  ;; SpMV CSR sorted with special code for short rows implementation
+  (func $spmv_csr_short_rows (export "spmv_csr_short_rows") (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $len i32) (param $one i32) (param $two i32) (param $three i32)
+    (local $i i32)
+    (local $j i32)
+    (local $temp f32)
+
+    (i32.load (local.get $csr_rowptr))
+    (i32.const 2)
+    (i32.shl)
+    (local.get $csr_col)
+    (i32.add)
+    (local.set $csr_col)
+    (i32.load (local.get $csr_rowptr))
+    (i32.const 2)
+    (i32.shl)
+    (local.get $csr_val)
+    (i32.add)
+    (local.set $csr_val)
+
+    (local.get $one)
+    (i32.const 0)
+    (i32.ne)
+    (if
+      (then
+      ;;(local.get $one)
+      ;;(call $logi)
+      (i32.const 0)
+      (local.set $i)
+      (local.set $csr_rowptr (i32.add (local.get $csr_rowptr) (i32.shl (local.get $one) (i32.const 2))))
+      (loop $outer_loop_one
+        (local.get $y)
+        (f32.load (local.get $csr_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+        (f32.load)
+        (f32.mul)
+        (f32.load (local.get $y))
+        (f32.add)
+        (f32.store)
+        (local.set $y (i32.add (local.get $y) (i32.const 4)))
+        (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+        (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $one)
+        (i32.ne)
+        (br_if $outer_loop_one)
+      )
+    ))
+
+    (local.get $two)
+    (i32.const 0)
+    (i32.ne)
+    (if
+      (then
+      ;;(local.get $two)
+      ;;(call $logi)
+      (i32.const 0)
+      (local.set $i)
+      (local.set $csr_rowptr (i32.add (local.get $csr_rowptr) (i32.shl (local.get $two) (i32.const 2))))
+      (loop $outer_loop_two
+        (local.get $y)
+        (f32.load (local.get $csr_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+        (f32.load)
+        (f32.mul)
+        (f32.load (local.get $y))
+        (f32.add)
+        (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+        (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+
+        (f32.load (local.get $csr_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+        (f32.load)
+        (f32.mul)
+        (f32.add)
+        (f32.store)
+        (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+        (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+
+        (local.set $y (i32.add (local.get $y) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $two)
+        (i32.ne)
+        (br_if $outer_loop_two)
+      )
+    ))
+
+    (local.get $three)
+    (i32.const 0)
+    (i32.ne)
+    (if
+      (then
+      ;;(local.get $three)
+      ;;(call $logi)
+      (i32.const 0)
+      (local.set $i)
+      (local.set $csr_rowptr (i32.add (local.get $csr_rowptr) (i32.shl (local.get $three) (i32.const 2))))
+      (loop $outer_loop_three
+        (local.get $y)
+        (f32.load (local.get $csr_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+        (f32.load)
+        (f32.mul)
+        (f32.load (local.get $y))
+        (f32.add)
+        (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+        (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+
+        (f32.load (local.get $csr_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+        (f32.load)
+        (f32.mul)
+        (f32.add)
+        (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+        (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+
+        (f32.load (local.get $csr_val))
+        (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+        (f32.load)
+        (f32.mul)
+        (f32.add)
+        (f32.store)
+        (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+        (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+
+        (local.set $y (i32.add (local.get $y) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $three)
+        (i32.ne)
+        (br_if $outer_loop_three)
+      )
+    ))
+
+    (local.get $len)
+    (i32.const 0)
+    (local.tee $i)
+    (i32.le_s)
+    if
+      (return)
+    end
+
+
+
+    (local.set $j (i32.load (local.get $csr_rowptr)))
+    (loop $outer_loop
+      (local.get $j)
+      (i32.load (local.tee $csr_rowptr (i32.add (local.get $csr_rowptr) (i32.const 4))))
+      (i32.lt_s)
+      if
+        (f32.load (local.get $y))
+        (local.set $temp)
+        (loop $inner_loop
+          (f32.load (local.get $csr_val))
+          (i32.add (local.get $x) (i32.shl (i32.load (local.get $csr_col)) (i32.const 2)))
+          (f32.load)
+          (f32.mul)
+          (local.get $temp)
+          (f32.add)
+          (local.set $temp)
+          (local.set $csr_col (i32.add (local.get $csr_col) (i32.const 4)))
+          (local.set $csr_val (i32.add (local.get $csr_val) (i32.const 4)))
+          (local.tee $j (i32.add (local.get $j) (i32.const 1)))
+          (local.get $csr_rowptr)
+          (i32.load)
+          (i32.ne)
+          (br_if $inner_loop)
+        )
+        (local.get $y)
+        (local.get $temp)
+        (f32.store)
+      end
+      (local.set $y (i32.add (local.get $y) (i32.const 4)))
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $len)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+  (func (export "spmv_csr_short_rows_wrapper") (param $id i32) (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $len i32) (param $one i32) (param $two i32) (param $three i32) (param $inside_max i32)
+    (local $i i32)
+    i32.const 0
+    local.set $i
+    (block $break (loop $top
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))
+      local.get $csr_rowptr
+      local.get $csr_col
+      local.get $csr_val
+      local.get $x
+      local.get $y
+      local.get $len
+      local.get $one
+      local.get $two
+      local.get $three
+      call $spmv_csr_short_rows
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br $top)
+    ))
+  )
+
+
   ;; SpMV CSR implementation unrolled with factor 2 and special code for short rows : 1, 2, 3
   (func $spmv_csr_unroll2 (export "spmv_csr_unroll2") (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $len i32) (param $one i32) (param $two i32) (param $three i32)
     (local $i i32)
@@ -2910,6 +3109,232 @@
     ))
   )
 
+   (func $spmv_bdia_col (export "spmv_bdia_col") (param $offset i32) (param $data i32) (param $istart i32) (param $iend i32) (param $start_row i32) (param $end_row i32) (param $nd i32) (param $N i32) (param $stride i32) (param $x i32) (param $y i32)
+    (local $i i32)
+    (local $j i32)
+    (local $k i32)
+    (local $n i32)
+    (local $start i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; i*N
+    (local $this_x i32)
+    (local $this_y i32)
+    (local $this_data i32)
+    (local $B i32)
+    local.get $nd
+    i32.const 0
+    local.tee $i
+    i32.le_s
+    if
+      (return)
+    end
+    (i32.const 512)
+    (local.set $B)
+    (i32.add (local.get $end_row) (i32.const 1))
+    (local.set $end_row)
+
+    (loop $loop_init
+      (i32.shl (local.get $i) (i32.const 2))
+      local.set $n
+      ;; k = offset[i]
+      (i32.load (i32.add (local.get $offset) (local.get $n))) 
+      local.set $k
+      ;; istart[i] = (0 < -k) ? -k : 0;
+      (i32.add (local.get $istart) (local.get $n)) 
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      (i32.store)
+      ;; istart[i] = (istart[i] > start_row) ? istart[i] : start_row;
+      (if (i32.lt_s (i32.load(i32.add (local.get $istart) (local.get $n))) (local.get $start_row))
+        (then
+          (i32.add (local.get $istart) (local.get $n)) 
+          (local.get $start_row)
+	  (i32.store)
+        )
+      ) 
+      ;; iend[i] = (N < N-k) ? N : N-k;
+      (i32.add (local.get $iend) (local.get $n)) 
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      (i32.store)
+      ;; iend[i] = (iend[i] < end_row) ? iend[i] : end_row;
+      (if (i32.gt_s (i32.load(i32.add (local.get $iend) (local.get $n))) (local.get $end_row))
+        (then
+          (i32.add (local.get $iend) (local.get $n)) 
+          (local.get $end_row)
+	  (i32.store)
+        )
+      )
+      ;; i != nd; i++
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nd)
+      (i32.ne)
+      (br_if $loop_init)
+    )
+
+    (loop $block_outer_loop
+      (i32.const 0)
+      (local.set $i)
+      (i32.const 0)
+      (local.set $j)
+      (i32.const 0)
+      (local.set $exp1)
+      (loop $outer_loop
+        (i32.shl (local.get $i) (i32.const 2))
+        local.set $n
+        ;; k = offset[i]
+        (i32.load (i32.add (local.get $offset) (local.get $n))) 
+        local.set $k
+        ;;local.get $k
+        ;;call $logi
+	;; start = istart[i]
+	(i32.load(i32.add (local.get $istart) (local.get $n)))
+	(local.set $start)
+	;; end = iend[i]
+	(i32.load(i32.add (local.get $iend) (local.get $n)))
+	(local.set $end)
+	;; if (end[i] > start[i])
+	(if (i32.gt_s (local.get $end) (local.get $start))
+	(then
+	  ;; if(end >= start + B)
+	  (if (i32.ge_s (local.get $end) (i32.add (local.get $B) (local.get $start)))
+	  (then
+	    ;; end = start + B
+	    (i32.add (local.get $B) (local.get $start))
+	    (local.set $end)
+            ;;local.get $end
+            ;;call $logi
+	    (local.get $B)
+            (i32.const 4)
+            (i32.rem_u)
+            (local.get $start)
+            (i32.add)
+            (local.set $new_end)
+	  )
+          (else
+            (local.get $end)
+            (local.get $start)
+            (i32.sub)
+            (i32.const 4)
+            (i32.rem_u)
+            (local.get $start)
+            (i32.add)
+            (local.set $new_end)
+	  ))
+          ;;local.get $new_end
+          ;;call $logi
+          (i32.add (local.get $y) (i32.shl (local.get $start) (i32.const 2))) 
+          (local.set $this_y)
+          (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $start)) (i32.const 2)))
+          (local.set $this_data)
+          (i32.add (local.get $x) (i32.shl (i32.add (local.get $start) (local.get $k)) (i32.const 2))) 
+          (local.set $this_x)
+          (local.get $start)
+          (local.get $new_end)
+          (i32.lt_s)
+          (if
+	  (then
+            (loop $block_inner_loop
+	      (local.get $this_y)
+	      (local.get $this_data)
+              (f32.load)
+	      (local.get $this_x)
+              (f32.load)
+              (f32.mul)
+	      (f32.load (local.get $this_y))
+              (f32.add)
+              (f32.store)
+	      (local.set $this_y (i32.add (local.get $this_y) (i32.const 4)))
+	      (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+	      (local.set $this_x (i32.add (local.get $this_x) (i32.const 4)))
+              (local.tee $start (i32.add (local.get $start) (i32.const 1)))
+              (local.get $new_end)
+              (i32.lt_s)
+              (br_if $block_inner_loop)
+	    )
+	  ))
+          (local.get $new_end)
+          (local.get $end)
+          (i32.lt_s)
+          (if
+	  (then
+            (loop $block_inner_loop1
+	      (local.get $this_y)
+	      (local.get $this_data)
+	      (v128.load)
+              (local.get $this_x)
+              (v128.load)
+              (f32x4.mul)
+              (v128.load (local.get $this_y))
+              (f32x4.add)
+              (v128.store)
+              (local.set $this_y (i32.add (local.get $this_y) (i32.const 16)))
+              (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+              (local.set $this_x (i32.add (local.get $this_x) (i32.const 16)))
+              (local.tee $start (i32.add (local.get $start) (i32.const 4)))
+              (local.get $end)
+              (i32.lt_s)
+              (br_if $block_inner_loop1)
+            )
+	  ))
+	  (i32.add (local.get $istart) (local.get $n))
+	  (local.get $end)
+	  (i32.store)
+	)
+	(else
+          (local.set $j (i32.add (local.get $j) (i32.const 1)))
+	))
+        (i32.add (local.get $exp1) (local.get $N))
+	(local.set $exp1)
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $nd)
+        (i32.ne)
+        (br_if $outer_loop)
+      )
+      (local.get $j)
+      (local.get $nd)
+      (i32.ne)
+      (br_if $block_outer_loop)
+    )
+  )
+
+   (func (export "spmv_bdia_col_wrapper") (param $id i32) (param $offset i32) (param $data i32) (param $istart i32) (param $iend i32) (param $start_row i32) (param $end_row i32) (param $nd i32) (param $N i32) (param $stride i32) (param $x i32) (param $y i32) (param $inside_max i32)
+    (local $i i32)
+    i32.const 0
+    local.set $i
+    (block $break (loop $top
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))
+      local.get $offset
+      local.get $data
+      local.get $istart
+      local.get $iend
+      local.get $start_row
+      local.get $end_row
+      local.get $nd
+      local.get $N
+      local.get $stride
+      local.get $x
+      local.get $y
+      call $spmv_bdia_col
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br $top)
+    ))
+  )
+
+      
 
 
 
@@ -3073,7 +3498,8 @@
     (local $i i32)
     (local $temp f32)
     (local $col i32)
-    (local $exp i32)
+    (local $exp1 i32) ;; j * N
+    (local $exp2 i32) ;; j * N + i
     (local $row i32)
     (local.get $start_row)
     (local.get $end_row)
@@ -3088,31 +3514,32 @@
       (return)
     end
     (local.set $i (i32.const 0))
-    (local.set $exp (i32.const 0))
+    (local.set $exp1 (i32.const 0))
     (loop $outer_loop
       (local.set $row (local.get $start_row))
+      (i32.shl (i32.add (local.get $exp1) (local.get $row)) (i32.const 2))
+      local.set $exp2
       (loop $inner_loop
-        (i32.load (i32.add (local.get $indices) (i32.shl (i32.add (local.get $exp) (local.get $row)) (i32.const 2))))
-        local.set $col
-        (if (i32.ge_s (local.get $col) (i32.const 0))
-          (then
-            (i32.add (local.get $y) (i32.shl (local.get $row) (i32.const 2)))
-            (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp) (local.get $row)) (i32.const 2)))
-            f32.load
-            (i32.add (local.get $x) (i32.shl (local.get $col) (i32.const 2)))
-            f32.load
-            f32.mul
-            (f32.load (i32.add (local.get $y) (i32.shl (local.get $row) (i32.const 2))))
-            f32.add
-            f32.store
-          )
-        )
+        (i32.add (local.get $y) (i32.shl (local.get $row) (i32.const 2)))
+
+        (i32.add (local.get $data) (local.get $exp2))
+        f32.load
+	
+        (i32.add (local.get $x) (i32.shl (i32.load (i32.add (local.get $indices) (local.get $exp2))) (i32.const 2)))
+        f32.load
+        f32.mul
+	
+        (f32.load (i32.add (local.get $y) (i32.shl (local.get $row) (i32.const 2))))
+        f32.add
+        f32.store
+	(i32.add (local.get $exp2) (i32.const 4))
+        (local.set $exp2)
         (local.tee $row (i32.add (local.get $row) (i32.const 1)))
         (local.get $end_row)
         (i32.lt_s)
         (br_if $inner_loop)
       )
-      (local.set $exp (i32.add (local.get $exp) (local.get $N)))
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
       (local.tee $i (i32.add (local.get $i) (i32.const 1)))
       (local.get $num_cols)
       (i32.lt_s)
