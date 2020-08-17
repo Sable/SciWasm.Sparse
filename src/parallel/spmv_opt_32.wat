@@ -3129,7 +3129,7 @@
     if
       (return)
     end
-    (i32.const 512)
+    (i32.const 1024)
     (local.set $B)
     (i32.add (local.get $end_row) (i32.const 1))
     (local.set $end_row)
@@ -3568,6 +3568,167 @@
       (br $top)
     ))
   )
+
+  (func $spmv_bell_col_gs (export "spmv_bell_col_gs") (param $id i32) (param $indices i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_cols i32) (param $N i32) (param $x i32) (param $y i32)
+    (local $i i32)
+    (local $temp f32)
+    (local $col i32)
+    ;;(local $temp_v v128)
+    (local $x_index v128)
+    (local $exp1 i32)
+    (local $exp2 i32)
+    (local $B i32)
+    (local $start i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+    (local.get $num_cols)
+    (i32.const 0)
+    (i32.le_s)
+    if
+      (return)
+    end
+    (local.set $B (i32.const 1024))
+    (loop $block_outer_loop
+      (local.set $i (i32.const 0))
+      (local.set $exp1 (i32.const 0))
+      ;;if(end_row > start_row)
+      (if (i32.gt_s (local.get $end_row) (local.get $start_row))
+      (then
+        (loop $outer_loop
+          (local.set $start (local.get $start_row))
+          (i32.shl (i32.add (local.get $exp1) (local.get $start)) (i32.const 2))
+          local.set $exp2
+	  ;; if(end_row >= start_row + B)
+	  (if (i32.ge_s (local.get $end_row) (i32.add (local.get $B) (local.get $start)))
+	  (then
+	    ;; end = start + B
+	    (i32.add (local.get $B) (local.get $start))
+	    (local.set $end)
+            ;;local.get $end
+            ;;call $logi
+	    (local.get $B)
+            (i32.const 4)
+            (i32.rem_u)
+            (local.get $start)
+            (i32.add)
+            (local.set $new_end)
+	  )
+	  (else
+            (local.set $end (local.get $end_row))
+            (local.get $end)
+            (local.get $start)
+            (i32.sub)
+            (i32.const 4)
+            (i32.rem_u)
+            (local.get $start)
+            (i32.add)
+            (local.set $new_end)
+	  ))
+
+          (local.get $start)
+          (local.get $new_end)
+          (i32.lt_s)
+          (if
+	  (then
+            (loop $inner_loop
+              (i32.load (i32.add (local.get $indices) (local.get $exp2)))
+              local.set $col
+              (i32.add (local.get $y) (i32.shl (local.get $start) (i32.const 2)))
+              (f32.load (i32.add (local.get $data) (local.get $exp2)))
+              (f32.load (i32.add (local.get $x) (i32.shl (local.get $col) (i32.const 2))))
+              f32.mul
+              (f32.load (i32.add (local.get $y) (i32.shl (local.get $start) (i32.const 2))))
+              f32.add
+              f32.store
+	      (i32.add (local.get $exp2) (i32.const 4))
+              (local.set $exp2)
+              (local.tee $start (i32.add (local.get $start) (i32.const 1)))
+              (local.get $new_end)
+              (i32.lt_s)
+              (br_if $inner_loop)
+          )))
+
+	  (local.get $start)
+          (local.get $end)
+          (i32.lt_s)
+          (if
+          (then
+            (loop $inner_loop1
+            (i32.add (local.get $y) (i32.shl (local.get $start) (i32.const 2)))
+            (v128.load (i32.add (local.get $data) (local.get $exp2)))
+
+            (i32x4.splat(local.get $x))
+            (v128.load (i32.add (local.get $indices) (local.get $exp2)))
+            (i32.const 2)
+            (i32x4.shl)
+            (i32x4.add)
+            (local.set $x_index)
+            (f32x4.replace_lane 3
+              (f32x4.replace_lane 2
+                (f32x4.replace_lane 1
+                  (f32x4.replace_lane 0
+                    (f32x4.splat(f32.const 0.0))
+                    (f32.load (i32x4.extract_lane 0 (local.get $x_index)))
+                  )
+                  (f32.load (i32x4.extract_lane 1 (local.get $x_index)))
+                )
+                (f32.load (i32x4.extract_lane 2 (local.get $x_index)))
+              )
+              (f32.load (i32x4.extract_lane 3 (local.get $x_index)))
+            )
+            f32x4.mul
+            (v128.load (i32.add (local.get $y) (i32.shl (local.get $start) (i32.const 2))))
+            f32x4.add
+            (v128.store)
+	    (i32.add (local.get $exp2) (i32.const 16))
+            (local.set $exp2)
+            (local.tee $start (i32.add (local.get $start) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $inner_loop1)
+          )))
+	  
+	  (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+          (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+          (local.get $num_cols)
+          (i32.lt_s)
+          (br_if $outer_loop)
+        )
+	(local.get $start)
+	(local.set $start_row)
+        (br $block_outer_loop)
+      )))
+    )
+
+
+  (func (export "spmv_bell_col_gs_wrapper") (param $id i32) (param $indices i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_cols i32) (param $N i32) (param $x i32) (param $y i32) (param $inside_max i32)
+    (local $i i32)
+    i32.const 0
+    local.set $i
+    (block $break (loop $top
+      (br_if $break (i32.eq (local.get $i) (local.get $inside_max)))
+      local.get $id
+      local.get $indices
+      local.get $data
+      local.get $start_row
+      local.get $end_row
+      local.get $num_cols
+      local.get $N
+      local.get $x
+      local.get $y
+      call $spmv_bell_col_gs
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br $top)
+    ))
+  )
+
+
 
    (func $spmv_ell_col_gs (export "spmv_ell_col_gs") (param $id i32) (param $indices i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_cols i32) (param $N i32) (param $x i32) (param $y i32)
     (local $i i32)

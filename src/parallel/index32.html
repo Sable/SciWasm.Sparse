@@ -9,9 +9,27 @@
       (async () => {
         await sswasm_init(); 
         spmv(function(){
-          var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum, 'ell_sd':ell_sd, 'ell':ell_mflops, 'ell_sum':ell_sum, 'diaII_sd':diaII_sd, 'diaII':diaII_mflops, 'diaII_sum':diaII_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers, 'ellII_sd':ellII_sd, 'ellII':ellII_mflops, 'ellII_sum':ellII_sum});
+          var all_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum, 'ell_sd':ell_sd, 'ell':ell_mflops, 'ell_sum':ell_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+
+          var dia_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'dia_row_sd':dia_row_sd, 'dia_row':dia_row_mflops, 'dia_row_sum':dia_row_sum, 'bdia_row_sd':bdia_row_sd, 'bdia_row':bdia_row_mflops, 'bdia_row_sum':bdia_row_sum, 'dia_nnz_sd':dia_nnz_sd, 'dia_nnz':dia_nnz_mflops, 'dia_nnz_sum':dia_nnz_sum, 'bdia_nnz_sd':bdia_nnz_sd, 'bdia_nnz':bdia_nnz_mflops, 'bdia_nnz_sum':bdia_nnz_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+
+          var ell_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'ell_gs_sd':ell_gs_sd, 'ell_gs':ell_gs_mflops, 'ell_gs_sum':ell_gs_sum, 'bell_gs_sd':bell_gs_sd, 'bell_gs':bell_gs_mflops, 'bell_gs_sum':bell_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+
+          var coo_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+		
+          var csr_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_row_sd':csr_row_sd, 'csr_row':csr_row_mflops, 'csr_row_sum':csr_row_sum, 'csr_row_gs_sd':csr_row_gs_sd, 'csr_row_gs':csr_row_gs_mflops, 'csr_row_gs_sum':csr_row_gs_sum, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+
           var xmlhttp = new XMLHttpRequest();
-          xmlhttp.open("GET", "/result/" + result, false);
+	  if(tests == 'all')
+            xmlhttp.open("GET", "/result/" + all_result, false);
+	  else if(tests == 'dia')
+            xmlhttp.open("GET", "/result/" + dia_result, false);
+	  else if(tests == 'ell')
+            xmlhttp.open("GET", "/result/" + ell_result, false);
+	  else if(tests == 'coo')
+            xmlhttp.open("GET", "/result/" + coo_result, false);
+	  else if(tests == 'csr')
+            xmlhttp.open("GET", "/result/" + csr_result, false);
           xmlhttp.send();
           //window.close()
         });

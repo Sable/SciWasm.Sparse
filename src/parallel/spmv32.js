@@ -177,7 +177,7 @@ function pretty_print_CSR_permutation(A_csr){
 }
 
 
-function pretty_print_DIAII(A_dia){
+function pretty_print_DIA_col(A_dia){
   var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
   var data = new Float32Array(memory.buffer, A_dia.data_index, A_dia.ndiags * A_dia.stride);
 
@@ -225,20 +225,20 @@ function pretty_print_ELL(A_ell){
   }
 }
 
-function pretty_print_ELLII(A_ellII){
-  var indices = new Int32Array(memory.buffer, A_ellII.indices_index, A_ellII.ncols * A_ellII.nrows);
-  var data = new Float32Array(memory.buffer, A_ellII.data_index, A_ellII.ncols * A_ellII.nrows);
+function pretty_print_ELLcol(A_ell){
+  var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.nrows);
+  var data = new Float32Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.nrows);
 
-  console.log("nnz : ", A_ellII.nnz);
-  console.log("nrows : ", A_ellII.nrows);
-  console.log("ncols : ", A_ellII.ncols);
-  console.log("ell_indices_index :", A_ellII.indices_index);
-  console.log("ell_data_index :", A_ellII.data_index);
+  console.log("nnz : ", A_ell.nnz);
+  console.log("nrows : ", A_ell.nrows);
+  console.log("ncols : ", A_ell.ncols);
+  console.log("ell_indices_index :", A_ell.indices_index);
+  console.log("ell_data_index :", A_ell.data_index);
 
-  for(var i = 0; i < A_ellII.ncols; i++){
-    for(var j = 0; j < A_ellII.nrows; j++){
-      if (data[i * A_ellII.nrows + j] > 0)
-        console.log(j, indices[i * A_ellII.nrows + j] , data[i * A_ellII.nrows + j], A_ellII.data_index + 4 * (i * A_ellII.nrows + j));
+  for(var i = 0; i < A_ell.ncols; i++){
+    for(var j = 0; j < A_ell.nrows; j++){
+      if (data[i * A_ell.nrows + j] > 0)
+        console.log(j, indices[i * A_ell.nrows + j] , data[i * A_ell.nrows + j], A_ell.data_index + 4 * (i * A_ell.nrows + j));
     }
   }
 }
@@ -274,20 +274,20 @@ function num_cols(A_csr)
 }
 
 // data array is stored column-wise 
-function csr_ellII(A_csr, A_ellII)
+function csr_ell_col(A_csr, A_ell)
 {
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
 
-  var indices = new Int32Array(memory.buffer, A_ellII.indices_index, A_ellII.ncols * A_ellII.nrows);
-  var data = new Float32Array(memory.buffer, A_ellII.data_index, A_ellII.ncols * A_ellII.nrows);
+  var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.nrows);
+  var data = new Float32Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.nrows);
   indices.fill(0);
   data.fill(0);
 
   var nz = A_csr.nnz; 
   var N = A_csr.nrows;
-  var nc = A_ellII.ncols;
+  var nc = A_ell.ncols;
  
   var i, j, k;
   for(i = 0; i < N; i++){
@@ -404,19 +404,19 @@ function csr_dia(A_csr, A_dia)
 }
 
 // data array is stored column-wise 
-function csr_diaII(A_csr, A_diaII)
+function csr_dia_col(A_csr, A_dia)
 { 
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz);
   
-  var offset = new Int32Array(memory.buffer, A_diaII.offset_index, A_diaII.ndiags);
-  var data = new Float32Array(memory.buffer, A_diaII.data_index, A_diaII.ndiags * A_diaII.stride);
+  var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
+  var data = new Float32Array(memory.buffer, A_dia.data_index, A_dia.ndiags * A_dia.stride);
   data.fill(0);
   
   var nz = A_csr.nnz; 
   var N = A_csr.nrows;
-  var stride = A_diaII.stride;
+  var stride = A_dia.stride;
   
   var ind = new Int32Array(2*N-1);
   var i, j, move;
@@ -1011,6 +1011,68 @@ function sswasm_spmv_coo(A_coo, x_view, y_view, workers)
   });
 }
 
+function static_nnz_dia(A_dia, num_workers, row_start, row_end)
+{
+  var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
+  var ndiags = A_dia.ndiags; 
+  var N = A_dia.nrows;
+
+  var padding = 0, i, j, istart, iend, k;
+  for(i = 0; i< ndiags; i++)
+    padding += Math.abs(offset[i]);
+  console.log(padding);
+  var rem_nnz = (N*ndiags) - padding;
+  console.log(rem_nnz);
+  var rem_nw = num_workers;
+  var ideal_nnz_worker;
+  var index = 0, sum = 0, n;
+
+  var nnz_per_row = new Int32Array(N);
+  // Calculate number of non-zeros in each row
+  for(i = 0; i < ndiags; i++){
+    k = offset[i];
+    istart = (0 < -k) ? -k : 0;
+    iend = (N-1 < N-1-k) ? N-1 : N-1-k;
+    for(n = istart; n <= iend; n++)
+      nnz_per_row[n]++;
+  }
+
+  // For each worker
+  for(i = 0; i < num_workers; i++){
+    // If all the rows have been assigned, and some workers are left
+    if(index == N){
+      row_start[i] = row_end[i] = N-1;
+      continue;
+    }
+    ideal_nnz_worker = Math.floor(rem_nnz/rem_nw);
+    console.log(ideal_nnz_worker)
+    // Assign the row_ptr start
+    row_start[i] = index;
+    sum = 0;
+    for(j = index; j < N; j++){
+      if(sum < ideal_nnz_worker){
+        sum += nnz_per_row[j];
+        index++;
+      }
+      else{
+        // Assign the row_ptr end
+        row_end[i] = index - 1;
+        break;
+      }
+    }
+    // Update the remaining work
+    rem_nnz -= sum;
+    rem_nw--;
+  }
+
+  // Add remaining nnz if any to the last worker
+  row_end[i-1] = N-1;
+  for(i = 0; i < num_workers; i++){
+    console.log(row_start[i], row_end[i]);
+  }
+
+}
+
 
 function static_nnz(A_csr, num_workers, row_start, row_end)
 {
@@ -1036,7 +1098,7 @@ function static_nnz(A_csr, num_workers, row_start, row_end)
       row_start[i] = row_end[i] = N;
       continue;
     }
-    ideal_nnz_worker = rem_nnz/rem_nw;
+    ideal_nnz_worker = Math.floor(rem_nnz/rem_nw);
     // Assign the row_ptr start
     row_start[i] = index;
 	  
@@ -1417,24 +1479,24 @@ function allocate_memory_test(mm_info)
   var stride = result[1];
   //get ELL info
   var nc = num_cols(A_csr);
-  var A_dia, A_diaII, A_ell, A_ellII;
+  var A_dia, A_dia_col, A_ell, A_ell_col;
 
   if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 12)){ 
     A_dia = allocate_DIA(mm_info, nd, stride);
-    A_diaII = allocate_DIA(mm_info, nd, stride);
+    A_dia_col = allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia(A_csr, A_dia);
-    //convert CSR to DIAII
-    csr_diaII(A_csr, A_diaII);
+    //convert CSR to DIA_col
+    csr_dia_col(A_csr, A_dia_col);
   }
 
   if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 12)){
     A_ell = allocate_ELL(mm_info, nc);
-    A_ellII = allocate_ELL(mm_info, nc);
+    A_ell_col = allocate_ELL(mm_info, nc);
     //convert CSR to ELL
     csr_ell(A_csr, A_ell);
-    //convert CSR to ELLII
-    csr_ellII(A_csr, A_ellII);
+    //convert CSR to ELL_col
+    csr_ell_col(A_csr, A_ell_col);
   } 
 
   var x_view = allocate_x(mm_info);
@@ -1443,7 +1505,7 @@ function allocate_memory_test(mm_info)
   var y_view = allocate_y(mm_info);
   clear_y(y_view);
 
-  return [A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, y_view];
+  return [A_coo, A_csr, A_dia, A_ell, A_dia_col, A_ell_col, x_view, y_view];
 }
 
 function free_memory_coo(A_coo)
@@ -1496,7 +1558,7 @@ function free_memory_y(y_view)
     malloc_instance.exports._free(y_view.y_index);
 }
 
-function free_memory_test(A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, y_view)
+function free_memory_test(A_coo, A_csr, A_dia, A_ell, A_dia_col, A_ell_col, x_view, y_view)
 {
   if(typeof A_coo !== 'undefined'){ 
     malloc_instance.exports._free(A_coo.row_index);
@@ -1520,14 +1582,14 @@ function free_memory_test(A_coo, A_csr, A_dia, A_ell, A_diaII, A_ellII, x_view, 
     malloc_instance.exports._free(A_ell.data_index);
   }
 
-  if(typeof A_diaII !== 'undefined'){ 
-    malloc_instance.exports._free(A_diaII.offset_index);
-    malloc_instance.exports._free(A_diaII.data_index);
+  if(typeof A_dia_col !== 'undefined'){ 
+    malloc_instance.exports._free(A_dia_col.offset_index);
+    malloc_instance.exports._free(A_dia_col.data_index);
   }
 
-  if(typeof A_ellII !== 'undefined'){ 
-    malloc_instance.exports._free(A_ellII.indices_index);
-    malloc_instance.exports._free(A_ellII.data_index);
+  if(typeof A_ell_col !== 'undefined'){ 
+    malloc_instance.exports._free(A_ell_col.indices_index);
+    malloc_instance.exports._free(A_ell_col.data_index);
   }
 
   if(typeof x_view !== 'undefined')

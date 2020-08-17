@@ -257,4 +257,18 @@ onmessage = function(e) {
     my_instance.exports.spmv_ell_col_gs_wrapper(id, indices_index, ell_data_index, start, end, num_cols, N, x_index, y_index, inside_max);
     postMessage(id);
   }
+  if(e.data[0] == "bell_col_gs"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let indices_index = e.data[4];
+    let ell_data_index = e.data[5];
+    let num_cols = e.data[6];
+    let N = e.data[7];
+    let x_index = e.data[8];
+    let y_index = e.data[9];
+    let inside_max = e.data[10];
+    my_instance.exports.spmv_bell_col_gs_wrapper(id, indices_index, ell_data_index, start, end, num_cols, N, x_index, y_index, inside_max);
+    postMessage(id);
+  }
 }
