@@ -18,6 +18,16 @@ onmessage = function(e) {
     })(); 
     postMessage(id); 
   }
+  if(e.data[0] == "sum"){
+    assert(id == e.data[1], "Worker IDs don't match."); 
+    let y = e.data[2];
+    let w = e.data[3];
+    let start = e.data[4];
+    let end = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.sum(y, w, start, end, N);
+    postMessage(id);
+  }
   if(e.data[0] == "coo"){
     assert(id == e.data[1], "Worker IDs don't match."); 
     let start = e.data[2];

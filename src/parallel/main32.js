@@ -30,6 +30,8 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
     console.log("vector y is undefined");
     return resolve(-1);
   }
+  var N_per_worker = Math.floor(N/num_workers);
+  var rem_N  = N - N_per_worker * num_workers; 
   var nnz_per_worker = Math.floor(anz/num_workers);
   var rem = anz - nnz_per_worker * num_workers;
   var t1, t2, tt = 0.0;
@@ -37,6 +39,7 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
   function runCOO(){
     console.log("unvectorized COO");
     pending_workers = num_workers;
+    do_sum = -1;
     clear_y(y_view);
     clear_w_y(A_coo);
     t1 = Date.now();
@@ -45,12 +48,13 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
         workers.worker[i].postMessage(["coo", i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, inner_max]);
       else
         workers.worker[i].postMessage(["coo", i, i * nnz_per_worker, (i+1) * nnz_per_worker, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, inner_max]);
-      workers.worker[i].onmessage = storeCOO;
+      workers.worker[i].onmessage = sumCOO;
     }
   }
   function runCOO_gs(){
     console.log("gather/scatter vectorized COO");
     pending_workers = num_workers;
+    do_sum = -1;
     clear_y(y_view);
     clear_w_y(A_coo);
     t1 = Date.now();
@@ -59,15 +63,34 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
         workers.worker[i].postMessage(["coo_gs", i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, inner_max]);
       else
         workers.worker[i].postMessage(["coo_gs", i, i * nnz_per_worker, (i+1) * nnz_per_worker, A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, A_coo.w_y_view[i].y_index, inner_max]);
-      workers.worker[i].onmessage = storeCOO;
+      workers.worker[i].onmessage = sumCOO;
     }
   }
 
-  function storeCOO(event){
+  function sumCOO(event){
     pending_workers -= 1;
     if(pending_workers <= 0){
-      for(var i = 0; i < num_workers; i++)
-        sparse_instance.exports.sum(y_view.y_index, A_coo.w_y_view[i].y_index, N);
+      pending_workers = num_workers;
+      do_sum++;
+      for(var i = 0; i < num_workers; i++){
+	if(i == num_workers - 1)
+          workers.worker[i].postMessage(["sum", i, y_view.y_index, A_coo.w_y_view[do_sum].y_index, i * N_per_worker, (i+1) * N_per_worker + rem_N, N]);
+	else
+          workers.worker[i].postMessage(["sum", i, y_view.y_index, A_coo.w_y_view[do_sum].y_index, i * N_per_worker, (i+1) * N_per_worker, N]);
+	if(do_sum == num_workers - 1)
+          workers.worker[i].onmessage = storeCOO;
+	else
+          workers.worker[i].onmessage = sumCOO;
+
+      }
+    }
+  }
+
+  function storeCOO(){
+    pending_workers -= 1;
+    if(pending_workers <= 0){
+      //for(var i = 0; i < num_workers; i++)
+        //sparse_instance.exports.sum(y_view.y_index, A_coo.w_y_view[i].y_index, N);
       t2 = Date.now();
       //console.log(1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000));
       if(t >= 10){
@@ -1055,16 +1078,20 @@ function spmv_ell_test(files, callback)
   clear_y(y_view);
 
   // ell col
-  var ell_gs_promise = ell_col_test(A_ell, x_view, y_view, workers, 1, 0);
-  ell_gs_promise.then(ell_gs_value => {
-    // ell col gather/scatter partitioning
+  var ell_promise = ell_col_test(A_ell, x_view, y_view, workers, 0, 0);
+  ell_promise.then(ell_value => {
+    // ell col gather/scatter
+    var ell_gs_promise = ell_col_test(A_ell, x_view, y_view, workers, 1, 0);
+    ell_gs_promise.then(ell_gs_value => {
+    // ell col gather/scatter + loop blocking
     var bell_gs_promise = ell_col_test(A_ell, x_view, y_view, workers, 1, 1);
-    bell_gs_promise.then(bell_gs_value => {
-      free_memory_ell(A_ell);
-      free_memory_x(x_view);
-      free_memory_y(y_view);
-      console.log("done");
-      callback();
+      bell_gs_promise.then(bell_gs_value => {
+        free_memory_ell(A_ell);
+        free_memory_x(x_view);
+        free_memory_y(y_view);
+        console.log("done");
+        callback();
+      });
     });
   });
 }
