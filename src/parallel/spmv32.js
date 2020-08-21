@@ -761,8 +761,6 @@ function find_next_row(index, visited, nlines, jaccard, nindex, last_used, csr_r
       //dissim_temp = nlines[index] + nlines[i] - (2 * alines_temp);
       dissim_temp = nlines[index] + nlines[i] - (alines_temp);
       jaccard_temp = alines_temp/dissim_temp;
-      //if(jaccard_temp == 0)
-        //continue;
       //console.log(jaccard_temp);
       //assign_w_min_elems(alines, dissim, nindex, i, dissim_temp, alines_temp, w);
       assign_w_min_elems(jaccard, nindex, i, jaccard_temp, w);
@@ -819,6 +817,81 @@ function print_nnz_per_worker(A_csr, nworkers)
   console.log((100 * (csr_row[((i+1)*N_per_worker) + rem_N ] - csr_row[i*N_per_worker]))/ideal_work);
 }
 
+function reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permutation, w)
+{
+  var index = start, values, i, j, max, next, pos = start, nnb = 0, count = 0;
+  // size of the subset
+  var size = end - start;
+  var windexes = new Int32Array(w);
+  var tot_num_lines = Math.floor(N/16)+1;
+  console.log("total number of cache lines : ", tot_num_lines);
+  var cache_lines_used = new Int32Array(tot_num_lines);
+  cache_lines_used.fill(-1);
+  //var alines = new Array(w);
+  //var dissim = new Array(w);
+  var jaccard = new Array(w);
+  var nindex = new Array(w);
+  for(i = 0; i < w; i++){
+    //alines[i] = new Int32Array(w);
+    //dissim[i] = new Int32Array(w);
+    jaccard[i] = new Float32Array(w);
+    nindex[i] = new Int32Array(w);
+  }
+
+  console.log("loop start");
+  while(index != N){
+    //console.log(index);
+    // for new neighbour, set visited = 3
+    visited[index] = 3;
+    // assign the new neighbour in the set of w nearest neigbours
+    windexes[count++] = index;
+    if(nnb < w)
+      nnb++;
+    if(count == w)
+      count = 0;
+    // set the permutation and the pos
+    permutation[pos++] = index;
+    //console.log(pos-1, index);
+    // set min to N
+    //min = N;
+    // set next to N
+    next = N;
+    //set max to 0
+    max = 0;
+    //console.log(index, count, nnb);
+    for(i = 0; i < nnb; i++){
+      // not needed anymore : reset the new neighbour info to visted row info for all other neighbours (so that this node can't be chosen again) 
+      //dissim[i][index] = -1;
+      //alines[i][index] = 0;
+      //values = find_next_row(windexes[i], visited, nlines, alines[i], dissim[i], nindex[i], last_used, csr_row, csr_col, N, w);
+      values = find_next_row(windexes[i], visited, nlines, jaccard[i], nindex[i], cache_lines_used, csr_row, csr_col, N, w);
+      /*if(min >= values[1]){
+	if(min == values[1] && max >= values[2])
+	  continue;
+	next = values[0];
+        min = values[1];
+	max = values[2];*/
+	// values[0] == N for the last nearest neighbour will end the outer loop
+        if(max <= values[1] && values[0] != N){
+	  max = values[1];
+	  next = values[0]; 
+	}
+      //}
+    }
+    index = next;
+  }
+  console.log("loop end");
+
+  console.log("set empty rows on the permutation vector");
+  // set empty rows on the permutation vector
+  for(i = 0; i < N; i++){
+    if(visited[i] == 2){ 
+      permutation[pos++] = i;
+    }
+  }
+
+}
+
 
 function reorder_NN(A_csr, w)
 {
@@ -845,29 +918,11 @@ function reorder_NN(A_csr, w)
   csr_col_new.fill(0);
   csr_val_new.fill(0);
 
-  var index = 0, i, j, min, max, next, pos = 0, nnb = 0, count = 0;
-  var values;
-  var windexes = new Int32Array(w);
+  var index = 0, i, j;
   var nlines = new Int32Array(N);
   nlines.fill(0);
   var visited = new Int32Array(N);
   visited.fill(0);
-  var tot_num_lines = Math.floor(N/16)+1;
-  console.log("total number of cache lines : ", tot_num_lines);
-  var last_used = new Int32Array(tot_num_lines);
-  last_used.fill(-1);
-  //var alines = new Array(w);
-  //var dissim = new Array(w);
-  var jaccard = new Array(w);
-  var nindex = new Array(w);
-  for(i = 0; i < w; i++){
-    //alines[i] = new Int32Array(w);
-    //dissim[i] = new Int32Array(w);
-    jaccard[i] = new Float32Array(w);
-    nindex[i] = new Int32Array(w);
-  }
-  //var last_used2 = new Int32Array(tot_num_lines);
-  //last_used2.fill(-1);
 
   // calculate nnz per row and set empty rows as visited
   console.log("calculate nnz per row and set empty rows as visited");
@@ -884,14 +939,10 @@ function reorder_NN(A_csr, w)
   for(i = 0; i < N; i++){
     if(visited[i] != 0)
       continue;
-    //last_used.fill(-1);
     j = csr_row[i];
     while(j < csr_row[i+1]){
       nlines[i]++;
       j++;
-      //if(last_used[Math.floor(csr_col[j]/16)] == -1){
-        //last_used[Math.floor(csr_col[j]/16)] = i;
-	
       // checks if next column index belongs to the same cache line, and if the next column belongs to current row
       while(j < csr_row[i+1] && (Math.floor(csr_col[j-1]/16) == Math.floor(csr_col[j]/16))){ 
         j++;
@@ -905,60 +956,11 @@ function reorder_NN(A_csr, w)
   while(visited[index] != 0){
     index++;
   }	  
+  
+  start = index;
+  end = N;
+  reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permutation, w);
 
-  console.log("loop start");
-  while(index != N){
-    //console.log(index);
-    // for new neighbour, set vistited = 3
-    visited[index] = 3;
-    // assign the new neighbour in the set of w nearest neigbours
-    windexes[count++] = index;
-    if(nnb < w)
-      nnb++;
-    if(count == w)
-      count = 0;
-    // set the permutation and the pos
-    permutation[pos++] = index;
-    //console.log(pos-1, index);
-    // set min to N
-    //min = N;
-    // set next to N
-    next = N;
-    //set max to 0
-    max = 0;
-    //console.log(index, count, nnb);
-    for(i = 0; i < nnb; i++){
-      // not needed anymore : reset the new neighbour info to visted row info for all other neighbours (so that this node can't be chosen again) 
-      //dissim[i][index] = -1;
-      //alines[i][index] = 0;
-      //values = find_next_row(windexes[i], visited, nlines, alines[i], dissim[i], nindex[i], last_used, csr_row, csr_col, N, w);
-      values = find_next_row(windexes[i], visited, nlines, jaccard[i], nindex[i], last_used, csr_row, csr_col, N, w);
-      /*if(min >= values[1]){
-	if(min == values[1] && max >= values[2])
-	  continue;
-	next = values[0];
-        min = values[1];
-	max = values[2];*/
-        if(max <= values[1]){
-	  max = values[1];
-	  next = values[0]; 
-	}
-      //}
-    }
-    index = next;
-  }
-  console.log("loop end");
-
-  console.log("set empty rows on the permutation vector");
-  // set empty rows on the permutation vector
-  for(i = 0; i < N; i++){
-    if(visited[i] == 2){ 
-      //console.log("Zero");
-      permutation[pos++] = i;
-    }
-    //if(visited == 0)
-      //console.log(i);
-  }
 
   pretty_print_CSR_permutation(A_csr_new);
 
@@ -967,10 +969,13 @@ function reorder_NN(A_csr, w)
   console.log("calculate new CSR")
   var temp, k;
   j = 0;
+  var sum = new Int32Array(N);
+  sum.fill(0);
   csr_row_new[0] = 0;
   for(i = 0; i < N; i++){
    //console.log(i, permutation[i]);
    k = csr_row[permutation[i]];
+   sum[permutation[i]]++;
    temp = nnz_per_row[permutation[i]];
    //console.log(i, temp);
    csr_row_new[i+1] = csr_row_new[i] + temp;
@@ -982,6 +987,12 @@ function reorder_NN(A_csr, w)
      temp--;
    }
   }
+ 
+  for(i = 0; i < N; i++){
+    if(sum[i] != 1)
+      console.log(i, sum[i]);
+  }
+  
   //pretty_print_CSR(A_csr_new);
   return A_csr_new;
 }
