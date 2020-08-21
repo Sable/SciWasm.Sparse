@@ -15,9 +15,9 @@
 
           var ell_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'ell_col_sd':ell_col_sd, 'ell_col':ell_col_mflops, 'ell_col_sum':ell_col_sum, 'ell_gs_sd':ell_gs_sd, 'ell_gs':ell_gs_mflops, 'ell_gs_sum':ell_gs_sum, 'bell_gs_sd':bell_gs_sd, 'bell_gs':bell_gs_mflops, 'bell_gs_sum':bell_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
 
-          var coo_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+          var coo_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_nnz_sd':coo_nnz_sd, 'coo_nnz':coo_nnz_mflops, 'coo_nnz_sum':coo_nnz_sum, 'coo_gs_sd':coo_gs_sd, 'coo_gs':coo_gs_mflops, 'coo_gs_sum':coo_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
 		
-          var csr_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_row_sd':csr_row_sd, 'csr_row':csr_row_mflops, 'csr_row_sum':csr_row_sum, 'csr_row_gs_sd':csr_row_gs_sd, 'csr_row_gs':csr_row_gs_mflops, 'csr_row_gs_sum':csr_row_gs_sum, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+          var csr_nnz_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'csr_nnz_sorted_sd':csr_nnz_sorted_sd, 'csr_nnz_sorted':csr_nnz_sorted_mflops, 'csr_nnz_sorted_sum':csr_nnz_sorted_sum, 'csr_nnz_gs_sorted_sd':csr_nnz_gs_sorted_sd, 'csr_nnz_gs_sorted':csr_nnz_gs_sorted_mflops, 'csr_nnz_gs_sorted_sum':csr_nnz_gs_sorted_sum, 'csr_nnz_short_sd':csr_nnz_short_sd, 'csr_nnz_short':csr_nnz_short_mflops, 'csr_nnz_short_sum':csr_nnz_short_sum, 'csr_nnz_gs_short_sd':csr_nnz_gs_short_sd, 'csr_nnz_gs_short':csr_nnz_gs_short_mflops, 'csr_nnz_gs_short_sum':csr_nnz_gs_short_sum, 'csr_nnz_unroll2_sd':csr_nnz_unroll2_sd, 'csr_nnz_unroll2':csr_nnz_unroll2_mflops, 'csr_nnz_unroll2_sum':csr_nnz_unroll2_sum, 'csr_nnz_unroll3_sd':csr_nnz_unroll3_sd, 'csr_nnz_unroll3':csr_nnz_unroll3_mflops, 'csr_nnz_unroll3_sum':csr_nnz_unroll3_sum, 'csr_nnz_unroll4_sd':csr_nnz_unroll4_sd, 'csr_nnz_unroll4':csr_nnz_unroll4_mflops, 'csr_nnz_unroll4_sum':csr_nnz_unroll4_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
 
           var xmlhttp = new XMLHttpRequest();
 	  if(tests == 'all')
@@ -28,8 +28,8 @@
             xmlhttp.open("GET", "/result/" + ell_result, false);
 	  else if(tests == 'coo')
             xmlhttp.open("GET", "/result/" + coo_result, false);
-	  else if(tests == 'csr')
-            xmlhttp.open("GET", "/result/" + csr_result, false);
+	  else if(tests == 'csr_nnz')
+            xmlhttp.open("GET", "/result/" + csr_nnz_result, false);
           xmlhttp.send();
           //window.close()
         });

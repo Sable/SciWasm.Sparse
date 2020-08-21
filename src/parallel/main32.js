@@ -3,15 +3,17 @@ var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
 var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var variance;
-var csr_row_mflops = -1, csr_row_gs_mflops = -1, csr_nnz_mflops = -1, csr_nnz_gs_mflops = -1;
-var csr_row_sum = -1, csr_row_gs_sum = -1, csr_nnz_sum = -1, csr_nnz_gs_sum = -1;
-var csr_row_sd = -1, csr_row_gs_sd = -1, csr_nnz_sd = -1, csr_nnz_gs_sd = -1;
+var csr_row_mflops = -1, csr_row_gs_mflops = -1, csr_nnz_mflops = -1, csr_nnz_gs_mflops = -1, csr_nnz_sorted_mflops = -1, csr_nnz_gs_sorted_mflops = -1, csr_nnz_short_mflops = -1, csr_nnz_gs_short_mflops = -1, csr_nnz_unroll2_mflops = -1, csr_nnz_unroll3_mflops = -1, csr_nnz_unroll4_mflops = -1, csr_nnz_unroll6_mflops = -1;
+var csr_row_sum = -1, csr_row_gs_sum = -1, csr_nnz_sum = -1, csr_nnz_gs_sum = -1, csr_nnz_sorted_sum = -1, csr_nnz_gs_sorted_sum = -1, csr_nnz_short_sum = -1, csr_nnz_gs_short_sum = -1, csr_nnz_unroll2_sum = -1, csr_nnz_unroll3_sum = -1, csr_nnz_unroll4_sum = -1, csr_nnz_unroll6_sum = -1;
+var csr_row_sd = -1, csr_row_gs_sd = -1, csr_nnz_sd = -1, csr_nnz_gs_sd = -1, csr_nnz_sorted_sd = -1, csr_nnz_gs_sorted_sd = -1, csr_nnz_short_sd = -1, csr_nnz_gs_short_sd = -1, csr_nnz_unroll2_sd = -1, csr_nnz_unroll3_sd = -1, csr_nnz_unroll4_sd = -1, csr_nnz_unroll6_sd = -1;
 var dia_row_mflops = -1, bdia_row_mflops = -1, dia_nnz_mflops = -1, bdia_nnz_mflops = -1;
 var dia_row_sum = -1, bdia_row_sum = -1, dia_nnz_sum = -1, bdia_nnz_sum = -1;
 var dia_row_sd = -1, bdia_row_sd = -1, dia_nnz_sd = -1, bdia_nnz_sd = -1;
 var ell_col_sum = -1, ell_col_sd = -1, ell_col_mflops = -1;
 var ell_gs_sum = -1, ell_gs_sd = -1, ell_gs_mflops = -1;
 var bell_gs_sum = -1, bell_gs_sd = -1, bell_gs_mflops = -1;
+var coo_gs_sum = -1, coo_gs_sd = -1, coo_gs_mflops = -1;
+var coo_nnz_sum = -1, coo_nnz_sd = -1, coo_nnz_mflops = -1;
 
 function coo_test(A_coo, x_view, y_view, workers, gs)
 {
@@ -113,9 +115,19 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
         variance /= outer_max;
         coo_sd = Math.sqrt(variance);
         coo_sum = fletcher_sum_y(y_view);
-        pretty_print_y(y_view);
-        pretty_print_COO(A_coo);
-        pretty_print_x(x_view);
+	if(gs == 0){
+	  coo_nnz_sd = coo_sd;
+	  coo_nnz_mflops = coo_mflops;
+	  coo_nnz_sum = coo_sum;
+	}
+	else if(gs == 1){
+	  coo_gs_sd = coo_sd;
+	  coo_gs_mflops = coo_mflops;
+	  coo_gs_sum = coo_sum;
+	}
+        //pretty_print_y(y_view);
+        //pretty_print_COO(A_coo);
+        //pretty_print_x(x_view);
         console.log('coo sum is ', coo_sum);
         console.log('coo mflops is ', coo_mflops);
         console.log("Returned to main thread");
@@ -130,8 +142,9 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
   });
 }
 
-function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs)
+function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs, sorted, short_rows)
 {
+  // prereq : provide sorted A_csr input argument if sorted or short == 1
   console.log("csr nnz")
   return new Promise(function(resolve){
     console.log("CSR");
@@ -151,18 +164,45 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs)
 
     var t1, t2, tt = 0.0;
     var t = 0;
-    var row_start = new Int32Array(num_workers);
-    var row_end = new Int32Array(num_workers);
-
-    static_nnz(A_csr, num_workers, row_start, row_end);
+    var row_start, row_end, one_row, two_row, three_row, four_row;
+    
+    if(short_rows == 1){
+      console.log("short rows");
+      row_start = new Int32Array(num_workers);
+      row_end = new Int32Array(num_workers);
+      one_row = new Int32Array(num_workers);
+      two_row = new Int32Array(num_workers);
+      three_row = new Int32Array(num_workers);
+      four_row = new Int32Array(num_workers);
+      // distribute almost equal number of nnzs to each worker & calculate number of rows with short length : 0, 1, 2, 3  
+      static_nnz_special_codes(A_csr, num_workers, row_start, row_end, one_row, two_row, three_row, four_row);
+    }
+    else{
+      row_start = new Int32Array(num_workers);
+      row_end = new Int32Array(num_workers);
+      static_nnz(A_csr, num_workers, row_start, row_end);
+      console.log("distribution done");
+    }
 
     // CSR run for reorder format with static nnz partitioning  
     function runCSR(){
+      console.log("nnz");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         workers.worker[i].postMessage(["csr", i, row_start[i], row_end[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    function runCSR_short(){
+      console.log("nnz short");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage(["csr_sorted_short_rows", i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
@@ -178,6 +218,17 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs)
       }
     }
 
+    function runCSR_gs_short(){
+      console.log("Gather Scatter nnz short");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage(["csr_gs_short", i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
     function storeCSR(event){
       pending_workers -= 1;
       if(pending_workers <= 0){
@@ -188,10 +239,14 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs)
         }
         t++;
         if(t < (outer_max + 10)){
-          if(gs == 0) 
+          if(gs == 0 && short_rows == 0) 
 	    runCSR();
-	  else if(gs == 1) 
+	  else if(gs == 1 && short_rows == 0) 
 	    runCSR_gs();
+          else if(gs == 0 && short_rows == 1) 
+            runCSR_short();
+          else if(gs == 1 && short_rows == 1) 
+            runCSR_gs_short();
 	}
         else{
           tt = tt/1000;
@@ -201,28 +256,54 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
           variance /= outer_max;
           csr_sd = Math.sqrt(variance);
+	  if(sorted == 1 || short_rows == 1)
+            sort_y_rows_by_nnz(y_view, A_csr);
           csr_sum = fletcher_sum_y(y_view);
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
-	  if(gs == 0){
+	  if(gs == 0 && sorted == 0 && short_rows == 0){
 	    csr_nnz_mflops = csr_mflops;
 	    csr_nnz_sum = csr_sum;
 	    csr_nnz_sd = csr_sd;
 	  }
-          else if(gs == 1){
+	  else if(gs == 0 && sorted == 1 && short_rows == 0){
+	    csr_nnz_sorted_mflops = csr_mflops;
+	    csr_nnz_sorted_sum = csr_sum;
+	    csr_nnz_sorted_sd = csr_sd;
+	  }
+	  if(gs == 0 && sorted == 0 && short_rows == 1){
+	    csr_nnz_short_mflops = csr_mflops;
+	    csr_nnz_short_sum = csr_sum;
+	    csr_nnz_short_sd = csr_sd;
+	  }
+          else if(gs == 1 && sorted == 0 && short_rows == 0){
 	    csr_nnz_gs_mflops = csr_mflops;
 	    csr_nnz_gs_sum = csr_sum;
 	    csr_nnz_gs_sd = csr_sd;
+          }
+          else if(gs == 1 && sorted == 1 && short_rows == 0){
+	    csr_nnz_gs_sorted_mflops = csr_mflops;
+	    csr_nnz_gs_sorted_sum = csr_sum;
+	    csr_nnz_gs_sorted_sd = csr_sd;
+          }
+          else if(gs == 1 && sorted == 0 && short_rows == 1){
+	    csr_nnz_gs_short_mflops = csr_mflops;
+	    csr_nnz_gs_short_sum = csr_sum;
+	    csr_nnz_gs_short_sd = csr_sd;
           }
           console.log("Returned to main thread");
           return resolve(0);
         }
       }
     }
-    if(gs == 0) 
+    if(gs == 0 && short_rows == 0) 
       runCSR();
-    else if(gs == 1) 
+    else if(gs == 1 && short_rows == 0) 
       runCSR_gs();
+    else if(gs == 0 && short_rows == 1) 
+      runCSR_short();
+    else if(gs == 1 && short_rows == 1) 
+      runCSR_gs_short();
   });
 }
 
@@ -407,8 +488,9 @@ function csr_test(A_csr, x_view, y_view, workers, gs)
   });
 }
 
-function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unroll_factor, short_rows)
+function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unroll_factor)
 {
+  // prereq : provide sorted A_csr input argument if sorted or short == 1
   return new Promise(function(resolve){
     console.log("CSR static nnz");
     if(typeof A_csr === "undefined"){
@@ -442,18 +524,6 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
         workers.worker[i].postMessage(["csr", i, row_start[i], row_end[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
-        workers.worker[i].onmessage = storeCSR;
-      }
-    }
-
-    // CSR run for sorted format with special codes for short rows and static nnz partitioning
-    function run_short_rows_CSR(){
-      console.log("short rows CSR run");
-      pending_workers = num_workers;
-      clear_y(y_view);
-      t1 = Date.now();
-      for(var i = 0; i < num_workers; i++){
-        workers.worker[i].postMessage(["csr_sorted_short_rows", i, row_start[i], row_end[i], one_row[i], two_row[i], three_row[i], four_row[i], A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
@@ -516,10 +586,8 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
         }
         t++;
         if(t < (outer_max + 10)){
-          if(unroll_factor == 1 && short_rows == 0)
+          if(unroll_factor == 1)
             runCSR();
-	  else if(unroll_factor == 1 && short_rows == 1)
-            run_short_rows_CSR();
 	  else if(unroll_factor == 2) 
             run_unrolled2_CSR();
 	  else if(unroll_factor == 3) 
@@ -539,17 +607,26 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
           csr_sd = Math.sqrt(variance);
           sort_y_rows_by_nnz(y_view, A_csr);
           csr_sum = fletcher_sum_y(y_view);
-          pretty_print_y(y_view);
-	  if(short_rows == 0){
-            csr_nnz_mflops = csr_mflops;
-            csr_nnz_sum = csr_sum;
-            csr_nnz_sd = csr_sd;
-          }
-	  if(short_rows == 1){
-            csr_nnz_gs_mflops = csr_mflops;
-            csr_nnz_gs_sum = csr_sum;
-            csr_nnz_gs_sd = csr_sd;
-          }
+	  if(unroll_factor == 2){
+	    csr_nnz_unroll2_sd = csr_sd;
+	    csr_nnz_unroll2_mflops = csr_mflops;
+	    csr_nnz_unroll2_sum = csr_sum;
+	  }
+	  if(unroll_factor == 3){
+	    csr_nnz_unroll3_sd = csr_sd;
+	    csr_nnz_unroll3_mflops = csr_mflops;
+	    csr_nnz_unroll3_sum = csr_sum;
+	  }
+	  if(unroll_factor == 4){
+	    csr_nnz_unroll4_sd = csr_sd;
+	    csr_nnz_unroll4_mflops = csr_mflops;
+	    csr_nnz_unroll4_sum = csr_sum;
+	  }
+	  if(unroll_factor == 6){
+	    csr_nnz_unroll6_sd = csr_sd;
+	    csr_nnz_unroll6_mflops = csr_mflops;
+	    csr_nnz_unroll6_sum = csr_sum;
+	  }
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
           console.log("Returned to main thread");
@@ -557,10 +634,8 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
         }
       }
     }
-    if(unroll_factor == 1 && short_rows == 0)
+    if(unroll_factor == 1)
       runCSR();
-    else if(unroll_factor == 1 && short_rows == 1)
-      run_short_rows_CSR();
     else if(unroll_factor == 2) 
       run_unrolled2_CSR();
     else if(unroll_factor == 3) 
@@ -1042,6 +1117,40 @@ function ell_col_test(A_ell, x_view, y_view, workers, gs, blocked)
   });
 }
 
+function spmv_coo_test(files, callback)
+{
+  console.log("inside coo test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, x_view, y_view;
+
+  console.log("memory allocated");
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  var coo_promise = coo_test(A_coo, x_view, y_view, workers, 0);
+  coo_promise.then(coo_value => {
+    var coo_gs_promise = coo_test(A_coo, x_view, y_view, workers, 1);
+    coo_gs_promise.then(coo_gs_value => {
+      free_memory_coo(A_coo);
+      free_memory_x(x_view);
+      free_memory_y(y_view);
+      console.log("done");
+      callback();
+    });
+  });
+}
+
+
 function spmv_ell_test(files, callback)
 {
   console.log("inside ell test");
@@ -1157,7 +1266,81 @@ function spmv_dia_test(files, callback)
   });
 }
 
-function spmv_csr_test(files, callback)
+function spmv_csr_nnz_test(files, callback)
+{
+  console.log("inside csr nnz test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, A_csr, A_csr_sorted, x_view, y_view;
+  console.log("memory allocated");
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  free_memory_coo(A_coo);
+  console.log("CSR allocated");
+
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+      
+  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0);
+  csr_nnz_promise.then(csr_nnz_value => {
+    // CSR nnz gather/scatter
+    var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0);
+    csr_nnz_gs_promise.then(csr_nnz_gs_value => {
+      free_memory_x(x_view);
+      free_memory_y(y_view);
+      // sort CSR format by nnz per row
+      A_csr_sorted = sort_rows_by_nnz(A_csr);
+      free_memory_csr(A_csr);
+      x_view = allocate_x(mm_info);
+      init_x(x_view);
+      y_view = allocate_y(mm_info);
+      clear_y(y_view);
+      var csr_nnz_sorted_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 0, 1, 0);
+      csr_nnz_sorted_promise.then(csr_nnz_sorted_value => {
+        var csr_nnz_gs_sorted_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 1, 0);
+        csr_nnz_gs_sorted_promise.then(csr_nnz_gs_sorted_value => {
+          var csr_nnz_short_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 0, 0, 1);
+          csr_nnz_short_promise.then(csr_nnz_short_value => {
+            // CSR nnz gather/scatter short
+            var csr_nnz_gs_short_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 0, 1);
+            csr_nnz_gs_short_promise.then(csr_nnz_gs_short_value => {
+	      var csr_nnz_unroll2_promise = static_nnz_sorted_unrolled_csr_test(A_csr_sorted, x_view, y_view, workers, 2);
+              csr_nnz_unroll2_promise.then(csr_nnz_unroll2_value => {
+	        var csr_nnz_unroll3_promise = static_nnz_sorted_unrolled_csr_test(A_csr_sorted, x_view, y_view, workers, 3);
+                csr_nnz_unroll3_promise.then(csr_nnz_unroll3_value => {
+	          var csr_nnz_unroll4_promise = static_nnz_sorted_unrolled_csr_test(A_csr_sorted, x_view, y_view, workers, 4);
+                  csr_nnz_unroll4_promise.then(csr_nnz_unroll4_value => {
+                    free_memory_csr(A_csr_sorted);
+                    free_memory_x(x_view);
+                    free_memory_y(y_view);
+                    console.log("done");
+                    callback();
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+
+
+function spmv_csr_row_test(files, callback)
 {
   console.log("inside csr test");
   var mm_info = new sswasm_MM_info();
@@ -1210,10 +1393,10 @@ function spmv_csr_test(files, callback)
     var csr_row_gs_promise = csr_test(A_csr, x_view, y_view, workers, 1);
     csr_row_gs_promise.then(csr_row_gs_value => {
       // CSR nnz
-      var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0);
+      var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0);
       csr_nnz_promise.then(csr_nnz_value => {
         // CSR nnz gather/scatter
-        var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1);
+        var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0);
         csr_nnz_gs_promise.then(csr_nnz_gs_value => {
           free_memory_csr(A_csr);
           free_memory_x(x_view);
@@ -1304,8 +1487,12 @@ function spmv(callback)
       spmv_dia_test(files, callback)
     else if(tests == 'ell')
       spmv_ell_test(files, callback)
-    else if(tests == 'csr')
-      spmv_csr_test(files, callback)
+    else if(tests == 'csr_nnz')
+      spmv_csr_nnz_test(files, callback)
+    else if(tests == 'csr_row')
+      spmv_csr_row_test(files, callback)
+    else if(tests == 'coo')
+      spmv_coo_test(files, callback)
   },
   error => callback()
   ); 
