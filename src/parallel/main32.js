@@ -325,13 +325,13 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
       console.log("vector y is undefined");
       return resolve(-1);
     }
-    console.log(calculate_csr_locality_index(A_csr_original));
+    //console.log(calculate_csr_locality_index(A_csr_original));
     // sort CSR format by nnz per row
-    var A_csr_sorted = sort_rows_by_nnz(A_csr_original);
-    console.log(calculate_csr_locality_index(A_csr_sorted));
-    console.log("CSR sorted");
+    //var A_csr_sorted = sort_rows_by_nnz(A_csr_original);
+    //console.log("CSR sorted");
+    console.log(calculate_csr_locality_index(A_csr_original));
     console.log("reordering A_csr");
-    var A_csr = reorder_NN(A_csr_sorted, 16);
+    var A_csr = reorder_NN(A_csr_original, 16);
     console.log("reordered A_csr");
     console.log(calculate_csr_locality_index(A_csr));
 
@@ -344,6 +344,7 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
 
     // CSR run for reorder format with static nnz partitioning  
     function runCSR(){
+      console.log("csr reorder locality");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
@@ -372,8 +373,9 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
           variance /= outer_max;
           csr_sd = Math.sqrt(variance);
+	  console.log("sorting");
           sort_y_rows_by_nnz(y_view, A_csr);
-          sort_y_rows_by_nnz(y_view, A_csr_sorted);
+          //sort_y_rows_by_nnz(y_view, A_csr_sorted);
           csr_sum = fletcher_sum_y(y_view);
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
@@ -1266,6 +1268,44 @@ function spmv_dia_test(files, callback)
   });
 }
 
+function spmv_csr_s_test(files, callback)
+{
+  console.log("inside csr nnz test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, A_csr, x_view, y_view;
+  console.log("memory allocated");
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  free_memory_coo(A_coo);
+  console.log("CSR allocated");
+
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0);
+  csr_nnz_promise.then(csr_nnz_value => {
+    free_memory_csr(A_csr);
+    free_memory_x(x_view);
+    free_memory_y(y_view);
+    console.log("done");
+    callback();
+  });
+}
+
+
 function spmv_csr_nnz_test(files, callback)
 {
   console.log("inside csr nnz test");
@@ -1437,7 +1477,8 @@ function spmv_all_test(files, callback)
     free_memory_coo(A_coo);
     console.log("CSR allocated");
 
-    var csr_promise = csr_test(A_csr, x_view, y_view, workers, 0);
+    //var csr_promise = csr_test(A_csr, x_view, y_view, workers, 0);
+    var csr_promise = static_nnz_reorder_csr_test(A_csr, x_view, y_view, workers);
     csr_promise.then(csr_value => {
       //get DIA info
       var result = num_diags(A_csr);
@@ -1493,6 +1534,8 @@ function spmv(callback)
       spmv_csr_row_test(files, callback)
     else if(tests == 'coo')
       spmv_coo_test(files, callback)
+    else if(tests == 'csr_s')
+      spmv_csr_s_test(files, callback)
   },
   error => callback()
   ); 

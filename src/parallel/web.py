@@ -171,6 +171,13 @@ def result(json_string):
     f.write(",")
     f.write(str(parsed_json['ell_sum']))
 
+  if tests == 'csr_s':
+    f.write(str(parsed_json['csr_nnz_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_sum']))
+
   f.write("\n")
   f.close()
   if browser == 0:

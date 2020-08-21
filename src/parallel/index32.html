@@ -19,6 +19,8 @@
 		
           var csr_nnz_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'csr_nnz_sorted_sd':csr_nnz_sorted_sd, 'csr_nnz_sorted':csr_nnz_sorted_mflops, 'csr_nnz_sorted_sum':csr_nnz_sorted_sum, 'csr_nnz_gs_sorted_sd':csr_nnz_gs_sorted_sd, 'csr_nnz_gs_sorted':csr_nnz_gs_sorted_mflops, 'csr_nnz_gs_sorted_sum':csr_nnz_gs_sorted_sum, 'csr_nnz_short_sd':csr_nnz_short_sd, 'csr_nnz_short':csr_nnz_short_mflops, 'csr_nnz_short_sum':csr_nnz_short_sum, 'csr_nnz_gs_short_sd':csr_nnz_gs_short_sd, 'csr_nnz_gs_short':csr_nnz_gs_short_mflops, 'csr_nnz_gs_short_sum':csr_nnz_gs_short_sum, 'csr_nnz_unroll2_sd':csr_nnz_unroll2_sd, 'csr_nnz_unroll2':csr_nnz_unroll2_mflops, 'csr_nnz_unroll2_sum':csr_nnz_unroll2_sum, 'csr_nnz_unroll3_sd':csr_nnz_unroll3_sd, 'csr_nnz_unroll3':csr_nnz_unroll3_mflops, 'csr_nnz_unroll3_sum':csr_nnz_unroll3_sum, 'csr_nnz_unroll4_sd':csr_nnz_unroll4_sd, 'csr_nnz_unroll4':csr_nnz_unroll4_mflops, 'csr_nnz_unroll4_sum':csr_nnz_unroll4_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
 
+          var csr_s_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum,'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+
           var xmlhttp = new XMLHttpRequest();
 	  if(tests == 'all')
             xmlhttp.open("GET", "/result/" + all_result, false);
@@ -30,6 +32,8 @@
             xmlhttp.open("GET", "/result/" + coo_result, false);
 	  else if(tests == 'csr_nnz')
             xmlhttp.open("GET", "/result/" + csr_nnz_result, false);
+	  else if(tests == 'csr_s')
+            xmlhttp.open("GET", "/result/" + csr_s_result, false);
           xmlhttp.send();
           //window.close()
         });

@@ -673,50 +673,65 @@ function calculate_csr_locality_index(A_csr)
   return (sum*100)/nz;
 }
 
-function assign_w_min_elems(alines, dissim, nindex, next, min, max, w)
+//function assign_w_min_elems(alines, dissim, nindex, next, min, max, w)
+function assign_w_min_elems(jaccard, nindex, next, max, w)
 {
   var i = 0; j = 0;
   // find the pos where new value fits
-  while(i < w && dissim[i] >= 0 && dissim[i] <= min){
+  /*while(i < w && dissim[i] >= 0 && dissim[i] <= min){
     if(dissim[i] == min && alines[i] > max)
       break;
     i++;
+  }*/
+  while(i < w && jaccard[i] >= 0 && jaccard[i] >= max){
+    i++;
   }
+  //console.log(i, jaccard[i], max);
   // not found
   if(i == w)
     return;
   // new position
-  if(dissim[i] == -1){
+  /*if(dissim[i] == -1){
     dissim[i] = min;
     alines[i] = max;
+    nindex[i] = next;
+    return;
+  }*/
+  if(jaccard[i] == -1){
+    jaccard[i] = max;
     nindex[i] = next;
     return;
   }
   // replacing the old position
   j = w-1;
-  while(dissim[j] == -1)
+  //while(dissim[j] == -1)
+  while(jaccard[j] == -1)
     j--;
   while(j != i){
-    dissim[j] = dissim[j-1];  
-    alines[j] = alines[j-1];  
+    //dissim[j] = dissim[j-1];  
+    //alines[j] = alines[j-1];  
+    jaccard[j] = jaccard[j-1];  
     nindex[j] = nindex[j-1];  
     j--;
   }
-  dissim[i] = min;
-  alines[i] = max;
+  //dissim[i] = min;
+  //alines[i] = max;
+  jaccard[i] = max;
   nindex[i] = next;
   return;
 }
 
 
-function find_next_row(index, visited, nlines, alines, dissim, nindex, last_used, csr_row, csr_col, N, w)
+//function find_next_row(index, visited, nlines, alines, dissim, nindex, last_used, csr_row, csr_col, N, w)
+function find_next_row(index, visited, nlines, jaccard, nindex, last_used, csr_row, csr_col, N, w)
 {
-  var i, j, min, max, next, alines_temp, dissim_temp;
+  var i, j, min, max, next, alines_temp, dissim_temp, jaccard_temp;
   if(visited[index] == 3){ // this node is a new neighbour
     // set the new neighbour vertex (row) as visited 
     visited[index] = 1;
-    alines.fill(0);
-    dissim.fill(-1);
+    //alines.fill(0);
+    //dissim.fill(-1);
+    jaccard.fill(-1);
     nindex.fill(N);
     //console.log("find next row :", index);
     // calulate the used cache lines vector
@@ -743,8 +758,14 @@ function find_next_row(index, visited, nlines, alines, dissim, nindex, last_used
           j++;
         }
       }
-      dissim_temp = nlines[index] + nlines[i] - (2 * alines_temp);
-      assign_w_min_elems(alines, dissim, nindex, i, dissim_temp, alines_temp, w);
+      //dissim_temp = nlines[index] + nlines[i] - (2 * alines_temp);
+      dissim_temp = nlines[index] + nlines[i] - (alines_temp);
+      jaccard_temp = alines_temp/dissim_temp;
+      //if(jaccard_temp == 0)
+        //continue;
+      //console.log(jaccard_temp);
+      //assign_w_min_elems(alines, dissim, nindex, i, dissim_temp, alines_temp, w);
+      assign_w_min_elems(jaccard, nindex, i, jaccard_temp, w);
       //dissim[i] = nlines[index] + nlines[i] - (2 * alines[i]);
       //console.log(dissim[i]);
       //for(j = csr_row[i]; j < csr_row[i+1]; j++){
@@ -755,22 +776,28 @@ function find_next_row(index, visited, nlines, alines, dissim, nindex, last_used
   }
     
   // set min to N
-  min = N;
+  //min = N;
   // set next to N
   next = N;
   //set max to 0
   max = 0;
   // calculate the next vertex (row)
   for(i = 0; i < w; i++){
-    if(dissim[i] >= 0 && visited[nindex[i]] == 0){
+    /*if(dissim[i] >= 0 && visited[nindex[i]] == 0){
       min = dissim[i];
       next = nindex[i];
       max = alines[i];
       break;
+    }*/
+    if(jaccard[i] >= 0 && visited[nindex[i]] == 0){
+      next = nindex[i];
+      max = jaccard[i];
+      break;
     }
   }
   //console.log(next, min, max);
-  return [next, min, max];
+  //return [next, min, max];
+  return [next, max];
 }
 
 function print_nnz_per_worker(A_csr, nworkers)
@@ -829,12 +856,14 @@ function reorder_NN(A_csr, w)
   console.log("total number of cache lines : ", tot_num_lines);
   var last_used = new Int32Array(tot_num_lines);
   last_used.fill(-1);
-  var alines = new Array(w);
-  var dissim = new Array(w);
+  //var alines = new Array(w);
+  //var dissim = new Array(w);
+  var jaccard = new Array(w);
   var nindex = new Array(w);
   for(i = 0; i < w; i++){
-    alines[i] = new Int32Array(w);
-    dissim[i] = new Int32Array(w);
+    //alines[i] = new Int32Array(w);
+    //dissim[i] = new Int32Array(w);
+    jaccard[i] = new Float32Array(w);
     nindex[i] = new Int32Array(w);
   }
   //var last_used2 = new Int32Array(tot_num_lines);
@@ -879,7 +908,7 @@ function reorder_NN(A_csr, w)
 
   console.log("loop start");
   while(index != N){
-    //console.log("new index :", index);
+    //console.log(index);
     // for new neighbour, set vistited = 3
     visited[index] = 3;
     // assign the new neighbour in the set of w nearest neigbours
@@ -890,8 +919,9 @@ function reorder_NN(A_csr, w)
       count = 0;
     // set the permutation and the pos
     permutation[pos++] = index;
+    //console.log(pos-1, index);
     // set min to N
-    min = N;
+    //min = N;
     // set next to N
     next = N;
     //set max to 0
@@ -901,14 +931,19 @@ function reorder_NN(A_csr, w)
       // not needed anymore : reset the new neighbour info to visted row info for all other neighbours (so that this node can't be chosen again) 
       //dissim[i][index] = -1;
       //alines[i][index] = 0;
-      values = find_next_row(windexes[i], visited, nlines, alines[i], dissim[i], nindex[i], last_used, csr_row, csr_col, N, w);
-      if(min >= values[1]){
+      //values = find_next_row(windexes[i], visited, nlines, alines[i], dissim[i], nindex[i], last_used, csr_row, csr_col, N, w);
+      values = find_next_row(windexes[i], visited, nlines, jaccard[i], nindex[i], last_used, csr_row, csr_col, N, w);
+      /*if(min >= values[1]){
 	if(min == values[1] && max >= values[2])
 	  continue;
 	next = values[0];
         min = values[1];
-	max = values[2];
-      }
+	max = values[2];*/
+        if(max <= values[1]){
+	  max = values[1];
+	  next = values[0]; 
+	}
+      //}
     }
     index = next;
   }
@@ -917,9 +952,12 @@ function reorder_NN(A_csr, w)
   console.log("set empty rows on the permutation vector");
   // set empty rows on the permutation vector
   for(i = 0; i < N; i++){
-    if(visited[i] == 2){
+    if(visited[i] == 2){ 
+      //console.log("Zero");
       permutation[pos++] = i;
     }
+    //if(visited == 0)
+      //console.log(i);
   }
 
   pretty_print_CSR_permutation(A_csr_new);
@@ -931,10 +969,12 @@ function reorder_NN(A_csr, w)
   j = 0;
   csr_row_new[0] = 0;
   for(i = 0; i < N; i++){
+   //console.log(i, permutation[i]);
    k = csr_row[permutation[i]];
    temp = nnz_per_row[permutation[i]];
    //console.log(i, temp);
    csr_row_new[i+1] = csr_row_new[i] + temp;
+   //console.log(csr_row_new[i], temp, csr_row_new[i+1])
    while(temp != 0){
      csr_col_new[j] = csr_col[k];
      //csr_col_new[j] = 0;
