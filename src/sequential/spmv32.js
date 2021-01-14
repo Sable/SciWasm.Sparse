@@ -5,7 +5,7 @@ var anz = 0;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var N;
 var variance;
-var inside = 0, inner_max = 1000000, outer_max = 30;
+var inner_max = 1000000, outer_max = 30;
 let memory = Module['wasmMemory'];
 var malloc_instance;
 var sparse_instance;
@@ -32,16 +32,35 @@ function sswasm_COO_t(row_index, col_index, val_index, nnz){
   this.nnz = nnz;
 }
 
-function sswasm_CSR_t(row_index, col_index, val_index, nrows, nnz){
+function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz){
   this.row;
   this.col;
   this.val;
   this.row_index = row_index;
   this.col_index = col_index;
   this.val_index = val_index;
+  this.nnz_row_index = nnz_row_index;
   this.nrows = nrows;
   this.nnz = nnz;
+  this.permutation_index;
+  this.permutation;
+  this.num_zero_rows = 0;
+  this.num_one_rows = 0;
+  this.num_two_rows = 0;
+  this.num_three_rows = 0;
 }
+
+function sswasm_CSC_t(col_index, row_index, val_index, ncols, nnz){
+  this.col;
+  this.row;
+  this.val;
+  this.col_index = col_index;
+  this.row_index = row_index;
+  this.val_index = val_index;
+  this.ncols = ncols;
+  this.nnz = nnz;
+}
+
 
 function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
   this.offset;
@@ -109,6 +128,13 @@ function clear_y(y_view){
   y.fill(0);
 }
 
+function copy_x_to_y(x_view, y_view){
+  var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
+  var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  for(var i = 0; i < y_view.y_nelem; i++)
+    y[i] = x[i];
+}
+
 function pretty_print_COO(A_coo){
   var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
   var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
@@ -118,7 +144,8 @@ function pretty_print_COO(A_coo){
   console.log("coo_row_index :", A_coo.row_index);
   console.log("coo_col_index :", A_coo.col_index);
   console.log("coo_val_index :", A_coo.val_index);
-  for(var i = 0; i < A_coo.nnz; i++)
+  //for(var i = 0; i < A_coo.nnz; i++)
+  for(var i = 0; i < 10; i++)
     console.log(coo_row[i], coo_col[i], coo_val[i]);
 }
 
@@ -140,7 +167,8 @@ function pretty_print_CSR(A_csr){
 function pretty_print_x(x_view){
   var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   console.log("x_index :", x_view.x_index); 
-  for(var i = 0; i < x_view.x_nelem; i++)
+  //for(var i = 0; i < x_view.x_nelem; i++)
+  for(var i = 0; i < 10; i++)
     console.log(x[i]);
 }
 
@@ -148,7 +176,8 @@ function pretty_print_x(x_view){
 function pretty_print_y(y_view){
   var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   console.log("y_index :", y_view.y_index); 
-  for(var i = 0; i <y_view.y_nelem; i++)
+  //for(var i = 0; i <y_view.y_nelem; i++)
+  for(var i = 0; i <10; i++)
     console.log(y[i]);
 }
 
@@ -317,6 +346,50 @@ function sort(start, end, array1, array2)
   }
 }
 
+function coo_csc(A_coo, A_csc)
+{
+  var row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
+  var col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
+  var val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz); 
+
+  var csc_col = new Int32Array(memory.buffer, A_csc.col_index, A_csc.ncols + 1); 
+  var csc_row = new Int32Array(memory.buffer, A_csc.row_index, A_csc.nnz); 
+  var csc_val = new Float32Array(memory.buffer, A_csc.val_index, A_csc.nnz); 
+  csc_row.fill(0);
+  csc_col.fill(0);
+  csc_val.fill(0);
+
+  var nz = A_csc.nnz; 
+  var N = A_csc.ncols;
+
+  var j;
+  for(j = 0; j < nz; j++){
+    csc_col[col[j]]++; 
+  }
+
+  var i = 0, i0 = 0;
+  for(j = 0; j < N; j++){
+    i0 = csc_col[j];
+    csc_col[j] = i;
+    i += i0;
+  }
+
+  for(j = 0; j < nz; j++){
+    i = csc_col[col[j]];
+    csc_row[i] = row[j];
+    csc_val[i] = val[j];
+    csc_col[col[j]]++;
+  }
+
+  for(j = N-1; j > 0; j--){
+    csc_col[j] = csc_col[j-1]; 
+  }
+  csc_col[0] = 0;
+  csc_col[N] = nz;
+  for(j = 0; j < N; j++)
+    sort(csc_col[j], csc_col[j+1], csc_row, csc_val); 
+}
+
 function coo_csr(A_coo, A_csr)
 {
   var row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
@@ -361,23 +434,146 @@ function coo_csr(A_coo, A_csr)
     sort(csr_row[i], csr_row[i+1], csr_col, csr_val); 
 }
 
+
+function sort_rows_by_nnz(A_csr)
+{
+  var N = A_csr.nrows;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz);
+
+  var freq = new Int32Array(N+1);
+  freq.fill(0);
+  var starting_index = new Int32Array(N+1);
+  var i = 0;
+
+
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (N + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nz);
+  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nz);
+  var A_csr_new = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, N, nz);
+  A_csr_new.permutation_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var permutation = new Int32Array(memory.buffer, A_csr_new.permutation_index, N);
+  var nnz_per_row = new Int32Array(memory.buffer, A_csr_new.nnz_row_index, N);
+
+  console.log("calculate nnz per row and frequency");
+  for(i = 0; i < N; i++){
+    nnz_per_row[i] = csr_row[i+1] - csr_row[i];
+    freq[nnz_per_row[i]]++;
+  }
+
+  console.log("calculate starting index");
+  starting_index[0] = 0;
+  for(i = 1; i <= N; i++){
+    starting_index[i] = starting_index[i-1] + freq[i-1];
+  }
+
+  var csr_row_new = new Int32Array(memory.buffer, A_csr_new.row_index, A_csr_new.nrows + 1);
+  var csr_col_new = new Int32Array(memory.buffer, A_csr_new.col_index, A_csr_new.nnz);
+  var csr_val_new = new Float32Array(memory.buffer, A_csr_new.val_index, A_csr_new.nnz);
+  csr_row_new.fill(0);
+  csr_col_new.fill(0);
+  csr_val_new.fill(0);
+  A_csr_new.num_zero_rows = freq[0];
+  A_csr_new.num_one_rows = freq[0] + freq[1];
+  A_csr_new.num_two_rows = freq[0] + freq[1] + freq[2];
+  A_csr_new.num_three_rows = freq[0] + freq[1] + freq[2] + freq[3];
+
+  console.log("calculate permutation")
+  for(i = 0; i < N; i++){
+    permutation[starting_index[nnz_per_row[i]]] = i;
+    starting_index[nnz_per_row[i]]++;
+  }
+  //pretty_print_CSR_permutation(A_csr);
+
+  console.log("calculate new CSR")
+  var j = 0, temp, k;
+  csr_row_new[0] = 0;
+  for(i = 0; i < N; i++){
+   k = csr_row[permutation[i]];
+   temp = nnz_per_row[permutation[i]];
+   //console.log(i, temp);
+   csr_row_new[i+1] = csr_row_new[i] + temp;
+   while(temp != 0){
+     csr_col_new[j] = csr_col[k];
+     //csr_col_new[j] = 0;
+     csr_val_new[j++] = csr_val[k++];
+     temp--;
+   }
+  }
+  //pretty_print_CSR(A_csr_new);
+  return A_csr_new;
+}
+
+function sort_y_rows_by_nnz(y_view, A_csr)
+{
+  var N = A_csr.nrows;
+  var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  var permutation = new Int32Array(memory.buffer, A_csr.permutation_index, N);
+
+  var y_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * N);
+  var y_new = new Float32Array(memory.buffer, y_index, N);
+
+  for(i = 0; i < N; i++){
+    y_new[permutation[i]] = y[i];
+  }
+
+  y_view.y_index = y_index;
+}
+
+
+function calculate_csr_locality_index(A_csr)
+{
+  var N = A_csr.nrows;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var tot_num_lines = Math.floor(N/16)+1;
+  console.log("total number of cache lines : ", tot_num_lines);
+  var last_used = new Int32Array(tot_num_lines);
+  last_used.fill(-1);
+  var i, j, distance, sum = 0;
+  var reuse_distance = new Int32Array(N);
+  reuse_distance.fill(0);
+
+  for(i = 0; i < N; i++){
+    for(j = csr_row[i]; j < csr_row[i+1]; j++){
+      if(last_used[Math.floor(csr_col[j]/16)] == -1){
+        last_used[Math.floor(csr_col[j]/16)] = i;
+        continue;
+      }
+      distance = i - last_used[Math.floor(csr_col[j]/16)];
+      if(distance <= i)
+        reuse_distance[distance]++;
+      last_used[Math.floor(csr_col[j]/16)] = i;
+    }
+  }
+  for(i = 0; i < 16; i++){
+    sum += reuse_distance[i];
+  }
+  return (sum*100)/nz;
+}
+
   
 
 function get_inner_max()
 {
-  if(anz > 1000000) inner_max = 1;
-  else if (anz > 100000) inner_max = 500;
-  else if (anz > 50000) inner_max = 1000;
-  else if(anz > 20000) inner_max = 5000;
-  else if(anz > 5000) inner_max = 10000;
-  else if(anz > 500) inner_max = 100000;
+  if(anz > 1000000) inner_max = 5;
+  else if (anz > 100000) inner_max = 100;
+  else if (anz > 50000) inner_max = 500;
+  else if(anz > 10000) inner_max = 1000;
+  else if(anz > 2000) inner_max = 5000;
+  else if(anz > 100) inner_max = 50000;
+  inner_max *= 5;
 }
 
 async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_simd_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_32.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
       console.log(arg);}}
   });
@@ -420,8 +616,53 @@ function coo_test(A_coo, x_view, y_view)
   variance /= outer_max;
   coo_sd = Math.sqrt(variance);
   coo_sum = fletcher_sum_y(y_view);
+  pretty_print_y(y_view);
+  pretty_print_COO(A_coo);
+  pretty_print_x(x_view);
   console.log('coo sum is ', coo_sum);
   console.log('coo sd is ', coo_sd);
+}
+
+function spts_csc_test(A_csc, x_view, y_view)
+{
+  console.log("CSC");
+  if(typeof A_csc === "undefined"){
+    console.log("matrix is undefined");
+    return;
+  }
+  if(typeof x_view === "undefined"){
+    console.log("vector x is undefined");
+    return;
+  }
+  if(typeof y_view === "undefined"){
+    console.log("vector y is undefined");
+    return;
+  }
+  
+  var t1, t2, tt = 0.0;
+  for(var i = 0; i < 10; i++){
+    clear_y(y_view);
+    sparse_instance.exports.spts_csc_wrapper(A_csc.col_index, A_csc.row_index, A_csc.val_index, x_view.x_index, y_view.y_index, A_csc.ncols, inner_max);
+  }
+  for(var i = 0; i < outer_max; i++){
+    clear_y(y_view);
+    t1 = Date.now();
+    sparse_instance.exports.spts_csc_wrapper(A_csc.col_index, A_csc.row_index, A_csc.val_index, x_view.x_index, y_view.y_index, A_csc.ncols, inner_max);
+    t2 = Date.now();
+    csr_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_csc.nnz/((t2 - t1)/1000);
+    tt = tt + t2 - t1;
+  }
+  tt = tt/1000; 
+  csr_mflops = 1/Math.pow(10,6) * 2 * A_csc.nnz * inner_max * outer_max/ tt;
+  variance = 0;
+  for(var i = 0; i < outer_max; i++)
+    variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
+  variance /= outer_max;
+  csr_sd = Math.sqrt(variance);
+  csr_sum = fletcher_sum_y(y_view);
+  console.log('csr sum is ', csr_sum);
+  console.log('csr mflops is ', csr_mflops);
+  console.log('csr sd is ', csr_sd);
 }
 
 function csr_test(A_csr, x_view, y_view)
@@ -439,6 +680,13 @@ function csr_test(A_csr, x_view, y_view)
     console.log("vector y is undefined");
     return;
   }
+
+  /*console.log(calculate_csr_locality_index(A_csr_original));
+  // sort CSR format by nnz per row
+  var A_csr = sort_rows_by_nnz(A_csr_original);
+  console.log("CSR sorted");
+  console.log(calculate_csr_locality_index(A_csr));*/
+
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
@@ -459,8 +707,10 @@ function csr_test(A_csr, x_view, y_view)
     variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
   variance /= outer_max;
   csr_sd = Math.sqrt(variance);
+  //sort_y_rows_by_nnz(y_view, A_csr);
   csr_sum = fletcher_sum_y(y_view);
   console.log('csr sum is ', csr_sum);
+  console.log('csr mflops is ', csr_mflops);
   console.log('csr sd is ', csr_sd);
 }
 
@@ -494,7 +744,6 @@ function dia_test(A_dia, x_view, y_view)
     sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
     t2 = Date.now();
     dia_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_dia.nnz/((t2 - t1)/1000);
-    console.log(dia_flops[i]);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
@@ -644,6 +893,104 @@ function read_matrix_MM_files(files, num, mm_info, callback)
   }
 }
 
+function create_LCOO_from_MM(mm_info)
+{
+  var row = mm_info.row;
+  var col = mm_info.col;
+  var val = mm_info.val;
+  var L_anz = mm_info.nrows;
+  
+  if(mm_info.symmetry == "symmetric"){
+    for(var n = 0; n < mm_info.nentries; n++) {
+      if(row[n] != col[n])
+        L_anz++;
+    }
+  }
+  else{
+    for(var n = 0; n < mm_info.nentries; n++) {
+      if(row[n] > col[n])
+        L_anz++;
+    }
+  }
+
+  mm_info.anz = L_anz;
+  anz = mm_info.anz;
+  var A_coo = allocate_COO(mm_info);
+  var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
+  var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
+  var coo_val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz); 
+  var i = 0;
+
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+	  i++;
+	}
+	else if(row[n] < col[n]){
+          coo_row[i] = Number(col[n] - 1);
+          coo_col[i] = Number(row[n] - 1);
+          coo_val[i] = 1.0;
+	  i++;
+        }
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+          else if(row[n] < col[n]){
+            coo_row[i] = Number(col[n] - 1);
+            coo_col[i] = Number(row[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }  
+      }
+    }
+  }
+  else{
+    if(mm_info.field == "pattern"){
+      for(n = 0; n < mm_info.nentries; n++, i++) {
+        if(row[n] > col[n]){
+	  coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+	}
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+    }
+  }
+  for(var n = 0; n < mm_info.nrows; n++){
+    coo_row[i] = n;
+    coo_col[i] = n;
+    coo_val[i] = 1.0;
+    i++;
+  }
+  quick_sort_COO(A_coo, 0, anz-1);      
+  return A_coo;
+}
+
 function create_COO_from_MM(mm_info, A_coo)
 {
   var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
@@ -675,16 +1022,16 @@ function create_COO_from_MM(mm_info, A_coo)
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
-          if(!(Number.isSafeInteger(val[n])))
-            val[n] = 0.0
+          //if(!(Number.isSafeInteger(val[n])))
+            //val[n] = 0.0
           coo_val[i] = Number(val[n]);
           if(row[n] == col[n])
             i++;
           else{
             coo_row[i+1] = Number(col[n] - 1);
             coo_col[i+1] = Number(row[n] - 1);
-            if(!(Number.isSafeInteger(val[n])))
-              val[n] = 0.0
+            //if(!(Number.isSafeInteger(val[n])))
+              //val[n] = 0.0
             coo_val[i+1] = Number(val[n]);
             i = i + 2;
           }
@@ -705,8 +1052,8 @@ function create_COO_from_MM(mm_info, A_coo)
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
-          if(!(Number.isSafeInteger(val[n])))
-            val[n] = 0.0
+          //if(!(Number.isSafeInteger(val[n])))
+            //val[n] = 0.0
           coo_val[i] = Number(val[n]);
           i++;
         }
@@ -730,12 +1077,22 @@ function allocate_CSR(mm_info)
 {
   // CSR memory allocation
   var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.nrows);
   var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
   var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
-  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
+  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, mm_info.nrows, anz);
   return A_csr;
 }
 
+function allocate_CSC(mm_info)
+{
+  // CSC memory allocation
+  var csc_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.ncols + 1));
+  var csc_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
+  var csc_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
+  var A_csc = new sswasm_CSC_t(csc_col_index, csc_row_index, csc_val_index, mm_info.nrows, anz);
+  return A_csc;
+}
 
 function allocate_DIA(mm_info, ndiags, stride)
 {
@@ -849,7 +1206,6 @@ function free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view)
     malloc_instance.exports._free(y_view.y_index);
 }
 
-
 function spmv_test(files, callback)
 {
   var mm_info = new sswasm_MM_info();
@@ -860,13 +1216,101 @@ function spmv_test(files, callback)
   var A_coo, A_csr, A_dia, A_ell, x_view, y_view;
   [A_coo, A_csr, A_dia, A_ell, x_view, y_view] = allocate_memory_test(mm_info);
 
-  console.log(A_coo);
-
+  pretty_print_COO(A_coo);
   coo_test(A_coo, x_view, y_view);
   csr_test(A_csr, x_view, y_view);
   dia_test(A_dia, x_view, y_view);
   ell_test(A_ell, x_view, y_view);
   free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
+  console.log("done");
+  callback();
+}
+
+function spts_test(files, callback)
+{
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+  
+  var A_coo, A_csc, x_view, y_view;
+  A_coo = create_LCOO_from_MM(mm_info);
+  console.log("COO allocated");
+  pretty_print_COO(A_coo);
+
+  A_csc = allocate_CSC(mm_info);
+  //convert COO to CSC
+  coo_csc(A_coo, A_csc);
+  if(typeof A_coo !== 'undefined'){
+    malloc_instance.exports._free(A_coo.row_index);
+    malloc_instance.exports._free(A_coo.col_index);
+    malloc_instance.exports._free(A_coo.col_index);
+  }
+  console.log("CSC allocated");
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  spts_csc_test(A_csc, x_view, y_view);
+  console.log("x");
+  pretty_print_x(x_view);
+  console.log("y");
+  pretty_print_y(y_view);
+
+  if(typeof A_csc !== 'undefined'){
+    malloc_instance.exports._free(A_csc.row_index);
+    malloc_instance.exports._free(A_csc.col_index);
+    malloc_instance.exports._free(A_csc.col_index);
+  }
+  if(typeof x_view !== 'undefined')
+    malloc_instance.exports._free(x_view.x_index);
+
+  if(typeof y_view !== 'undefined')
+    malloc_instance.exports._free(y_view.y_index);
+  console.log("done");
+  callback();
+}
+
+function spmv_csr_test(files, callback)
+{
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, A_csr, x_view, y_view;
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  if(typeof A_coo !== 'undefined'){
+    malloc_instance.exports._free(A_coo.row_index);
+    malloc_instance.exports._free(A_coo.col_index);
+    malloc_instance.exports._free(A_coo.col_index);
+  }
+  console.log("CSR allocated");
+
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  csr_test(A_csr, x_view, y_view);
+  if(typeof A_csr !== 'undefined'){
+    malloc_instance.exports._free(A_csr.row_index);
+    malloc_instance.exports._free(A_csr.col_index);
+    malloc_instance.exports._free(A_csr.col_index);
+  }
+  if(typeof x_view !== 'undefined')
+    malloc_instance.exports._free(x_view.x_index);
+
+  if(typeof y_view !== 'undefined')
+    malloc_instance.exports._free(y_view.y_index);
   console.log("done");
   callback();
 }
@@ -942,11 +1386,21 @@ var load_file = function(){
   });
 }
 
+function spts(callback)
+{
+  let promise = load_file();
+  promise.then(
+    files => spts_test(files, callback),
+    error => callback()
+  );
+}
+
 function spmv(callback)
 {
   let promise = load_file();
   promise.then(
-    files => spmv_test(files, callback),
+    //files => spmv_test(files, callback),
+    files => spmv_csr_test(files, callback),
     error => callback()
   );
 }

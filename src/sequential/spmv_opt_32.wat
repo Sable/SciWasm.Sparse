@@ -2,6 +2,101 @@
   (import "js" "mem" (memory 1))
   (import "console" "log" (func $logf (param f32)))
   (import "console" "log" (func $logi (param i32)))
+
+  (func $spts_csc (export "spts_csc") (param $csc_colptr i32) (param $csc_row i32) (param $csc_val i32) (param $x i32) (param $y i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $temp_y i32)
+    (local $end i32)
+    (local $temp f32)
+    (local.get $N)
+    (i32.const 0)
+    (tee_local $j)
+    (i32.le_s)
+    if
+      (return)
+    end
+    (local.get $y)
+    (local.set $temp_y)
+    (loop $copy_x_to_y 
+      (local.get $temp_y)
+      (f32.load (local.get $x))
+      (f32.store)
+      (local.set $x (i32.add (local.get $x) (i32.const 4)))
+      (local.set $temp_y (i32.add (local.get $temp_y) (i32.const 4)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $N)
+      (i32.ne)
+      (br_if $copy_x_to_y)
+    )
+    (i32.const 0)
+    (local.set $j)
+    (loop $outer_loop
+      (local.get $y)
+      (f32.load (local.get $y))
+      (f32.load (local.get $csc_val))
+      (f32.div)
+      (f32.store)
+      (local.set $csc_val (i32.add (local.get $csc_val) (i32.const 4)))
+      (local.set $csc_row (i32.add (local.get $csc_row) (i32.const 4)))
+      (i32.add (local.get $csc_colptr) (i32.const 4))
+      (i32.load)
+      (tee_local $end)
+      (i32.add (i32.load (local.get $csc_colptr)) (i32.const 1))
+      (tee_local $i)
+      (i32.gt_s)
+      if
+        (loop $inner_loop
+          (i32.add (local.get $y) (i32.shl (i32.sub (i32.load(local.get $csc_row)) (local.get $j)) (i32.const 2)))
+          (i32.add (local.get $y) (i32.shl (i32.sub (i32.load(local.get $csc_row)) (local.get $j)) (i32.const 2)))
+          (f32.load)
+          (f32.load (local.get $csc_val))
+          (f32.load (local.get $y))
+          (f32.mul)
+          (f32.sub)
+          (f32.store)
+          (local.set $csc_row (i32.add (local.get $csc_row) (i32.const 4)))
+          (local.set $csc_val (i32.add (local.get $csc_val) (i32.const 4)))
+          (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+          (local.get $end)
+          (i32.ne)
+          (br_if $inner_loop)
+        )
+      end
+      (local.set $y (i32.add (local.get $y) (i32.const 4)))
+      (i32.add (local.get $csc_colptr) (i32.const 4))
+      (local.set $csc_colptr)
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $N)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "spts_csc_wrapper") (param $csc_col i32) (param $csc_row i32) (param $csc_val i32) (param $x i32) (param $y i32) (param $len i32) (param $inner_max i32)
+    (local $i i32)
+    (local.get $inner_max)
+    i32.const 0
+    tee_local $i
+    i32.le_s
+    if
+      (return)
+    end
+    (loop $top
+      local.get $csc_col
+      local.get $csc_row
+      local.get $csc_val
+      local.get $x
+      local.get $y
+      local.get $len
+      call $spts_csc
+      (local.get $inner_max)
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (i32.ne)
+      (br_if $top)
+    )
+  )
+
   (func $spmv_coo (export "spmv_coo") (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $x i32) (param $y i32) (param $len i32)
     (local $i i32)
     (local $this_y i32)
