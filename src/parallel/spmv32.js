@@ -59,6 +59,10 @@ function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz
   this.num_one_rows = 0;
   this.num_two_rows = 0;
   this.num_three_rows = 0;
+  this.level_index;
+  this.level;
+  this.nlevels = 0;
+  this.barrier_index;
 }
 
 function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
@@ -162,7 +166,8 @@ function pretty_print_CSR(A_csr){
   console.log("csr_row_index :", A_csr.row_index);
   console.log("csr_col_index :", A_csr.col_index);
   console.log("csr_val_index :", A_csr.val_index);
-  for(var i = 0; i < A_csr.nrows; i++){
+  //for(var i = 0; i < A_csr.nrows; i++){
+  for(var i = 0; i < 10; i++){
     for(var j = csr_row[i]; j < csr_row[i+1] ; j++)
       console.log(i, csr_col[j], csr_val[j]);
   }
@@ -723,7 +728,7 @@ function assign_w_min_elems(jaccard, nindex, next, max, w)
 
 
 //function find_next_row(index, visited, nlines, alines, dissim, nindex, last_used, csr_row, csr_col, N, w)
-function find_next_row(index, visited, nlines, jaccard, nindex, last_used, csr_row, csr_col, N, w)
+function find_next_row(index, visited, nlines, jaccard, nindex, last_used, csr_row, csr_col, N, w, start, end)
 {
   var i, j, min, max, next, alines_temp, dissim_temp, jaccard_temp;
   if(visited[index] == 3){ // this node is a new neighbour
@@ -742,8 +747,8 @@ function find_next_row(index, visited, nlines, jaccard, nindex, last_used, csr_r
       }       
     }
 
-    // calculate same and different number of cache lines between the current vertex and all other rows
-    for(i = 0; i < N; i++){
+    // calculate same and different number of cache lines between the current vertex and all other rows between start and end
+    for(i = start; i < end; i++){
       if(visited[i] != 0)
         continue;
       j = csr_row[i];
@@ -820,11 +825,23 @@ function print_nnz_per_worker(A_csr, nworkers)
 function reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permutation, w)
 {
   var index = start, values, i, j, max, next, pos = start, nnb = 0, count = 0;
-  // size of the subset
-  var size = end - start;
+  /*console.log("select the first vertex");
+  // select the first vertex
+  while(visited[index] != 0){
+    index++;
+  }	  
+  if(index >= end){
+    console.log("set empty rows on the permutation vector");
+    // set empty rows on the permutation vector
+    for(i = start; i < end; i++){
+      if(visited[i] == 2){ 
+        permutation[pos++] = i;
+      }
+    }
+  }*/
   var windexes = new Int32Array(w);
   var tot_num_lines = Math.floor(N/16)+1;
-  console.log("total number of cache lines : ", tot_num_lines);
+  //console.log("total number of cache lines : ", tot_num_lines);
   var cache_lines_used = new Int32Array(tot_num_lines);
   cache_lines_used.fill(-1);
   //var alines = new Array(w);
@@ -838,7 +855,7 @@ function reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permut
     nindex[i] = new Int32Array(w);
   }
 
-  console.log("loop start");
+  //console.log("loop start");
   while(index != N){
     //console.log(index);
     // for new neighbour, set visited = 3
@@ -864,14 +881,13 @@ function reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permut
       //dissim[i][index] = -1;
       //alines[i][index] = 0;
       //values = find_next_row(windexes[i], visited, nlines, alines[i], dissim[i], nindex[i], last_used, csr_row, csr_col, N, w);
-      values = find_next_row(windexes[i], visited, nlines, jaccard[i], nindex[i], cache_lines_used, csr_row, csr_col, N, w);
+      values = find_next_row(windexes[i], visited, nlines, jaccard[i], nindex[i], cache_lines_used, csr_row, csr_col, N, w, start, end);
       /*if(min >= values[1]){
 	if(min == values[1] && max >= values[2])
 	  continue;
 	next = values[0];
         min = values[1];
 	max = values[2];*/
-	// values[0] == N for the last nearest neighbour will end the outer loop
         if(max <= values[1] && values[0] != N){
 	  max = values[1];
 	  next = values[0]; 
@@ -880,16 +896,15 @@ function reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permut
     }
     index = next;
   }
-  console.log("loop end");
+  //console.log("loop end");
 
-  console.log("set empty rows on the permutation vector");
+  /*console.log("set empty rows on the permutation vector");
   // set empty rows on the permutation vector
-  for(i = 0; i < N; i++){
+  for(i = start; i < end; i++){
     if(visited[i] == 2){ 
       permutation[pos++] = i;
     }
-  }
-
+  }*/
 }
 
 
@@ -923,16 +938,24 @@ function reorder_NN(A_csr, w)
   nlines.fill(0);
   var visited = new Int32Array(N);
   visited.fill(0);
+  var freq = new Int32Array(N+1);
+  visited.fill(0);
+  var B = 1024;
 
   // calculate nnz per row and set empty rows as visited
   console.log("calculate nnz per row and set empty rows as visited");
   for(i = 0; i < N; i++){
     permutation[i] = i;
     nnz_per_row[i] = csr_row[i+1] - csr_row[i];
+    freq[nnz_per_row[i]]++;
     //console.log(nnz_per_row[i], permutation[i]);
     if(nnz_per_row[i] == 0)
       visited[i] = 2;  // set visited equal to 2 for empty rows
   }
+  A_csr_new.num_zero_rows = freq[0];
+  A_csr_new.num_one_rows = freq[0] + freq[1];
+  A_csr_new.num_two_rows = freq[0] + freq[1] + freq[2];
+  A_csr_new.num_three_rows = freq[0] + freq[1] + freq[2] + freq[3];
 
   console.log("calculate the number of cache lines for all non-empty rows");
   // calculate the number of cache lines for all non-empty rows
@@ -956,11 +979,24 @@ function reorder_NN(A_csr, w)
   while(visited[index] != 0){
     index++;
   }	  
-  
+   
   start = index;
-  end = N;
-  reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permutation, w);
-
+  for(i = 1; i < N+1; i++){ 
+    while(freq[i] >= B){
+      end = start + B;
+      freq[i] -= B;
+      console.log(start, end);
+      reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permutation, w);
+      start = end;
+    }
+    if(freq[i] > 0){
+      end = start + freq[i];
+      freq[i] = 0;
+      console.log(start, end);
+      reorder_subset(csr_row, csr_col, N, start, end, nlines, visited, permutation, w);
+      start = end;
+    }
+  }
 
   pretty_print_CSR_permutation(A_csr_new);
 
@@ -969,13 +1005,10 @@ function reorder_NN(A_csr, w)
   console.log("calculate new CSR")
   var temp, k;
   j = 0;
-  var sum = new Int32Array(N);
-  sum.fill(0);
   csr_row_new[0] = 0;
   for(i = 0; i < N; i++){
    //console.log(i, permutation[i]);
    k = csr_row[permutation[i]];
-   sum[permutation[i]]++;
    temp = nnz_per_row[permutation[i]];
    //console.log(i, temp);
    csr_row_new[i+1] = csr_row_new[i] + temp;
@@ -988,9 +1021,10 @@ function reorder_NN(A_csr, w)
    }
   }
  
-  for(i = 0; i < N; i++){
-    if(sum[i] != 1)
-      console.log(i, sum[i]);
+  // update the permutation vector
+  var permutation_sorted = new Int32Array(memory.buffer, A_csr.permutation_index, N);
+  for(i = 0; i < N ; i++){
+    permutation[i] = permutation_sorted[permutation[i]]; 
   }
   
   //pretty_print_CSR(A_csr_new);
@@ -1012,7 +1046,7 @@ async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spts_opt_32.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
       console.log(arg);}} 
   });
@@ -1121,6 +1155,17 @@ function static_nnz_dia(A_dia, num_workers, row_start, row_end)
   for(i = 0; i < num_workers; i++){
     console.log(row_start[i], row_end[i]);
   }
+  for(j = 0; j < num_workers; j++){
+    var istart_a = new Int32Array(memory.buffer, A_dia.w_istart_index[j], A_dia.ndiags);
+    var iend_a = new Int32Array(memory.buffer, A_dia.w_iend_index[j], A_dia.ndiags);
+    for(i = 0; i < ndiags; i++){
+    k = offset[i];
+    istart_a[i] = (0 < -k) ? -k : 0;
+    istart_a[i] = (istart_a[i] > row_start[j]) ? istart_a[i] : row_start[j];
+    iend_a[i] = (N < N-k) ? N : N-k;
+    iend_a[i] = (iend_a[i] < (row_end[j]+1)) ? iend_a[i] : (row_end[j]+1);
+  }
+  }
 
 }
 
@@ -1165,6 +1210,7 @@ function static_nnz(A_csr, num_workers, row_start, row_end)
         break;
       }
     }
+    console.log(sum);
     // Update the remaining work
     rem_nnz -= sum;
     rem_nw--;

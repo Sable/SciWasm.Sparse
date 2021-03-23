@@ -146,6 +146,59 @@ def result(json_string):
     f.write(",")
     f.write(str(parsed_json['csr_nnz_unroll4_sum']))
 
+  if tests == 'csr_reorder':
+    f.write(str(parsed_json['before_locality_index']))
+    f.write(",")
+    f.write(str(parsed_json['after_locality_index']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_gs_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_gs']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_gs_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_short_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_short']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_short_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_gs_short_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_gs_short']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_gs_short_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll2_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll2']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll2_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll3_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll3']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll3_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll4_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll4']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll4_sum']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll6_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll6']))
+    f.write(",")
+    f.write(str(parsed_json['csr_nnz_unroll6_sum']))
+
   if tests == 'all':
     f.write(str(parsed_json['coo_sd']))
     f.write(",")
@@ -178,11 +231,20 @@ def result(json_string):
     f.write(",")
     f.write(str(parsed_json['csr_nnz_sum']))
 
+  if tests == 'dia_basic':
+    f.write(str(parsed_json['dia_sd']))
+    f.write(",")
+    f.write(str(parsed_json['dia']))
+    f.write(",")
+    f.write(str(parsed_json['dia_sum']))
+
   f.write("\n")
   f.close()
-  if browser == 0:
-    subprocess.call(['killall', '-9', 'chrome']);
-  elif browser == 1:
-    subprocess.call(['killall', '-9', 'firefox']);
+  #if browser == 0:
+    #subprocess.call(['killall', '-9', 'chrome']);
+  #elif browser == 1:
+    #subprocess.call(['killall', '-9', 'firefox']);
+    #sys.stderr.close()
+    #sys.exit(0)
   return "OK"
 run(host='localhost', port=8080, quiet=True)

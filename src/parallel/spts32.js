@@ -1,5 +1,111 @@
+function spts_init_x(x_view){
+  var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
+  for(var i = 0; i < x_view.x_nelem; i++)
+    x[i] = 0.0;
+}
+
+
+function create_LCOO_from_MM(mm_info)
+{
+  var row = mm_info.row;
+  var col = mm_info.col;
+  var val = mm_info.val;
+  var L_anz = mm_info.nrows;
+
+  if(mm_info.symmetry == "symmetric"){
+    for(var n = 0; n < mm_info.nentries; n++) {
+      if(row[n] != col[n])
+        L_anz++;
+    }
+  }
+  else{
+    for(var n = 0; n < mm_info.nentries; n++) {
+      if(row[n] > col[n])
+        L_anz++;
+    }
+  }
+
+  mm_info.anz = L_anz;
+  anz = mm_info.anz;
+  var A_coo = allocate_COO(mm_info);
+  var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz);
+  var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz);
+  var coo_val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz);
+  var i = 0;
+
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+        else if(row[n] < col[n]){
+          coo_row[i] = Number(col[n] - 1);
+          coo_col[i] = Number(row[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+          else if(row[n] < col[n]){
+            coo_row[i] = Number(col[n] - 1);
+            coo_col[i] = Number(row[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+    }
+  }
+  else{
+    if(mm_info.field == "pattern"){
+      for(n = 0; n < mm_info.nentries; n++, i++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+    }
+  }
+  for(var n = 0; n < mm_info.nrows; n++){
+    coo_row[i] = n;
+    coo_col[i] = n;
+    coo_val[i] = 1.0;
+    i++;
+  }
+  quick_sort_COO(A_coo, 0, anz-1);
+  return A_coo;
+}
+
 function CSR_create_level_sets(A_csr)
 {
+  console.log('creating level sets');
   // assume the column array is sorted by ascending order per row
   var nz = A_csr.nnz;
   var N = A_csr.nrows;
@@ -67,6 +173,7 @@ function CSR_create_level_sets(A_csr)
 
 function CSR_create_level_sets_with_reorder(A_csr)
 {
+  console.log('creating level sets');
   // assume the column array is sorted by ascending order per row
   var nz = A_csr.nnz; 
   var N = A_csr.nrows;
@@ -128,11 +235,17 @@ function CSR_create_level_sets_with_reorder(A_csr)
   A_csr_new.level_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (tot_levels + 1));
   var level = new Int32Array(memory.buffer, A_csr_new.level_index, tot_levels + 1);
 
+  // allocate and set barrier to 0
+  A_csr_new.barrier_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * tot_levels);
+  var barrier = new Int32Array(memory.buffer, A_csr_new.barrier_index, tot_levels);
+  for(var i = 0; i < tot_levels; i++){
+    barrier[i] = 0;
+  }
   // calculate the starting index of each level if the rows are sorted by levels
   var starting_index = new Int32Array(tot_levels);
   starting_index[0] = level[0] = 0;
   for(var i = 1; i < tot_levels; i++){
-    starting_index[i] = level[i] = level[i-1] + freq[i-1]; 
+    starting_index[i] = level[i] = level[i-1] + freq[i-1];  
   }
   level[i] = level[i-1] + freq[i-1]; 
 

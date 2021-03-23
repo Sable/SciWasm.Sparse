@@ -4,6 +4,7 @@
     <script src="input.js"></script>
     <script src="matmachjs-lib.js"></script>
     <script src="spmv32.js"></script>
+    <script src="spts32.js"></script>
     <script src="main32.js"></script>
     <script type='text/javascript'>
       (async () => {
@@ -17,9 +18,12 @@
 
           var coo_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_nnz_sd':coo_nnz_sd, 'coo_nnz':coo_nnz_mflops, 'coo_nnz_sum':coo_nnz_sum, 'coo_gs_sd':coo_gs_sd, 'coo_gs':coo_gs_mflops, 'coo_gs_sum':coo_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
 		
-          var csr_nnz_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'csr_nnz_sorted_sd':csr_nnz_sorted_sd, 'csr_nnz_sorted':csr_nnz_sorted_mflops, 'csr_nnz_sorted_sum':csr_nnz_sorted_sum, 'csr_nnz_gs_sorted_sd':csr_nnz_gs_sorted_sd, 'csr_nnz_gs_sorted':csr_nnz_gs_sorted_mflops, 'csr_nnz_gs_sorted_sum':csr_nnz_gs_sorted_sum, 'csr_nnz_short_sd':csr_nnz_short_sd, 'csr_nnz_short':csr_nnz_short_mflops, 'csr_nnz_short_sum':csr_nnz_short_sum, 'csr_nnz_gs_short_sd':csr_nnz_gs_short_sd, 'csr_nnz_gs_short':csr_nnz_gs_short_mflops, 'csr_nnz_gs_short_sum':csr_nnz_gs_short_sum, 'csr_nnz_unroll2_sd':csr_nnz_unroll2_sd, 'csr_nnz_unroll2':csr_nnz_unroll2_mflops, 'csr_nnz_unroll2_sum':csr_nnz_unroll2_sum, 'csr_nnz_unroll3_sd':csr_nnz_unroll3_sd, 'csr_nnz_unroll3':csr_nnz_unroll3_mflops, 'csr_nnz_unroll3_sum':csr_nnz_unroll3_sum, 'csr_nnz_unroll4_sd':csr_nnz_unroll4_sd, 'csr_nnz_unroll4':csr_nnz_unroll4_mflops, 'csr_nnz_unroll4_sum':csr_nnz_unroll4_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+          var csr_nnz_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'csr_nnz_sorted_sd':csr_nnz_sorted_sd, 'csr_nnz_sorted':csr_nnz_sorted_mflops, 'csr_nnz_sorted_sum':csr_nnz_sorted_sum, 'csr_nnz_gs_sorted_sd':csr_nnz_gs_sorted_sd, 'csr_nnz_gs_sorted':csr_nnz_gs_sorted_mflops, 'csr_nnz_gs_sorted_sum':csr_nnz_gs_sorted_sum, 'csr_nnz_short_sd':csr_nnz_short_sd, 'csr_nnz_short':csr_nnz_short_mflops, 'csr_nnz_short_sum':csr_nnz_short_sum, 'csr_nnz_gs_short_sd':csr_nnz_gs_short_sd, 'csr_nnz_gs_short':csr_nnz_gs_short_mflops, 'csr_nnz_gs_short_sum':csr_nnz_gs_short_sum, 'csr_nnz_unroll2_sd':csr_nnz_unroll2_sd, 'csr_nnz_unroll2':csr_nnz_unroll2_mflops, 'csr_nnz_unroll2_sum':csr_nnz_unroll2_sum, 'csr_nnz_unroll3_sd':csr_nnz_unroll3_sd, 'csr_nnz_unroll3':csr_nnz_unroll3_mflops, 'csr_nnz_unroll3_sum':csr_nnz_unroll3_sum, 'csr_nnz_unroll4_sd':csr_nnz_unroll4_sd, 'csr_nnz_unroll4':csr_nnz_unroll4_mflops, 'csr_nnz_unroll4_sum':csr_nnz_unroll4_sum, 'csr_nnz_unroll6_sd':csr_nnz_unroll6_sd, 'csr_nnz_unroll6':csr_nnz_unroll6_mflops, 'csr_nnz_unroll6_sum':csr_nnz_unroll6_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers,'before_locality_index':before_locality_index, 'after_locality_index':after_locality_index});
 
           var csr_s_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum,'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+          var dia_basic_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum,'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+          var spts_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz,'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+
 
           var xmlhttp = new XMLHttpRequest();
 	  if(tests == 'all')
@@ -30,10 +34,14 @@
             xmlhttp.open("GET", "/result/" + ell_result, false);
 	  else if(tests == 'coo')
             xmlhttp.open("GET", "/result/" + coo_result, false);
-	  else if(tests == 'csr_nnz')
+	  else if(tests == 'csr_nnz' || tests == 'csr_reorder')
             xmlhttp.open("GET", "/result/" + csr_nnz_result, false);
 	  else if(tests == 'csr_s')
             xmlhttp.open("GET", "/result/" + csr_s_result, false);
+	  else if(tests == 'dia_basic')
+            xmlhttp.open("GET", "/result/" + dia_basic_result, false);
+	  else if(tests == 'spts')
+            xmlhttp.open("GET", "/result/" + spts_result, false);
           xmlhttp.send();
           //window.close()
         });

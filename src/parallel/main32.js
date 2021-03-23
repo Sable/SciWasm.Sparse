@@ -1,3 +1,4 @@
+var before_locality_index, after_locality_index;
 var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1;
 var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
 var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
@@ -142,7 +143,7 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
   });
 }
 
-function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs, sorted, short_rows)
+function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs, sorted, short_rows, locality)
 {
   // prereq : provide sorted A_csr input argument if sorted or short == 1
   console.log("csr nnz")
@@ -256,7 +257,7 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs, sorted, short_r
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
           variance /= outer_max;
           csr_sd = Math.sqrt(variance);
-	  if(sorted == 1 || short_rows == 1)
+	  if(sorted == 1 || short_rows == 1 || locality == 1)
             sort_y_rows_by_nnz(y_view, A_csr);
           csr_sum = fletcher_sum_y(y_view);
           console.log('csr sum is ', csr_sum);
@@ -327,11 +328,11 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
     }
     //console.log(calculate_csr_locality_index(A_csr_original));
     // sort CSR format by nnz per row
-    //var A_csr_sorted = sort_rows_by_nnz(A_csr_original);
+    var A_csr_sorted = sort_rows_by_nnz(A_csr_original);
     //console.log("CSR sorted");
-    console.log(calculate_csr_locality_index(A_csr_original));
+    console.log(calculate_csr_locality_index(A_csr_sorted));
     console.log("reordering A_csr");
-    var A_csr = reorder_NN(A_csr_original, 16);
+    var A_csr = reorder_NN(A_csr_sorted, 16);
     console.log("reordered A_csr");
     console.log(calculate_csr_locality_index(A_csr));
 
@@ -339,6 +340,12 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
     var t = 0;
     var row_start = new Int32Array(num_workers);
     var row_end = new Int32Array(num_workers);
+    var one_row = new Int32Array(num_workers);
+    var two_row = new Int32Array(num_workers);
+    var three_row = new Int32Array(num_workers);
+    var four_row = new Int32Array(num_workers);
+    // distribute almost equal number of nnzs to each worker & calculate number of rows with short length : 0, 1, 2, 3  
+    static_nnz_special_codes(A_csr, num_workers, row_start, row_end, one_row, two_row, three_row, four_row);
 
     static_nnz(A_csr, num_workers, row_start, row_end);
 
@@ -375,7 +382,7 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
           csr_sd = Math.sqrt(variance);
 	  console.log("sorting");
           sort_y_rows_by_nnz(y_view, A_csr);
-          //sort_y_rows_by_nnz(y_view, A_csr_sorted);
+          sort_y_rows_by_nnz(y_view, A_csr_sorted);
           csr_sum = fletcher_sum_y(y_view);
           console.log('csr sum is ', csr_sum);
           console.log('csr mflops is ', csr_mflops);
@@ -532,7 +539,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
 
     // CSR run for sorted format with static nnz partitioning and unroll factor 2
     function run_unrolled2_CSR(){
-      console.log("unrolled CSR run");
+      console.log("unrolled 2 CSR run");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
@@ -544,7 +551,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
 
     // CSR run for sorted format with static nnz partitioning and unroll factor 3
     function run_unrolled3_CSR(){
-      console.log("unrolled CSR run");
+      console.log("unrolled 3 CSR run");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
@@ -568,7 +575,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
 
     // CSR run for sorted format with static nnz partitioning and unroll factor 6
     function run_unrolled6_CSR(){
-      console.log("unrolled CSR run");
+      console.log("unrolled 6 CSR run");
       pending_workers = num_workers;
       clear_y(y_view);
       t1 = Date.now();
@@ -717,7 +724,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
   });
 }*/
 
-function dia_col_test(A_dia, x_view, y_view, workers, blocked)
+function dia_col_test(A_dia, x_view, y_view, workers, blocked, basic)
 {
   console.log("dia row partition")
   return new Promise(function(resolve){
@@ -739,6 +746,20 @@ function dia_col_test(A_dia, x_view, y_view, workers, blocked)
     var rem_N  = N - N_per_worker * num_workers;
     console.log(N_per_worker, rem_N);
     var t = 0;
+
+    function runDIA_basic()
+    {
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage(["dia_col_basic", i, i * N_per_worker, (i+1) * N_per_worker - 1 + rem_N, A_dia.offset_index, A_dia.data_index, A_dia.ndiags, N, A_dia.stride, x_view.x_index, y_view.y_index, inner_max]);
+        else
+          workers.worker[i].postMessage(["dia_col_basic", i, i * N_per_worker, (i+1) * N_per_worker - 1, A_dia.offset_index, A_dia.data_index, A_dia.ndiags, N, A_dia.stride, x_view.x_index, y_view.y_index, inner_max]);
+        workers.worker[i].onmessage = storeDIA;
+      }
+    }
 
     function runDIA()
     {
@@ -778,7 +799,9 @@ function dia_col_test(A_dia, x_view, y_view, workers, blocked)
         }
         t++;
         if(t < (outer_max + 10)){
-          if(blocked == 0)
+          if(basic == 1)
+            runDIA_basic();
+	  else if(blocked == 0)
             runDIA();
           else if(blocked == 1)
             runBDIA();
@@ -809,7 +832,9 @@ function dia_col_test(A_dia, x_view, y_view, workers, blocked)
         }
       }
     }
-    if(blocked == 0)
+    if(basic == 1)
+      runDIA_basic();
+    else if(blocked == 0)
       runDIA();
     else if(blocked == 1)
       runBDIA();
@@ -1295,7 +1320,7 @@ function spmv_csr_s_test(files, callback)
   y_view = allocate_y(mm_info);
   clear_y(y_view);
 
-  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0);
+  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0, 0);
   csr_nnz_promise.then(csr_nnz_value => {
     free_memory_csr(A_csr);
     free_memory_x(x_view);
@@ -1304,6 +1329,128 @@ function spmv_csr_s_test(files, callback)
     callback();
   });
 }
+
+function spmv_dia_basic_test(files, callback)
+{
+  console.log("inside csr nnz test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, A_csr, A_dia, x_view, y_view;
+  console.log("memory allocated");
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  free_memory_coo(A_coo);
+  console.log("CSR allocated");
+
+  var result = num_diags(A_csr);
+  var nd = result[0];
+  var stride = result[1];
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){
+    A_dia = allocate_DIA(mm_info, nd, stride);
+    //convert CSR to DIA
+    csr_dia_col(A_csr, A_dia);
+  }
+  free_memory_csr(A_csr);
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  var dia_promise = dia_col_test(A_dia, x_view, y_view, workers, 0, 1);
+  dia_promise.then(dia_value => {
+    free_memory_dia(A_dia);
+    free_memory_x(x_view);
+    free_memory_y(y_view);
+    console.log("done");
+    callback();
+  });
+}
+
+function spmv_csr_nnz_reorder_test(files, callback)
+{
+  console.log("inside reorder csr nnz test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, A_csr, A_csr_sorted, x_view, y_view;
+  console.log("memory allocated");
+
+  A_coo = allocate_COO(mm_info);
+  create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  free_memory_coo(A_coo);
+  console.log("CSR allocated");
+
+  before_locality_index = calculate_csr_locality_index(A_csr);
+  console.log(before_locality_index);
+  A_csr_sorted = sort_rows_by_nnz(A_csr);
+  free_memory_csr(A_csr);
+  calculate_csr_locality_index(A_csr_sorted);
+  console.log("CSR sorted");
+
+  console.log("reordering A_csr");
+  A_csr = reorder_NN(A_csr_sorted, 16);
+  console.log("reordered A_csr");
+  after_locality_index  = calculate_csr_locality_index(A_csr);
+  console.log(after_locality_index);
+  free_memory_csr(A_csr_sorted);
+  
+
+  x_view = allocate_x(mm_info);
+  init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0, 1);
+  csr_nnz_promise.then(csr_nnz_value => {
+    // CSR nnz gather/scatter
+    var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0, 1);
+    csr_nnz_gs_promise.then(csr_nnz_gs_value => {
+      var csr_nnz_short_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 1, 1);
+      csr_nnz_short_promise.then(csr_nnz_short_value => {
+        // CSR nnz gather/scatter short
+        var csr_nnz_gs_short_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 1, 1);
+        csr_nnz_gs_short_promise.then(csr_nnz_gs_short_value => {
+          var csr_nnz_unroll2_promise = static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, 2);
+          csr_nnz_unroll2_promise.then(csr_nnz_unroll2_value => {
+            var csr_nnz_unroll3_promise = static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, 3);
+            csr_nnz_unroll3_promise.then(csr_nnz_unroll3_value => {
+              var csr_nnz_unroll4_promise = static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, 4);
+              csr_nnz_unroll4_promise.then(csr_nnz_unroll4_value => {
+                var csr_nnz_unroll6_promise = static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, 6);
+                csr_nnz_unroll6_promise.then(csr_nnz_unroll6_value => {
+                  free_memory_csr(A_csr);
+                  free_memory_x(x_view);
+                  free_memory_y(y_view);
+                  console.log("done");
+                  callback();
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
 
 
 function spmv_csr_nnz_test(files, callback)
@@ -1333,10 +1480,10 @@ function spmv_csr_nnz_test(files, callback)
   y_view = allocate_y(mm_info);
   clear_y(y_view);
       
-  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0);
+  var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0, 0);
   csr_nnz_promise.then(csr_nnz_value => {
     // CSR nnz gather/scatter
-    var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0);
+    var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0, 0);
     csr_nnz_gs_promise.then(csr_nnz_gs_value => {
       free_memory_x(x_view);
       free_memory_y(y_view);
@@ -1347,14 +1494,14 @@ function spmv_csr_nnz_test(files, callback)
       init_x(x_view);
       y_view = allocate_y(mm_info);
       clear_y(y_view);
-      var csr_nnz_sorted_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 0, 1, 0);
+      var csr_nnz_sorted_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 0, 1, 0, 0);
       csr_nnz_sorted_promise.then(csr_nnz_sorted_value => {
-        var csr_nnz_gs_sorted_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 1, 0);
+        var csr_nnz_gs_sorted_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 1, 0, 0);
         csr_nnz_gs_sorted_promise.then(csr_nnz_gs_sorted_value => {
-          var csr_nnz_short_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 0, 0, 1);
+          var csr_nnz_short_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 0, 0, 1, 0);
           csr_nnz_short_promise.then(csr_nnz_short_value => {
             // CSR nnz gather/scatter short
-            var csr_nnz_gs_short_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 0, 1);
+            var csr_nnz_gs_short_promise = static_nnz_csr_test(A_csr_sorted, x_view, y_view, workers, 1, 0, 1, 0);
             csr_nnz_gs_short_promise.then(csr_nnz_gs_short_value => {
 	      var csr_nnz_unroll2_promise = static_nnz_sorted_unrolled_csr_test(A_csr_sorted, x_view, y_view, workers, 2);
               csr_nnz_unroll2_promise.then(csr_nnz_unroll2_value => {
@@ -1433,10 +1580,10 @@ function spmv_csr_row_test(files, callback)
     var csr_row_gs_promise = csr_test(A_csr, x_view, y_view, workers, 1);
     csr_row_gs_promise.then(csr_row_gs_value => {
       // CSR nnz
-      var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0);
+      var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0, 0);
       csr_nnz_promise.then(csr_nnz_value => {
         // CSR nnz gather/scatter
-        var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0);
+        var csr_nnz_gs_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 1, 0, 0, 0);
         csr_nnz_gs_promise.then(csr_nnz_gs_value => {
           free_memory_csr(A_csr);
           free_memory_x(x_view);
@@ -1490,7 +1637,7 @@ function spmv_all_test(files, callback)
         csr_dia_col(A_csr, A_dia);
       }
 
-      var dia_promise = dia_col_test(A_dia, x_view, y_view, workers, 0);
+      var dia_promise = dia_col_test(A_dia, x_view, y_view, workers, 0, 1);
       dia_promise.then(dia_value => {
         free_memory_dia(A_dia);
         //get ELL info
@@ -1498,10 +1645,10 @@ function spmv_all_test(files, callback)
         if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 5)){
           A_ell = allocate_ELL(mm_info, nc);
           //convert CSR to ELL
-          csr_ell_col(A_csr, A_ell);
+          csr_ell(A_csr, A_ell);
         }
 
-        var ell_promise = ell_col_test(A_ell, x_view, y_view, workers, 1, 0);
+        var ell_promise = ell_row_test(A_ell, x_view, y_view, workers, 1);
         ell_promise.then(ell_value => {
           free_memory_ell(A_ell);
           free_memory_csr(A_csr);
@@ -1515,7 +1662,113 @@ function spmv_all_test(files, callback)
   });
 }
 
+function spts_level_csr_test(A_csr, x_view, y_view)
+{
+  return new Promise(function(resolve){
+    console.log("CSR");
+    if(typeof A_csr === "undefined"){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    if(typeof x_view === "undefined"){
+      console.log("vector x is undefined");
+      return resolve(-1);
+    }
+    if(typeof y_view === "undefined"){
+      console.log("vector y is undefined");
+      return resolve(-1);
+    }
+    var A_level_csr = CSR_create_level_sets_with_reorder(A_csr);
+    var t1, t2, tt = 0.0;
+    var t = 0;
 
+    function runCSR(){
+      console.log("calling runCSR");
+      pending_workers = num_workers;
+      clear_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage(["spts_level_csr", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.nlevels, A_level_csr.barrier_index, num_workers, N, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    function storeCSR(event){
+      pending_workers -= 1;
+      console.log("pending workers ", pending_workers);
+      if(pending_workers <= 0){
+        t2 = Date.now();
+        if(t >= 10){
+          //csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          //tt += t2 - t1;
+        }
+        t++;
+        if(t < (outer_max + 10)){
+          var barrier = new Int32Array(memory.buffer, A_level_csr.barrier_index, A_level_csr.nlevels);
+          for(var i = 0; i < A_level_csr.nlevels; i++){
+            barrier[i] = 0;
+          }
+          runCSR();
+        }
+        else{
+          /*tt = tt/1000;
+          csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          variance = 0;
+          for(var i = 0; i < outer_max; i++)
+            variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
+          variance /= outer_max;
+          csr_sd = Math.sqrt(variance);
+          csr_sum = fletcher_sum_y(y_view);
+          console.log('csr sum is ', csr_sum);
+          console.log('csr mflops is ', csr_mflops);*/
+          console.log("Returned to main thread");
+          free_memory_csr(A_level_csr);
+          return resolve(0);
+        }
+      }
+    }
+
+    runCSR();
+  });
+}
+
+function spts_test(files, callback)
+{
+  console.log("inside spts test");
+  var mm_info = new sswasm_MM_info();
+  read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  get_inner_max();
+
+  var A_coo, A_csr, x_view, y_view;
+  A_coo = create_LCOO_from_MM(mm_info);
+  console.log("COO allocated");
+  //pretty_print_COO(A_coo);
+
+  A_csr = allocate_CSR(mm_info);
+  //convert COO to CSR
+  coo_csr(A_coo, A_csr);
+  free_memory_coo(A_coo);
+
+  console.log("CSR allocated");
+  x_view = allocate_x(mm_info);
+  spts_init_x(x_view);
+  y_view = allocate_y(mm_info);
+  clear_y(y_view);
+
+  inner_max = 1;
+  spts_level_csr_test(A_csr, x_view, y_view);
+  console.log("x");
+  //pretty_print_x(x_view);
+  console.log("y");
+  //pretty_print_y(y_view);
+
+  free_memory_csr(A_csr);
+  free_memory_x(x_view);
+  free_memory_y(y_view);
+  console.log("done");
+  callback();
+}
 
 function spmv(callback)
 {
@@ -1536,6 +1789,12 @@ function spmv(callback)
       spmv_coo_test(files, callback)
     else if(tests == 'csr_s')
       spmv_csr_s_test(files, callback)
+    else if(tests == 'dia_basic')
+      spmv_dia_basic_test(files, callback)
+    else if(tests == 'csr_reorder')
+      spmv_csr_nnz_reorder_test(files, callback)
+    else if(tests == 'spts')
+      spts_test(files, callback)
   },
   error => callback()
   ); 

@@ -18,6 +18,22 @@ onmessage = function(e) {
     })(); 
     postMessage(id); 
   }
+  if(e.data[0] == "spts_level_csr"){
+    assert(id == e.data[1], "Worker IDs don't match."); 
+    let level_index = e.data[2];
+    let csr_row_index = e.data[3];
+    let csr_col_index = e.data[4];
+    let csr_val_index = e.data[5];
+    let x_index = e.data[6];
+    let y_index = e.data[7];
+    let nlevels = e.data[8];
+    let barrier_index = e.data[9];
+    let nthreads = e.data[10];
+    let N = e.data[11];
+    let inside_max = e.data[12];
+    my_instance.exports.spts_level_csr(id, level_index, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, nlevels, barrier_index, nthreads, N, inside_max);
+    postMessage(id);
+  }
   if(e.data[0] == "sum"){
     assert(id == e.data[1], "Worker IDs don't match."); 
     let y = e.data[2];
@@ -194,6 +210,21 @@ onmessage = function(e) {
     let y_index = e.data[9];
     let inside_max = e.data[10];
     my_instance.exports.spmv_dia_wrapper(id, offset_index, dia_data_index, start, end, num_diag, N, x_index, y_index, inside_max);
+    postMessage(id);
+  }
+  if(e.data[0] == "dia_col_basic"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let N = e.data[7];
+    let stride = e.data[8];
+    let x_index = e.data[9];
+    let y_index = e.data[10];
+    let inside_max = e.data[11];
+    my_instance.exports.spmv_dia_col_basic_wrapper(id, offset_index, dia_data_index, start, end, num_diag, N, stride, x_index, y_index, inside_max);
     postMessage(id);
   }
   if(e.data[0] == "dia_col"){
