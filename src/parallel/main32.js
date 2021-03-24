@@ -1688,7 +1688,7 @@ function spts_level_csr_test(A_csr, x_view, y_view)
       clear_y(y_view);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
-        workers.worker[i].postMessage(["spts_level_csr", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.nlevels, A_level_csr.barrier_index, num_workers, N, inner_max]);
+        workers.worker[i].postMessage(["spts_level_csr", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.nlevels, A_level_csr.barrier_index, A_level_csr.flag_index, num_workers, N, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
@@ -1704,10 +1704,12 @@ function spts_level_csr_test(A_csr, x_view, y_view)
         }
         t++;
         if(t < (outer_max + 10)){
-          var barrier = new Int32Array(memory.buffer, A_level_csr.barrier_index, A_level_csr.nlevels);
-          for(var i = 0; i < A_level_csr.nlevels; i++){
-            barrier[i] = 0;
-          }
+          //var barrier = new Int32Array(memory.buffer, A_level_csr.barrier_index, A_level_csr.nlevels);
+          //for(var i = 0; i < A_level_csr.nlevels; i++){
+            //barrier[i] = 0;
+          //}
+          var flag = new Int32Array(memory.buffer, A_level_csr.flag_index, 1);
+	  flag[0] = 0;
           runCSR();
         }
         else{

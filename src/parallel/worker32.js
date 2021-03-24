@@ -28,10 +28,11 @@ onmessage = function(e) {
     let y_index = e.data[7];
     let nlevels = e.data[8];
     let barrier_index = e.data[9];
-    let nthreads = e.data[10];
-    let N = e.data[11];
-    let inside_max = e.data[12];
-    my_instance.exports.spts_level_csr(id, level_index, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, nlevels, barrier_index, nthreads, N, inside_max);
+    let flag_index = e.data[10];
+    let nthreads = e.data[11];
+    let N = e.data[12];
+    let inside_max = e.data[13];
+    my_instance.exports.spts_level_csr(id, level_index, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, nlevels, barrier_index, flag_index, nthreads, N, inside_max);
     postMessage(id);
   }
   if(e.data[0] == "sum"){

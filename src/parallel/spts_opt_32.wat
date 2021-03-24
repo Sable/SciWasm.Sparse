@@ -67,7 +67,7 @@
     )
   )
 
-  (func $spts_level_csr (export "spts_level_csr") (param $id i32) (param $level_ptr i32) (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $nlevels i32) (param $barrier i32) (param $nthreads i32) (param $N i32) (param $inner_max i32)
+  (func $spts_level_csr (export "spts_level_csr") (param $id i32) (param $level_ptr i32) (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $nlevels i32) (param $barrier i32) (param $global_flag i32) (param $nthreads i32) (param $N i32) (param $inner_max i32)
     (local $i i32)
     (local $j i32)
     (local $nrows i32)
@@ -77,9 +77,8 @@
     (local $this_y i32)
     (local $temp_y i32)
     (local $temp_x i32)
-    (local $temp_barrier i32)
-    (local $old_val i32)
     (local $start_level_ptr i32)
+    (local $local_flag i32)
     ;; check if the number of levels is less than or equal to zero.
     (local.get $nlevels)
     (i32.const 0)
@@ -95,6 +94,8 @@
     if
       (return)
     end
+    (i32.const 0)
+    (local.set $local_flag)
     (local.get $level_ptr)
     (local.set $start_level_ptr)
     (loop $top
@@ -139,53 +140,20 @@
         (i32.ne)
         (br_if $copy_x_to_y)
       )
-      ;; each worker thread reset barrier for its asssigned partition.
-      (local.get $nlevels)
-      (local.get $nthreads)
-      (i32.div_u)
-      (local.set $len)
-      (local.get $len)
-      (local.get $id)
-      (i32.mul)
-      (i32.const 2)
-      (i32.shl)
-      (local.set $i)
-      (i32.add (local.get $barrier) (local.get $i))
-      (local.set $temp_barrier)
-      (local.get $nthreads)
-      (local.get $id)
-      (i32.sub)
-      (i32.const 1)
-      (i32.eq)
-      if
-        (local.get $nlevels)
-        (local.get $nthreads)
-        (i32.rem_u)
-	(local.get $len)
-        (i32.add)
-	(local.set $len)
-      end
       (i32.const 0)
       (local.set $i)
-      ;;(loop $reset_barrier
-        ;;(i32.store (local.get $temp_barrier) (i32.const 0))
-        ;;(local.set $temp_barrier (i32.add (local.get $temp_barrier) (i32.const 4)))
-        ;;(tee_local $i (i32.add (local.get $i) (i32.const 1)))
-        ;;(local.get $len)
-        ;;(i32.ne)
-        ;;(br_if $reset_barrier)
-      ;;)
-      (i32.const 0)
-      (local.set $i)
-      (local.get $barrier)
-      (local.set $temp_barrier)
-      ;;(loop $entry_barrier_loop
-        ;;(i32.load (local.get $temp_barrier))
-	;;(i32.const 0)
-        ;;(i32.ne)
-        ;;(br_if $entry_barrier_loop)
-      ;;)
       (loop $level_loop
+	(local.get $local_flag)
+	(i32.eqz)
+	(if
+	(then
+	  (i32.const 1)
+	  (local.set $local_flag)
+	)
+	(else
+	  (i32.const 0)
+	  (local.set $local_flag)
+	))
         ;; At each level, calculate the rows partition for each thread using id.
         ;; This is to avoid calls (equal to the number of levels) between the master 
         ;; JavaScript thread and worker WebAssembly threads.
@@ -246,17 +214,25 @@
         ))
         ;; Increment the barrier value using atomic read-modify-write operation 
         ;; (returns value read from memory before the modify operation was performed).
-        (i32.atomic.rmw.add (local.get $temp_barrier) (i32.const 1)) 
-	(drop)
-	;;(call $logi)
-        (loop $barrier_loop
-          (i32.load (local.get $temp_barrier))
-          (local.get $nthreads)
-          (i32.ne)
-          (br_if $barrier_loop)
-        )
+        (local.get $nthreads)
+        (i32.atomic.rmw.add (local.get $barrier) (i32.const 1)) 
+	(i32.sub)
+        (i32.const 1)	
+	(i32.eq)
+	(if
+	(then
+          (i32.store (local.get $barrier) (i32.const 0)) 
+          (i32.atomic.store (local.get $global_flag) (local.get $local_flag)) 
+	)
+        (else
+          (loop $wait_loop
+            (i32.load (local.get $global_flag))
+            (local.get $local_flag)
+            (i32.ne)
+            (br_if $wait_loop)
+          )
+        ))
         (local.set $level_ptr (i32.add (local.get $level_ptr) (i32.const 4)))
-        (local.set $temp_barrier (i32.add (local.get $temp_barrier) (i32.const 4)))
         (tee_local $i (i32.add (local.get $i) (i32.const 1)))
         (local.get $nlevels)
         (i32.ne)     
