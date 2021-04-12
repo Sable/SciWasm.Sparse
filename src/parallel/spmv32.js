@@ -64,6 +64,7 @@ function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz
   this.nlevels = 0;
   this.barrier_index;
   this.flag_index;
+  this.array_flag_index;
 }
 
 function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
@@ -252,8 +253,7 @@ function pretty_print_ELLcol(A_ell){
 function pretty_print_x(x_view){
   var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   console.log("x_index :", x_view.x_index); 
-  //for(var i = 0; i < x_view.x_nelem; i++)
-  for(var i = 0; i < 10; i++)
+  for(var i = 0; i < x_view.x_nelem; i++)
     console.log(x[i]);
 }
 
@@ -261,8 +261,8 @@ function pretty_print_x(x_view){
 function pretty_print_y(y_view){
   var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   console.log("y_index :", y_view.y_index); 
+  for(var i = 0; i < 10; i++)
   //for(var i = 0; i <y_view.y_nelem; i++)
-  for(var i = 0; i <12; i++)
     console.log(y[i]);
 }
 
@@ -1047,9 +1047,9 @@ async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spts_opt_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spts_opt_32.wasm'), { js: { mem: memory}, 
     console: { log: function(arg) {
-      console.log(arg);}} 
+      console.log(arg);}, time:()=>Date.now()}
   });
   sparse_instance = obj.instance;
   sparse_module = obj.module;

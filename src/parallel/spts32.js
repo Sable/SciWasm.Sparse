@@ -1,7 +1,12 @@
 function spts_init_x(x_view){
   var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   for(var i = 0; i < x_view.x_nelem; i++)
-    x[i] = 0.0;
+    x[i] = 1.0;
+}
+function spts_init_y(y_view){
+  var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  for(var i = 0; i < y_view.y_nelem; i++)
+    y[i] = 1.0;
 }
 
 
@@ -101,6 +106,26 @@ function create_LCOO_from_MM(mm_info)
   }
   quick_sort_COO(A_coo, 0, anz-1);
   return A_coo;
+}
+
+function setup_sync_free_metadata(A_csr)
+{
+  console.log('sync free metadata');
+  // assume the column array is sorted by ascending order per row
+  var nz = A_csr.nnz;
+  var N = A_csr.nrows;
+  // allocate and set barrier to 0
+  A_csr.barrier_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var barrier = new Int32Array(memory.buffer, A_csr.barrier_index, 1);
+  barrier[0] = 0;
+  A_csr.flag_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var flag = new Int32Array(memory.buffer, A_csr.flag_index, 1);
+  flag[0] = 0;
+  A_csr.array_flag_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+  var array_flag = new Int32Array(memory.buffer, A_csr.array_flag_index, N);
+  for(var i = 0; i < N; i++){
+    array_flag[i] = 0;
+  }
 }
 
 function CSR_create_level_sets(A_csr)
@@ -223,6 +248,7 @@ function CSR_create_level_sets_with_reorder(A_csr)
   // total number of levels
   var tot_levels = max_level + 1;
   A_csr_new.nlevels = tot_levels;
+  console.log('number of levels', tot_levels);
 
   // calculate number of rows at each level
   var freq = new Int32Array(tot_levels);
@@ -257,11 +283,17 @@ function CSR_create_level_sets_with_reorder(A_csr)
   // allocate permutation array
   A_csr_new.permutation_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
   var permutation = new Int32Array(memory.buffer, A_csr_new.permutation_index, N);
+  var order = new Int32Array(N);
   // calculate the permutation of rows if the rows are sorted by levels
   for(var i = 0; i < N; i++){
     permutation[starting_index[level_per_row[i]]] = i;
+    order[i] = starting_index[level_per_row[i]];
     starting_index[level_per_row[i]]++;
   }
+
+  //for(var i = 0; i < 10; i++){
+    //console.log(i, permutation[i]);
+  //}
 
   // calculate reordered CSR
   console.log("calculate new CSR")
@@ -273,7 +305,8 @@ function CSR_create_level_sets_with_reorder(A_csr)
    temp = nnz_per_row[permutation[i]];
    csr_row_new[i+1] = csr_row_new[i] + temp;
    while(temp != 0){
-     csr_col_new[j] = csr_col[k];
+     csr_col_new[j] = order[csr_col[k]];
+     //csr_col_new[j] = csr_col[k];
      csr_val_new[j++] = csr_val[k++];
      temp--;
    }

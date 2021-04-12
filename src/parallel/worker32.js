@@ -13,7 +13,7 @@ onmessage = function(e) {
     let instance = WebAssembly.instantiate(mod, { js: { mem: memory }, console: {
     log: function(arg) {
       console.log(arg);
-    }}});
+    }, time:()=>Date.now()}});
     my_instance = await instance;
     })(); 
     postMessage(id); 
@@ -26,13 +26,30 @@ onmessage = function(e) {
     let csr_val_index = e.data[5];
     let x_index = e.data[6];
     let y_index = e.data[7];
-    let nlevels = e.data[8];
-    let barrier_index = e.data[9];
-    let flag_index = e.data[10];
+    let permutation_index = e.data[8];
+    let nlevels = e.data[9];
+    let barrier_index = e.data[10];
+    let flag_index = e.data[11];
+    let nthreads = e.data[12];
+    let N = e.data[13];
+    let inside_max = e.data[14];
+    my_instance.exports.spts_level_csr(id, level_index, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, permutation_index, nlevels, barrier_index, flag_index, nthreads, N, inside_max);
+    postMessage(id);
+  }
+  if(e.data[0] == "spts_sync_free_csr"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let csr_row_index = e.data[2];
+    let csr_col_index = e.data[3];
+    let csr_val_index = e.data[4];
+    let x_index = e.data[5];
+    let y_index = e.data[6];
+    let N = e.data[7];
+    let barrier_index = e.data[8];
+    let single_flag_index = e.data[9];
+    let array_flag_index = e.data[10];
     let nthreads = e.data[11];
-    let N = e.data[12];
-    let inside_max = e.data[13];
-    my_instance.exports.spts_level_csr(id, level_index, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, nlevels, barrier_index, flag_index, nthreads, N, inside_max);
+    let inside_max = e.data[12];
+    my_instance.exports.spts_csr_sync_free_wrapper(id, csr_row_index, csr_col_index, csr_val_index, x_index, y_index, N, barrier_index, single_flag_index, array_flag_index, nthreads, inside_max);
     postMessage(id);
   }
   if(e.data[0] == "sum"){

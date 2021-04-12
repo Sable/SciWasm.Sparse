@@ -34,6 +34,13 @@ def result(json_string):
 
   tests = parsed_json['tests'] 
 
+  if tests == 'spts':
+    f.write(str(parsed_json['csr_sd']))
+    f.write(",")
+    f.write(str(parsed_json['csr']))
+    f.write(",")
+    f.write(str(parsed_json['csr_sum']))
+
   if tests == 'dia':
     f.write(str(parsed_json['dia_row_sd']))
     f.write(",")
@@ -240,11 +247,11 @@ def result(json_string):
 
   f.write("\n")
   f.close()
-  #if browser == 0:
-    #subprocess.call(['killall', '-9', 'chrome']);
-  #elif browser == 1:
-    #subprocess.call(['killall', '-9', 'firefox']);
-    #sys.stderr.close()
-    #sys.exit(0)
+  if browser == 0:
+    subprocess.call(['killall', '-9', 'chrome']);
+  elif browser == 1:
+    subprocess.call(['killall', '-9', 'firefox']);
+    sys.stderr.close()
+    sys.exit(0)
   return "OK"
 run(host='localhost', port=8080, quiet=True)
