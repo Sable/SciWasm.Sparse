@@ -268,6 +268,11 @@ function CSR_create_level_sets_with_reorder(A_csr)
   A_csr_new.flag_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
   var flag = new Int32Array(memory.buffer, A_csr_new.flag_index, 1);
   flag[0] = 0;
+  A_csr_new.array_flag_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+  var array_flag = new Int32Array(memory.buffer, A_csr_new.array_flag_index, N);
+  for(var i = 0; i < N; i++){
+    array_flag[i] = 0;
+  }
   //for(var i = 0; i < tot_levels; i++){
     //barrier[i] = 0;
   //}

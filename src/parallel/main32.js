@@ -1662,6 +1662,77 @@ function spmv_all_test(files, callback)
   });
 }
 
+function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
+{
+  return new Promise(function(resolve){
+    console.log("CSR");
+    if(typeof A_csr === "undefined"){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    if(typeof x_view === "undefined"){
+      console.log("vector x is undefined");
+      return resolve(-1);
+    }
+    if(typeof y_view === "undefined"){
+      console.log("vector y is undefined");
+      return resolve(-1);
+    }
+    var A_level_csr = CSR_create_level_sets_with_reorder(A_csr);
+    var t1, t2, tt = 0.0;
+    var t = 0;
+
+    function runCSR(){
+      console.log("calling runCSR");
+      pending_workers = num_workers;
+      //clear_y(y_view);
+      spts_init_y(y_view);
+      t1 = Date.now();
+      for(var i = 0; i < num_workers; i++){
+        workers.worker[i].postMessage(["spts_csr_level_sync_free", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.permutation_index, A_level_csr.nlevels, A_level_csr.barrier_index, A_level_csr.flag_index, A_level_csr.array_flag_index, num_workers, N, inner_max]);
+        workers.worker[i].onmessage = storeCSR;
+      }
+    }
+
+    function storeCSR(event){
+      pending_workers -= 1;
+      //console.log("pending workers ", pending_workers);
+      if(pending_workers <= 0){
+        t2 = Date.now();
+        if(t >= 10){
+          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * anz - N) * inner_max/ ((t2 - t1)/1000);
+          tt += t2 - t1;
+        }
+        t++;
+        if(t < (outer_max + 10)){
+          var flag = new Int32Array(memory.buffer, A_level_csr.flag_index, 1);
+          flag[0] = 0;
+          runCSR();
+        }
+        else{
+          tt = tt/1000;
+          csr_mflops = 1/Math.pow(10,6) * (2 * anz - N) * outer_max * inner_max/ tt;
+          variance = 0;
+          for(var i = 0; i < outer_max; i++)
+            variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
+          variance /= outer_max;
+          csr_sd = Math.sqrt(variance);
+          sort_y_rows_by_nnz(y_view, A_level_csr);
+          csr_sum = fletcher_sum_y(y_view);
+          console.log('csr sum is ', csr_sum);
+          console.log('csr mflops is ', csr_mflops);
+          console.log("Returned to main thread");
+          free_memory_csr(A_level_csr);
+          return resolve(0);
+        }
+      }
+    }
+
+    runCSR();
+  });
+}
+
+
 function spts_csr_sync_free_test(A_csr, x_view, y_view)
 {
   return new Promise(function(resolve){
@@ -1688,7 +1759,7 @@ function spts_csr_sync_free_test(A_csr, x_view, y_view)
       spts_init_y(y_view);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
-        workers.worker[i].postMessage(["spts_sync_free_csr", i, A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, N, A_csr.barrier_index, A_csr.flag_index, A_csr.array_flag_index, num_workers, inner_max]);
+        workers.worker[i].postMessage(["spts_csr_sync_free", i, A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, N, A_csr.barrier_index, A_csr.flag_index, A_csr.array_flag_index, num_workers, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
@@ -1828,7 +1899,8 @@ function spts_test(files, callback)
 
   //inner_max = 1;
   //var spts_promise = spts_level_csr_test(A_csr, x_view, y_view);
-  var spts_promise = spts_csr_sync_free_test(A_csr, x_view, y_view);
+  //var spts_promise = spts_csr_sync_free_test(A_csr, x_view, y_view);
+  var spts_promise = spts_csr_level_sync_free_test(A_csr, x_view, y_view);
   spts_promise.then(spts_value => {
     //console.log("x");
     //pretty_print_x(x_view);
