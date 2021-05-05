@@ -1689,7 +1689,7 @@ function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
       spts_init_y(y_view);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
-        workers.worker[i].postMessage(["spts_csr_level_sync_free", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.permutation_index, A_level_csr.nlevels, A_level_csr.barrier_index, A_level_csr.flag_index, A_level_csr.array_flag_index, num_workers, N, inner_max]);
+        workers.worker[i].postMessage(["spts_csr_opt_level_sync_free", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.permutation_index, A_level_csr.nlevels, A_level_csr.barrier_index, A_level_csr.flag_index, A_level_csr.array_flag_index, A_level_csr.global_level_index, A_level_csr.array_level_index, num_workers, N, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }

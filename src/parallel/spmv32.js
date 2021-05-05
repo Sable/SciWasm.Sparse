@@ -65,6 +65,8 @@ function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz
   this.barrier_index;
   this.flag_index;
   this.array_flag_index;
+  this.global_level_index;
+  this.array_level_index;
 }
 
 function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){

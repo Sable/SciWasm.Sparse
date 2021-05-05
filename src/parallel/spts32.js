@@ -273,6 +273,14 @@ function CSR_create_level_sets_with_reorder(A_csr)
   for(var i = 0; i < N; i++){
     array_flag[i] = 0;
   }
+  A_csr_new.global_level_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var global_level = new Int32Array(memory.buffer, A_csr_new.global_level_index, 1);
+  global_level[0] = -1;
+  A_csr_new.array_level_index = malloc_instance.exports._malloc(tot_levels * Int32Array.BYTES_PER_ELEMENT);
+  var array_level = new Int32Array(memory.buffer, A_csr_new.array_level_index, tot_levels);
+  for(var i = 0; i < tot_levels; i++){
+    array_level[i] = 0;
+  }
   //for(var i = 0; i < tot_levels; i++){
     //barrier[i] = 0;
   //}
