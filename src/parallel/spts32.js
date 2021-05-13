@@ -76,7 +76,7 @@ function create_LCOO_from_MM(mm_info)
   }
   else{
     if(mm_info.field == "pattern"){
-      for(n = 0; n < mm_info.nentries; n++, i++) {
+      for(n = 0; n < mm_info.nentries; n++) {
         if(row[n] > col[n]){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
@@ -319,10 +319,10 @@ function CSR_create_level_sets_with_reorder(A_csr)
    csr_row_new[i+1] = csr_row_new[i] + temp;
    while(temp != 0){
      csr_col_new[j] = order[csr_col[k]];
-     //csr_col_new[j] = csr_col[k];
      csr_val_new[j++] = csr_val[k++];
      temp--;
    }
   }
+  console.log("returning new CSR");
   return A_csr_new;
 }

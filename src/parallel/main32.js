@@ -1307,9 +1307,11 @@ function spmv_csr_s_test(files, callback)
   A_coo = allocate_COO(mm_info);
   create_COO_from_MM(mm_info, A_coo);
   console.log("COO allocated");
+  console.log(A_coo.nnz);
 
 
   A_csr = allocate_CSR(mm_info);
+  console.log(A_csr.nnz);
   //convert COO to CSR
   coo_csr(A_coo, A_csr);
   free_memory_coo(A_coo);
@@ -1867,7 +1869,6 @@ function spts_level_csr_test(A_csr, x_view, y_view)
         }
       }
     }
-
     runCSR();
   });
 }
@@ -1878,16 +1879,18 @@ function spts_test(files, callback)
   var mm_info = new sswasm_MM_info();
   read_matrix_MM_files(files, num, mm_info, callback);
   N = mm_info.nrows;
-  get_inner_max();
 
   var A_coo, A_csr, x_view, y_view;
   A_coo = create_LCOO_from_MM(mm_info);
   console.log("COO allocated");
+  console.log(A_coo.nnz);
   //pretty_print_COO(A_coo);
 
   A_csr = allocate_CSR(mm_info);
+  console.log(A_csr.nnz);
   //convert COO to CSR
   coo_csr(A_coo, A_csr);
+  console.log(A_csr.nnz);
   free_memory_coo(A_coo);
 
   console.log("CSR allocated");
@@ -1897,15 +1900,11 @@ function spts_test(files, callback)
   //clear_y(y_view);
   //spts_init_y(y_view);
 
-  //inner_max = 1;
-  //var spts_promise = spts_level_csr_test(A_csr, x_view, y_view);
+  get_inner_max();
+  var spts_promise = spts_level_csr_test(A_csr, x_view, y_view);
   //var spts_promise = spts_csr_sync_free_test(A_csr, x_view, y_view);
-  var spts_promise = spts_csr_level_sync_free_test(A_csr, x_view, y_view);
+  //var spts_promise = spts_csr_level_sync_free_test(A_csr, x_view, y_view);
   spts_promise.then(spts_value => {
-    //console.log("x");
-    //pretty_print_x(x_view);
-    //console.log("y");
-    //pretty_print_y(y_view);
 
     free_memory_csr(A_csr);
     free_memory_x(x_view);
