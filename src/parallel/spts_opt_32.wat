@@ -367,8 +367,6 @@
     (local.set $local_flag)
     (local.get $level_ptr)
     (local.set $start_level_ptr)
-    ;;(call $time)
-    ;;(drop)
     (loop $top
       (local.get $local_flag)
       (i32.eqz)
@@ -431,12 +429,12 @@
       (i32.eq)
       (if
       (then
-        (i32.store (local.get $barrier) (i32.const 0)) 
+        (i32.atomic.store (local.get $barrier) (i32.const 0)) 
         (i32.atomic.store (local.get $global_flag) (local.get $local_flag)) 
       )
       (else
         (loop $top_wait_loop
-          (i32.load (local.get $global_flag))
+          (i32.atomic.load (local.get $global_flag))
           (local.get $local_flag)
           (i32.ne)
           (br_if $top_wait_loop)
@@ -502,7 +500,7 @@
 	  if
 	    (i32.const 1)
 	    (local.set $len)
-            (local.set $start (i32.shl (i32.add (i32.load (local.get $level_ptr)) (i32.mul (local.get $id) (local.get $len))) (i32.const 2)))
+            (local.set $start (i32.shl (i32.add (i32.load (local.get $level_ptr)) (local.get $id)) (i32.const 2)))
             (i32.add (local.get $csr_rowptr) (local.get $start)) 
             (local.get $csr_col)
             (local.get $csr_val)
@@ -521,12 +519,12 @@
 	(i32.eq)
 	(if
 	(then
-          (i32.store (local.get $barrier) (i32.const 0)) 
+          (i32.atomic.store (local.get $barrier) (i32.const 0)) 
           (i32.atomic.store (local.get $global_flag) (local.get $local_flag)) 
 	)
         (else
           (loop $wait_loop
-            (i32.load (local.get $global_flag))
+            (i32.atomic.load (local.get $global_flag))
             (local.get $local_flag)
             (i32.ne)
             (br_if $wait_loop)
@@ -670,8 +668,6 @@
     (local.set $local_flag)
     (local.get $level_ptr)
     (local.set $start_level_ptr)
-    ;;(call $time)
-    ;;(drop)
     (loop $top
       (local.get $local_flag)
       (i32.eqz)
@@ -864,7 +860,6 @@
     (local $i i32)
     (local $j i32)
     (local $end i32)
-    (local $random i32)
     (local $temp f32)
     (local.get $len)
     (i32.const 0)
@@ -929,7 +924,7 @@
     )
   )
 
-  (func $spts_csr_level_sync_free_busywait (export "spts_csr_level_sync_free_busywait") (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $len i32) (param $current i32) (param $flag i32) (param $local_level i32) (param $global_level i32)
+  (func $spts_csr_level_sync_free_busywait (export "spts_csr_level_sync_free_busywait") (param $id i32) (param $csr_rowptr i32) (param $csr_col i32) (param $csr_val i32) (param $x i32) (param $y i32) (param $len i32) (param $current i32) (param $flag i32) (param $local_level i32) (param $global_level i32)
     (local $i i32)
     (local $j i32)
     (local $end i32)
@@ -1151,12 +1146,12 @@
       (i32.eq)
       (if
       (then
-        (i32.atomic.store (local.get $barrier) (i32.const 0))
-        (i32.atomic.store (local.get $global_flag) (local.get $local_flag))
+        (i32.store (local.get $barrier) (i32.const 0))
+        (i32.store (local.get $global_flag) (local.get $local_flag))
       )
       (else
         (loop $top_wait_loop
-          (i32.atomic.load (local.get $global_flag))
+          (i32.load (local.get $global_flag))
           (local.get $local_flag)
           (i32.ne)
           (br_if $top_wait_loop)
@@ -1207,6 +1202,7 @@
           (else
             (local.set $start (i32.shl (i32.add (i32.load (local.get $level_ptr)) (i32.add (i32.mul (local.get $id) (local.get $len)) (local.get $rem))) (i32.const 2)))
           ))
+	  (local.get $id)
           (i32.add (local.get $csr_rowptr) (local.get $start))
           (local.get $csr_col)
           (local.get $csr_val)
@@ -1227,6 +1223,7 @@
             (i32.const 1)
             (local.set $len)
             (local.set $start (i32.shl (i32.add (i32.load (local.get $level_ptr)) (i32.mul (local.get $id) (local.get $len))) (i32.const 2)))
+	    (local.get $id)
             (i32.add (local.get $csr_rowptr) (local.get $start))
             (local.get $csr_col)
             (local.get $csr_val)
@@ -1248,8 +1245,8 @@
         (i32.eq)
         (if
         (then
-          (i32.atomic.store (local.get $global_level) (local.get $local_level))
-          (i32.atomic.store (i32.add (local.get $level_barrier) (i32.shl (local.get $local_level) (i32.const 2))) (i32.const 0))
+          (i32.store (local.get $global_level) (local.get $local_level))
+          (i32.store (i32.add (local.get $level_barrier) (i32.shl (local.get $local_level) (i32.const 2))) (i32.const 0))
 	))
         (local.set $level_ptr (i32.add (local.get $level_ptr) (i32.const 4)))
         (tee_local $i (i32.add (local.get $i) (i32.const 1)))
@@ -1266,13 +1263,13 @@
       (i32.eq)
       (if
       (then
-        (i32.atomic.store (local.get $barrier) (i32.const 0))
-        (i32.atomic.store (local.get $global_level) (i32.const -1))
-        (i32.atomic.store (local.get $global_flag) (local.get $local_flag))
+        (i32.store (local.get $barrier) (i32.const 0))
+        (i32.store (local.get $global_level) (i32.const -1))
+        (i32.store (local.get $global_flag) (local.get $local_flag))
       )
       (else
         (loop $wait_loop
-          (i32.atomic.load (local.get $global_flag))
+          (i32.load (local.get $global_flag))
           (local.get $local_flag)
           (i32.ne)
           (br_if $wait_loop)

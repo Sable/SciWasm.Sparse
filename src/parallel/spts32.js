@@ -1,3 +1,4 @@
+var num_levels = -1;
 function spts_init_x(x_view){
   var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   for(var i = 0; i < x_view.x_nelem; i++)
@@ -18,15 +19,31 @@ function create_LCOO_from_MM(mm_info)
   var L_anz = mm_info.nrows;
 
   if(mm_info.symmetry == "symmetric"){
-    for(var n = 0; n < mm_info.nentries; n++) {
-      if(row[n] != col[n])
-        L_anz++;
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n])
+          L_anz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n] && (val[n] > 0 || val[n] < 0))
+          L_anz++;
+      }
     }
   }
   else{
-    for(var n = 0; n < mm_info.nentries; n++) {
-      if(row[n] > col[n])
-        L_anz++;
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]))
+          L_anz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]) && (val[n] > 0 || val[n] < 0))
+          L_anz++;
+      }
     }
   }
 
@@ -86,16 +103,21 @@ function create_LCOO_from_MM(mm_info)
       }
     }
     else{
+      var count_zero = 0;
+      console.log("general real");
       for(var n = 0; n < mm_info.nentries; n++) {
         if(val[n] < 0 || val[n] > 0){
           if(row[n] > col[n]){
             coo_row[i] = Number(row[n] - 1);
+            if(coo_row[i] == 0)
+              count_zero++;
             coo_col[i] = Number(col[n] - 1);
             coo_val[i] = Number(val[n]);
             i++;
           }
         }
       }
+      console.log("read", i, anz, mm_info.nrows, count_zero);
     }
   }
   for(var n = 0; n < mm_info.nrows; n++){
@@ -104,6 +126,11 @@ function create_LCOO_from_MM(mm_info)
     coo_val[i] = 1.0;
     i++;
   }
+  /*var count_zero = 0;
+  for(var n = 0; n < anz; n++){
+    if(coo_row[n] == 0)
+      count_zero++;
+  }*/
   quick_sort_COO(A_coo, 0, anz-1);
   return A_coo;
 }
@@ -164,6 +191,7 @@ function CSR_create_level_sets(A_csr)
   // total number of levels
   var tot_levels = max_level + 1;
   A_csr.nlevels = tot_levels;
+  num_levels = tot_levels;
 
   // calculate number of rows at each level
   var freq = new Int32Array(tot_levels);
@@ -248,6 +276,7 @@ function CSR_create_level_sets_with_reorder(A_csr)
   // total number of levels
   var tot_levels = max_level + 1;
   A_csr_new.nlevels = tot_levels;
+  num_levels = tot_levels;
   console.log('number of levels', tot_levels);
 
   // calculate number of rows at each level

@@ -531,6 +531,7 @@ function coo_csr(A_coo, A_csr)
   var N = A_csr.nrows;
 
   var i;
+  var count_zero = 0;
   for(i = 0; i < nz; i++){
     csr_row[row[i]]++; 
   }

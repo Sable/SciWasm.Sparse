@@ -35,6 +35,8 @@ def result(json_string):
   tests = parsed_json['tests'] 
 
   if tests == 'spts':
+    f.write(str(parsed_json['num_levels']))
+    f.write(",")
     f.write(str(parsed_json['csr_sd']))
     f.write(",")
     f.write(str(parsed_json['csr']))
