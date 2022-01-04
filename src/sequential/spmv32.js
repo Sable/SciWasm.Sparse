@@ -1,16 +1,12 @@
-var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1;
-var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
-var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
-var anz = 0;
-var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
-var N;
-var variance;
-var inner_max = 1000000, outer_max = 30;
-let memory = Module['wasmMemory'];
+import * as memModule from './matmachjs-lib.js';
+let memory = memModule.Module['wasmMemory'];
 var malloc_instance;
 var sparse_instance;
 
-function sswasm_MM_info(){
+/* Constructor function to create an object sswasm_MM_info to
+ * represent the matrix data from a Matrix-Market format input file */
+export function sswasm_MM_info()
+{
   this.field = '';
   this.symmetry = '';
   this.nrows = 0;
@@ -22,7 +18,8 @@ function sswasm_MM_info(){
   this.anz = 0;
 }
 
-function sswasm_COO_t(row_index, col_index, val_index, nnz){
+export function sswasm_COO_t(row_index, col_index, val_index, nnz)
+{
   this.row;
   this.col;
   this.val;
@@ -32,7 +29,8 @@ function sswasm_COO_t(row_index, col_index, val_index, nnz){
   this.nnz = nnz;
 }
 
-function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz){
+export function sswasm_CSR_t(row_index, col_index, val_index, nnz_row_index, nrows, nnz)
+{
   this.row;
   this.col;
   this.val;
@@ -60,7 +58,6 @@ function sswasm_CSC_t(col_index, row_index, val_index, ncols, nnz){
   this.ncols = ncols;
   this.nnz = nnz;
 }
-
 
 function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
   this.offset;
@@ -95,6 +92,27 @@ function sswasm_y_t(y_index, y_nelem){
   this.y_nelem = y_nelem;
 }
 
+export function swasms_spmv_coo(A_coo, x_view, y_view, inner_max)
+{
+    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
+}
+
+export function swasms_spmv_csr(A_csr, x_view, y_view, inner_max)
+{
+  sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
+}
+
+export function swasms_spmv_dia(A_dia, x_view, y_view, inner_max)
+{
+  sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
+}
+
+
+export function swasms_spmv_ell(A_ell, x_view, y_view, inner_max)
+{
+  sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
+}
+
 function matlab_modulo(x, y) {
   var n = Math.floor(x/y);
   return x - n*y;
@@ -111,19 +129,19 @@ function fletcher_sum(A) {
   return sum2 * 256 + sum1;
 }
 
-function fletcher_sum_y(y_view)
+export function fletcher_sum_y(y_view)
 {
   var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   return parseInt(fletcher_sum(y));
 }
 
-function init_x(x_view){
+export function init_x(x_view){
   var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   for(var i = 0; i < x_view.x_nelem; i++)
     x[i] = i;
 }
 
-function clear_y(y_view){
+export function clear_y(y_view){
   var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   y.fill(0);
 }
@@ -181,7 +199,7 @@ function pretty_print_y(y_view){
     console.log(y[i]);
 }
 
-function num_cols(A_csr)
+export function num_cols(A_csr)
 {
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
   var N = A_csr.nrows;
@@ -194,7 +212,7 @@ function num_cols(A_csr)
   return max;
 }
 
-function csr_ell(A_csr, A_ell)
+export function csr_ell(A_csr, A_ell)
 {
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
@@ -217,7 +235,7 @@ function csr_ell(A_csr, A_ell)
   }
 }
 
-function num_diags(A_csr)
+export function num_diags(A_csr)
 {
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
@@ -240,13 +258,13 @@ function num_diags(A_csr)
     }
     diag_no++; 
   }
-  stride = N - min;
+  var stride = N - min;
   //stride = N;
   return [num_diag,stride];
 }
 
 
-function csr_dia(A_csr, A_dia)
+export function csr_dia(A_csr, A_dia)
 {
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
@@ -260,7 +278,7 @@ function csr_dia(A_csr, A_dia)
   var stride = A_dia.stride;
 
   var ind = new Int32Array(2*N-1);
-  var i, j, move;
+  var i, j, k, move;
   ind.fill(0);
 
   for(i = 0; i < N; i++){
@@ -390,7 +408,7 @@ function coo_csc(A_coo, A_csc)
     sort(csc_col[j], csc_col[j+1], csc_row, csc_val); 
 }
 
-function coo_csr(A_coo, A_csr)
+export function coo_csr(A_coo, A_csr)
 {
   var row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
   var col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
@@ -556,72 +574,17 @@ function calculate_csr_locality_index(A_csr)
   return (sum*100)/nz;
 }
 
-  
-
-function get_inner_max()
+export async function sswasm_init()
 {
-  if(anz > 1000000) inner_max = 5;
-  else if (anz > 100000) inner_max = 100;
-  else if (anz > 50000) inner_max = 500;
-  else if(anz > 10000) inner_max = 1000;
-  else if(anz > 2000) inner_max = 5000;
-  else if(anz > 100) inner_max = 50000;
-  inner_max *= 5;
-}
-
-async function sswasm_init()
-{
-  var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
+  var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), memModule.Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_32.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_simd_32.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
       console.log(arg);}}
   });
   sparse_instance = obj.instance;
 }
 
-function coo_test(A_coo, x_view, y_view)
-{
-  console.log("COO");
-  if(typeof A_coo === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
-    t2 = Date.now();
-    coo_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_coo.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  coo_mflops = 1/Math.pow(10,6) * 2 * A_coo.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (coo_mflops - coo_flops[i]) * (coo_mflops - coo_flops[i]);
-  variance /= outer_max;
-  coo_sd = Math.sqrt(variance);
-  coo_sum = fletcher_sum_y(y_view);
-  pretty_print_y(y_view);
-  pretty_print_COO(A_coo);
-  pretty_print_x(x_view);
-  console.log('coo sum is ', coo_sum);
-  console.log('coo sd is ', coo_sd);
-}
 
 function spts_csc_test(A_csc, x_view, y_view)
 {
@@ -649,11 +612,11 @@ function spts_csc_test(A_csc, x_view, y_view)
     t1 = Date.now();
     sparse_instance.exports.spts_csc_wrapper(A_csc.col_index, A_csc.row_index, A_csc.val_index, x_view.x_index, y_view.y_index, A_csc.ncols, inner_max);
     t2 = Date.now();
-    csr_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_csc.nnz/((t2 - t1)/1000);
+    csr_flops[i] = 1/Math.pow(10,6) * inner_max * (2 * A_csc.nnz - A_csc.ncols)/((t2 - t1)/1000);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
-  csr_mflops = 1/Math.pow(10,6) * 2 * A_csc.nnz * inner_max * outer_max/ tt;
+  csr_mflops = 1/Math.pow(10,6) * (2 * A_csc.nnz - A_csc.ncols) * inner_max * outer_max/ tt;
   variance = 0;
   for(var i = 0; i < outer_max; i++)
     variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -665,138 +628,7 @@ function spts_csc_test(A_csc, x_view, y_view)
   console.log('csr sd is ', csr_sd);
 }
 
-function csr_test(A_csr, x_view, y_view)
-{
-  console.log("CSR");
-  if(typeof A_csr === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
 
-  /*console.log(calculate_csr_locality_index(A_csr_original));
-  // sort CSR format by nnz per row
-  var A_csr = sort_rows_by_nnz(A_csr_original);
-  console.log("CSR sorted");
-  console.log(calculate_csr_locality_index(A_csr));*/
-
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
-    t2 = Date.now();
-    csr_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_csr.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  csr_mflops = 1/Math.pow(10,6) * 2 * A_csr.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
-  variance /= outer_max;
-  csr_sd = Math.sqrt(variance);
-  //sort_y_rows_by_nnz(y_view, A_csr);
-  csr_sum = fletcher_sum_y(y_view);
-  console.log('csr sum is ', csr_sum);
-  console.log('csr mflops is ', csr_mflops);
-  console.log('csr sd is ', csr_sd);
-}
-
-function dia_test(A_dia, x_view, y_view)
-{
-  console.log("DIA");
-  if(typeof A_dia === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
-  if((A_dia.nrows * A_dia.ndiags)/A_dia.nnz > 5){
-    console.log("too many elements in dia data array to compute spmv");
-    return;
-  }
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
-    t2 = Date.now();
-    dia_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_dia.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  dia_mflops = 1/Math.pow(10,6) * 2 * A_dia.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
-  variance /= outer_max;
-  dia_sd = Math.sqrt(variance);
-  dia_sum = fletcher_sum_y(y_view);
-  console.log('dia sum is ', dia_sum);
-  console.log('dia sd is ', dia_sd);
-}
-
-function ell_test(A_ell, x_view, y_view)
-{
-  console.log("ELL");
-  if(typeof A_ell === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
-    t2 = Date.now();
-    ell_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_ell.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  ell_mflops = 1/Math.pow(10,6) * 2 * A_ell.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
-  variance /= outer_max;
-  ell_sd = Math.sqrt(variance);
-  ell_sum = fletcher_sum_y(y_view);
-  console.log('ell sum is ', ell_sum);
-  console.log('ell sd is ', ell_sd);
-}
 
 function read_MM_header(file, mm_info)
 {
@@ -862,7 +694,7 @@ function calculate_actual_nnz(file, index, start, mm_info)
   return j;
 }
 
-function read_matrix_MM_files(files, num, mm_info, callback)
+export function read_matrix_MM_files(files, num, mm_info, callback)
 { 
   var start = 0;
   mm_info.anz = 0;
@@ -875,19 +707,18 @@ function read_matrix_MM_files(files, num, mm_info, callback)
         console.log("entries : cannot allocate this much");
         callback();
       }
-      mm_info.row = row = new Int32Array(mm_info.nentries);
-      mm_info.col = col = new Int32Array(mm_info.nentries);
+      mm_info.row = new Int32Array(mm_info.nentries);
+      mm_info.col = new Int32Array(mm_info.nentries);
       if(mm_info.field != "pattern")
-        mm_info.val = val = new Float64Array(mm_info.nentries);
+        mm_info.val = new Float64Array(mm_info.nentries);
     }
     start = calculate_actual_nnz(file, index, start, mm_info)
   }
-  if(mm_info.anz == 0)
-    anz = mm_info.nentries;
-  else
-    anz = mm_info.anz;
-  console.log(anz);
-  if(anz > Math.pow(2,28)){
+  if(mm_info.anz == 0){
+    mm_info.anz = mm_info.nentries;
+  }
+  console.log(mm_info.anz);
+  if(mm_info.anz > Math.pow(2,28)){
     console.log("anz : cannot allocate this much");
     callback();
   }
@@ -899,26 +730,41 @@ function create_LCOO_from_MM(mm_info)
   var col = mm_info.col;
   var val = mm_info.val;
   var L_anz = mm_info.nrows;
-  
+
   if(mm_info.symmetry == "symmetric"){
-    for(var n = 0; n < mm_info.nentries; n++) {
-      if(row[n] != col[n])
-        L_anz++;
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n])
+          L_anz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n] && (val[n] > 0 || val[n] < 0))
+          L_anz++;
+      }
     }
   }
   else{
-    for(var n = 0; n < mm_info.nentries; n++) {
-      if(row[n] > col[n])
-        L_anz++;
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]))
+          L_anz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]) && (val[n] > 0 || val[n] < 0))
+          L_anz++;
+      }
     }
   }
 
   mm_info.anz = L_anz;
-  anz = mm_info.anz;
   var A_coo = allocate_COO(mm_info);
-  var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
-  var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
-  var coo_val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz); 
+  var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz);
+  var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz);
+  var coo_val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz);
   var i = 0;
 
   if(mm_info.symmetry == "symmetric"){
@@ -928,13 +774,13 @@ function create_LCOO_from_MM(mm_info)
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
           coo_val[i] = 1.0;
-	  i++;
-	}
-	else if(row[n] < col[n]){
+          i++;
+        }
+        else if(row[n] < col[n]){
           coo_row[i] = Number(col[n] - 1);
           coo_col[i] = Number(row[n] - 1);
           coo_val[i] = 1.0;
-	  i++;
+          i++;
         }
       }
     }
@@ -953,32 +799,37 @@ function create_LCOO_from_MM(mm_info)
             coo_val[i] = Number(val[n]);
             i++;
           }
-        }  
+        }
       }
     }
   }
   else{
     if(mm_info.field == "pattern"){
-      for(n = 0; n < mm_info.nentries; n++, i++) {
+      for(n = 0; n < mm_info.nentries; n++) {
         if(row[n] > col[n]){
-	  coo_row[i] = Number(row[n] - 1);
+          coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
           coo_val[i] = 1.0;
           i++;
-	}
+        }
       }
     }
     else{
+      var count_zero = 0;
+      console.log("general real");
       for(var n = 0; n < mm_info.nentries; n++) {
         if(val[n] < 0 || val[n] > 0){
           if(row[n] > col[n]){
             coo_row[i] = Number(row[n] - 1);
+            if(coo_row[i] == 0)
+              count_zero++;
             coo_col[i] = Number(col[n] - 1);
             coo_val[i] = Number(val[n]);
             i++;
           }
         }
       }
+      console.log("read", i, mm_info.anz, mm_info.nrows, count_zero);
     }
   }
   for(var n = 0; n < mm_info.nrows; n++){
@@ -987,11 +838,17 @@ function create_LCOO_from_MM(mm_info)
     coo_val[i] = 1.0;
     i++;
   }
-  quick_sort_COO(A_coo, 0, anz-1);      
+  /*var count_zero = 0;
+  for(var n = 0; n < mm_info.anz; n++){
+    if(coo_row[n] == 0)
+      count_zero++;
+  }*/
+  quick_sort_COO(A_coo, 0, mm_info.anz-1);
   return A_coo;
 }
 
-function create_COO_from_MM(mm_info, A_coo)
+
+export function create_COO_from_MM(mm_info, A_coo)
 {
   var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
   var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
@@ -1060,70 +917,119 @@ function create_COO_from_MM(mm_info, A_coo)
       }
     }
   }
-  quick_sort_COO(A_coo, 0, anz-1);      
+  quick_sort_COO(A_coo, 0, mm_info.anz-1);      
 }
 
-function allocate_COO(mm_info)
+export function allocate_COO(mm_info)
 {
   // COO memory allocation
-  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var coo_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
-  var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz); 
+  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var coo_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, mm_info.anz); 
   return A_coo;
 }
 
-function allocate_CSR(mm_info)
+export function free_COO(A_coo)
+{
+  // COO memory free
+  if(typeof A_coo !== 'undefined'){
+    malloc_instance.exports._free(A_coo.row_index);
+    malloc_instance.exports._free(A_coo.col_index);
+    malloc_instance.exports._free(A_coo.val_index);
+  }
+}
+
+export function allocate_CSR(mm_info)
 {
   // CSR memory allocation
   var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1));
   var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.nrows);
-  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
-  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, mm_info.nrows, anz);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, mm_info.nrows, mm_info.anz);
   return A_csr;
+}
+
+export function free_CSR(A_csr)
+{
+  // CSR memory free
+  if(typeof A_csr !== 'undefined'){
+    malloc_instance.exports._free(A_csr.row_index);
+    malloc_instance.exports._free(A_csr.col_index);
+    malloc_instance.exports._free(A_csr.val_index);
+    malloc_instance.exports._free(A_csr.nnz_row_index);
+  }
 }
 
 function allocate_CSC(mm_info)
 {
   // CSC memory allocation
   var csc_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.ncols + 1));
-  var csc_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var csc_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * anz);
-  var A_csc = new sswasm_CSC_t(csc_col_index, csc_row_index, csc_val_index, mm_info.nrows, anz);
+  var csc_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var csc_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.anz);
+  var A_csc = new sswasm_CSC_t(csc_col_index, csc_row_index, csc_val_index, mm_info.nrows, mm_info.anz);
   return A_csc;
 }
 
-function allocate_DIA(mm_info, ndiags, stride)
+export function allocate_DIA(mm_info, ndiags, stride)
 {
   // DIA memory allocation
   var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
   var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ndiags * stride);
-  A_dia = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, anz);
+  var A_dia = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, mm_info.anz);
   return A_dia;
 }
 
-function allocate_ELL(mm_info, ncols)
+export function free_DIA(A_dia)
+{
+  if(typeof A_dia !== 'undefined'){ 
+    malloc_instance.exports._free(A_dia.offset_index);
+    malloc_instance.exports._free(A_dia.data_index);
+  }
+}
+
+export function allocate_ELL(mm_info, ncols)
 {
   // ELL memory allocation
   var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ncols * mm_info.nrows);
   var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ncols * mm_info.nrows);
-  A_ell = new sswasm_ELL_t(indices_index, ell_data_index, ncols, mm_info.nrows, anz);
+  var A_ell = new sswasm_ELL_t(indices_index, ell_data_index, ncols, mm_info.nrows, mm_info.anz);
   return A_ell;
 }
 
-function allocate_x(mm_info)
+export function free_ELL(A_ell)
+{
+  if(typeof A_ell !== 'undefined'){ 
+    malloc_instance.exports._free(A_ell.indices_index);
+    malloc_instance.exports._free(A_ell.data_index);
+  }
+}
+
+export function allocate_x(mm_info)
 {
   var x_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.ncols);
   var x_view = new sswasm_x_t(x_index, mm_info.ncols);
   return x_view;
 }
 
-function allocate_y(mm_info)
+export function free_x(x_view)
+{
+  if(typeof x_view !== 'undefined')
+    malloc_instance.exports._free(x_view.x_index);
+}
+
+export function allocate_y(mm_info)
 {
   var y_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * mm_info.nrows);
   var y_view = new sswasm_y_t(y_index, mm_info.nrows);
   return y_view;
+}
+
+export function free_y(y_view)
+{
+  if(typeof y_view !== 'undefined')
+    malloc_instance.exports._free(y_view.y_index);
 }
 
 /* Note: Since an ArrayBuffer’s byteLength is immutable, 
@@ -1132,187 +1038,17 @@ buffer getter will return a new ArrayBuffer object
 (with the new byteLength) and any previous ArrayBuffer 
 objects become “detached”, or disconnected from the 
 underlying memory they previously pointed to.*/ 
-function allocate_memory_test(mm_info)
-{
-  const bytesPerPage = 64 * 1024;
-  var max_pages = 16384;
-  
-  var A_coo = allocate_COO(mm_info);
-  create_COO_from_MM(mm_info, A_coo); 
 
-  var A_csr = allocate_CSR(mm_info);
-  //convert COO to CSR
-  coo_csr(A_coo, A_csr);
 
-  //get DIA info
-  var result = num_diags(A_csr);
-  var nd = result[0];
-  var stride = result[1];
-  //get ELL info
-  var nc = num_cols(A_csr);
-  var A_dia, A_ell;
-  
-  console.log((stride * nd)/anz);
-
-  if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){ 
-    A_dia = allocate_DIA(mm_info, nd, stride);
-    //convert CSR to DIA
-    csr_dia(A_csr, A_dia);
-  }
-
-  if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 5)){
-    A_ell = allocate_ELL(mm_info, nc);
-    //convert CSR to ELL
-    csr_ell(A_csr, A_ell);
-  } 
-
-  var x_view = allocate_x(mm_info);
-  init_x(x_view);
-
-  var y_view = allocate_y(mm_info);
-  clear_y(y_view);
-
-  return [A_coo, A_csr, A_dia, A_ell, x_view, y_view];
+function spts_init_x(x_view){
+  var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
+  for(var i = 0; i < x_view.x_nelem; i++)
+    x[i] = 1.0;
 }
-
-function free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view)
-{
-  if(typeof A_coo !== 'undefined'){ 
-    malloc_instance.exports._free(A_coo.row_index);
-    malloc_instance.exports._free(A_coo.col_index);
-    malloc_instance.exports._free(A_coo.col_index);
-  }
-
-  if(typeof A_csr !== 'undefined'){ 
-    malloc_instance.exports._free(A_csr.row_index);
-    malloc_instance.exports._free(A_csr.col_index);
-    malloc_instance.exports._free(A_csr.col_index);
-  }
-
-  if(typeof A_dia !== 'undefined'){ 
-    malloc_instance.exports._free(A_dia.offset_index);
-    malloc_instance.exports._free(A_dia.data_index);
-  }
-
-  if(typeof A_ell !== 'undefined'){ 
-    malloc_instance.exports._free(A_ell.indices_index);
-    malloc_instance.exports._free(A_ell.data_index);
-  }
-
-  if(typeof x_view !== 'undefined')
-    malloc_instance.exports._free(x_view.x_index);
-
-  if(typeof y_view !== 'undefined')
-    malloc_instance.exports._free(y_view.y_index);
-}
-
-function spmv_test(files, callback)
-{
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  get_inner_max();
-
-  var A_coo, A_csr, A_dia, A_ell, x_view, y_view;
-  [A_coo, A_csr, A_dia, A_ell, x_view, y_view] = allocate_memory_test(mm_info);
-
-  pretty_print_COO(A_coo);
-  coo_test(A_coo, x_view, y_view);
-  csr_test(A_csr, x_view, y_view);
-  dia_test(A_dia, x_view, y_view);
-  ell_test(A_ell, x_view, y_view);
-  free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
-  console.log("done");
-  callback();
-}
-
-function spts_test(files, callback)
-{
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  get_inner_max();
-  
-  var A_coo, A_csc, x_view, y_view;
-  A_coo = create_LCOO_from_MM(mm_info);
-  console.log("COO allocated");
-  pretty_print_COO(A_coo);
-
-  A_csc = allocate_CSC(mm_info);
-  //convert COO to CSC
-  coo_csc(A_coo, A_csc);
-  if(typeof A_coo !== 'undefined'){
-    malloc_instance.exports._free(A_coo.row_index);
-    malloc_instance.exports._free(A_coo.col_index);
-    malloc_instance.exports._free(A_coo.col_index);
-  }
-  console.log("CSC allocated");
-  x_view = allocate_x(mm_info);
-  init_x(x_view);
-  y_view = allocate_y(mm_info);
-  clear_y(y_view);
-
-  spts_csc_test(A_csc, x_view, y_view);
-  console.log("x");
-  pretty_print_x(x_view);
-  console.log("y");
-  pretty_print_y(y_view);
-
-  if(typeof A_csc !== 'undefined'){
-    malloc_instance.exports._free(A_csc.row_index);
-    malloc_instance.exports._free(A_csc.col_index);
-    malloc_instance.exports._free(A_csc.col_index);
-  }
-  if(typeof x_view !== 'undefined')
-    malloc_instance.exports._free(x_view.x_index);
-
-  if(typeof y_view !== 'undefined')
-    malloc_instance.exports._free(y_view.y_index);
-  console.log("done");
-  callback();
-}
-
-function spmv_csr_test(files, callback)
-{
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  get_inner_max();
-
-  var A_coo, A_csr, x_view, y_view;
-
-  A_coo = allocate_COO(mm_info);
-  create_COO_from_MM(mm_info, A_coo);
-  console.log("COO allocated");
-
-  A_csr = allocate_CSR(mm_info);
-  //convert COO to CSR
-  coo_csr(A_coo, A_csr);
-  if(typeof A_coo !== 'undefined'){
-    malloc_instance.exports._free(A_coo.row_index);
-    malloc_instance.exports._free(A_coo.col_index);
-    malloc_instance.exports._free(A_coo.col_index);
-  }
-  console.log("CSR allocated");
-
-  x_view = allocate_x(mm_info);
-  init_x(x_view);
-  y_view = allocate_y(mm_info);
-  clear_y(y_view);
-
-  csr_test(A_csr, x_view, y_view);
-  if(typeof A_csr !== 'undefined'){
-    malloc_instance.exports._free(A_csr.row_index);
-    malloc_instance.exports._free(A_csr.col_index);
-    malloc_instance.exports._free(A_csr.col_index);
-  }
-  if(typeof x_view !== 'undefined')
-    malloc_instance.exports._free(x_view.x_index);
-
-  if(typeof y_view !== 'undefined')
-    malloc_instance.exports._free(y_view.y_index);
-  console.log("done");
-  callback();
+function spts_init_y(y_view){
+  var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  for(var i = 0; i < y_view.y_nelem; i++)
+    y[i] = 1.0;
 }
 
 /* 
@@ -1352,7 +1088,7 @@ function parse_file(file)
   read_file_block(file, 0);
 }
 
-var load_file = function(){
+export var load_file = function(){
   return new Promise(function(resolve, reject) {
     var files = new Array(num);
     var load_files = function(fileno, files, num){
@@ -1385,24 +1121,4 @@ var load_file = function(){
     load_files(0, files, num);
   });
 }
-
-function spts(callback)
-{
-  let promise = load_file();
-  promise.then(
-    files => spts_test(files, callback),
-    error => callback()
-  );
-}
-
-function spmv(callback)
-{
-  let promise = load_file();
-  promise.then(
-    //files => spmv_test(files, callback),
-    files => spmv_csr_test(files, callback),
-    error => callback()
-  );
-}
-
 

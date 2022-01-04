@@ -56,6 +56,12 @@ def result(json_string):
   f.write(",")
   f.write("\n")
   f.close()
+  if browser == 0:
+    subprocess.call(['killall', '-9', 'chrome']);
+  elif browser == 1:
+    subprocess.call(['killall', '-9', 'firefox']);
+    sys.stderr.close()
+    sys.exit(0)
   #if browser == 0:
     #subprocess.Popen(["killall", "-9", "chrome"], stdout=subprocess.PIPE).communicate()
     #sys.stderr.close()

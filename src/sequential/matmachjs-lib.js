@@ -1,6 +1,6 @@
 //const { TextDecoder } = require('util');
 // Object to fit to WebAssembly Runtime
-let Module = {};
+export let Module = {};
 
 /**
  * MEMORY CONSTANTS

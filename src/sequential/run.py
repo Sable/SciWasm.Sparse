@@ -71,11 +71,9 @@ def main(argv):
   if precision == 1:
     url = "http://localhost:8080/static/index64.html"
   #browser_path = r'google-chrome'
-  browser_path = r'/mnt/local/HDD_data/cheetah/chrome87/opt/google/chrome/chrome'
+  browser_path = r'/mnt/local/HDD_data/cheetah/chrome96/opt/google/chrome/chrome'
   browser_opts = ' '
-  #browser_opts = ' '.join(["--js-flags=\"--experimental-wasm-simd --wasm-no-bounds-checks --wasm-no-stack-checks\""])
-  browser_opts = ' '.join(["--js-flags=\"--experimental-wasm-simd --wasm-no-bounds-checks --wasm-no-stack-checks\"", "--headless --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222"])
-  #browser_opts = ' '.join(["--js-flags=\"--experimental-wasm-simd --wasm-no-bounds-checks --wasm-no-stack-checks\"", "--headless --disable-gpu --no-sandbox --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222"])
+  browser_opts = ' '.join(["--js-flags=\"--experimental-wasm-simd --wasm-no-bounds-checks --wasm-no-stack-checks\"", "--headless --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --enable-features=SharedArrayBuffer"])
   if browser == 1:
     browser_path = r'/mnt/cheetah/firefox68/firefox/firefox'
     browser_opts = '-new-instance'

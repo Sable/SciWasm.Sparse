@@ -12,15 +12,15 @@
       };
     </script>-->
     <script src="my.js"></script>
-    <script src="matmachjs-lib.js"></script>
-    <script src="spmv32.js"></script>
-    <script type='text/javascript'>
+    <script type="module">
+      import * as swasmsModule from './spmv32.js';
+      import * as mainModule from './main32.js';
       (async () => {
-        await sswasm_init();
-        //spmv(function()
-        spts(function()
+        await swasmsModule.sswasm_init();
+        mainModule.spmv(function()
+        //spts(function()
         {
-          var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum, 'ell_sd':ell_sd, 'ell':ell_mflops, 'ell_sum':ell_sum, 'inner_max':inner_max, 'outer_max':outer_max});
+          var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': mainModule.N, 'nnz':mainModule.anz, 'coo_sd':mainModule.coo_sd, 'coo':mainModule.coo_mflops, 'coo_sum':mainModule.coo_sum, 'csr_sd':mainModule.csr_sd, 'csr':mainModule.csr_mflops, 'csr_sum':mainModule.csr_sum, 'dia_sd':mainModule.dia_sd, 'dia':mainModule.dia_mflops, 'dia_sum':mainModule.dia_sum, 'ell_sd':mainModule.ell_sd, 'ell':mainModule.ell_mflops, 'ell_sum':mainModule.ell_sum, 'inner_max':mainModule.inner_max, 'outer_max':mainModule.outer_max});
           var xmlhttp = new XMLHttpRequest();
           xmlhttp.open("GET", "/result/" + result, false);
           xmlhttp.send();
