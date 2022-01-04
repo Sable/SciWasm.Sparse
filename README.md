@@ -1,15 +1,19 @@
-# Sparse.SciWasm
+# SciWasm.Sparse
 
-## To run a sparse matrix benchmark
+SciWasm.Sparse is a WebAssembly/JavaScript library module for highly efficient web-based sparse matrix computations.
+This hand-tuned library supports both serial and parallel Sparse BLAS Level II operations, element-wise operations, 
+and conversion routines for a number of sparse matrix storage formats.
+
+## To run a serial sparse matrix-vector multiplication benchmark
     ./run.py -b <browser> -p single <matrix_market_input_file_path>
-where <browser> is chrome for Google Chrome and firefox for Mozilla Firefox
+where \<browser\> is *chrome* for Google Chrome and *firefox* for Mozilla Firefox
     
-## Supported Sparse BLAS Level 2 Operations
+## Supported Sparse BLAS Level II Operations
 
 | Operation | Description | Implementation Status |
 | --------- | ----------- | --------------------- |
 | SpMV | Sparse Matrix-Vector Multiplication | Available |
-| SpTS | Sparse Triangular  Solve | in progress |
+| SpTS | Sparse Triangular  Solve | Available |
   
 ## Supported Element-Wise Operations
 
