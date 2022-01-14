@@ -491,5 +491,705 @@
       (br $top)
     ))
   )    
+
+
+  (func (export "self_abs_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.abs (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.abs (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "self_neg_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.neg (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.neg (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "self_sqrt_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.sqrt (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.sqrt (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "self_ceil_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.ceil (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne) 
+      (br_if $loop)
+    ) 
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.ceil (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne) 
+      (br_if $vector_loop)
+    )
+  )
+
+
+  (func (export "self_floor_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.floor (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.floor (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "self_trunc_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.trunc (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.trunc (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "self_nearest_coo") (param $val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $val)
+      (f32.nearest (f32.load (local.get $val)))
+      (f32.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $val)
+      (f32x4.nearest (v128.load (local.get $val)))
+      (v128.store)
+      (local.set $val (i32.add (local.get $val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+
+  (func (export "abs_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.abs (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.abs (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "neg_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.neg (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.neg (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "sqrt_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.sqrt (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.sqrt (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "ceil_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.ceil (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.ceil (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "floor_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.floor (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.floor (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "trunc_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.trunc (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.trunc (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "nearest_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    (local $rem i32)
+    i32.const 0
+    local.set $i
+    (local.get $nnz)
+    (i32.const 4)
+    (i32.rem_u)
+    (local.set $rem)
+    (loop $loop
+      (local.get $out_val)
+      (f32.nearest (f32.load (local.get $in_val)))
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $rem)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (loop $vector_loop
+      (local.get $out_val)
+      (f32x4.nearest (v128.load (local.get $in_val)))
+      (v128.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 16)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 16)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $vector_loop)
+    )
+  )
+
+  (func (export "memcpy") (param $src i32) (param $dst i32) (param $size i32)
+    (local.get $dst)
+    (local.get $src)
+    (local.get $size)
+    (memory.copy)	
+  )
+
+  (func (export "diagonal_coo") (param $k i32) (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $coo_diag i32) (param $N i32) (param $nnz i32)
+    (local $i i32)
+    (local $val i32)
+    (local $start i32)
+    (local $end i32)
+    i32.const 0
+    local.set $i
+    (if (result i32 i32) (i32.lt_s (local.get $k) (i32.const 0)) 
+      (then 
+        (local.get $N)
+        (i32.sub (i32.const 0)(local.get $k))
+      )
+      (else
+        (i32.sub (local.get $N) (local.get $k))
+        i32.const 0 
+      )
+    ) 
+    (local.set $start)
+    (local.set $end)
+    ;; bring coo_row pointer to the same row as start
+    (loop $init
+      (local.get $start)
+      (i32.load (local.get $coo_row))
+      (i32.gt_s)
+      if
+        (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+        (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+        (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $nnz)
+        (i32.ne)
+	if
+          (br $init)
+	end
+	(return)
+      end
+    )
+    (loop $diag_loop
+      (loop $row_loop
+        ;; if start and coo_row point have the same row number
+        (i32.load (local.get $coo_row))
+        (local.get $start)
+        (i32.eq)
+        if 
+          (i32.load (local.get $coo_col))
+          (i32.load (local.get $coo_row))
+	  (i32.sub)
+	  (local.get $k)
+          (i32.ne)
+          if
+            (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+            (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+            (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+            (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+            (local.get $nnz)
+            (i32.ne)
+	    if
+              (br $row_loop)
+	    end
+	    (return)
+	  end
+	  ;; found! 
+          (local.get $coo_diag)
+          (f32.load (local.get $coo_val))
+	  (f32.store)
+          ;; bring coo_row pointer to the next row
+          (loop $next
+            (local.get $start)
+            (i32.load (local.get $coo_row))
+            (i32.eq)
+            if
+              (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+              (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+              (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+              (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+              (local.get $nnz)
+              (i32.ne)
+	      if
+                (br $next)
+	      end
+	      (return)
+            end
+          )
+        end
+      )
+      (local.set $coo_diag (i32.add (local.get $coo_diag) (i32.const 4)))
+      (tee_local $start (i32.add (local.get $start) (i32.const 1)))
+      (local.get $end)
+      (i32.ne)
+      (br_if $diag_loop)
+    )
+  )
+
+  (func (export "sum_coo") (param $axis i32) (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $sum i32) (param $N i32) (param $nnz i32)
+    (local $i i32)
+    (local $temp f32)
+    
+    (local.get $axis)
+    (i32.const 1)
+    (i32.eq)
+    if
+      (i32.const 0)
+      (local.set $i)
+      (loop $sum_loop_1
+        (f32.const 0)
+        (local.set $temp)
+        (loop $row_loop_1
+          ;; if i and coo_row point have the same row number
+          (i32.load (local.get $coo_row))
+          (local.get $i)
+          (i32.eq)
+          if
+	    (local.get $temp)
+            (f32.load (local.get $coo_val))
+	    (f32.add)
+	    (local.set $temp)
+            (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+            (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+            (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+            (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+            (local.get $nnz)
+            (i32.ne)
+            if
+              (br $row_loop_1)
+            end
+            (return)
+          end
+        )
+	(local.get $sum)
+	(local.get $temp)
+	(f32.store)
+        (local.set $sum (i32.add (local.get $sum) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $N)
+        (i32.ne)
+        (br_if $sum_loop_1)
+      )
+    end
+  )
+
+  (func (export "min_coo") (param $axis i32) (param $coo_row i32) (param $coo_col i32) (param $coo_val i32) (param $min i32) (param $N i32) (param $nnz i32)
+    (local $i i32)
+    (local $j i32)
+    (local $n i32)
+    (local $temp f32)
+    (i32.const 0)
+    (local.set $j)
+
+    (local.get $axis)
+    (i32.const 1)
+    (i32.eq)
+    if
+      (i32.const 0)
+      (local.set $i)
+      (loop $min_loop_1
+        (i32.const 0)
+        (local.set $n)
+        ;; if i and coo_row point have the same row number
+        (i32.load (local.get $coo_row))
+        (local.get $i)
+        (i32.eq)
+	if
+          ;; load first val into temp
+          (f32.load (local.get $coo_val))
+          (local.set $temp)
+          (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+          (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+          (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+          (local.set $n (i32.add (local.get $n) (i32.const 1)))
+          (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+          (local.get $nnz)
+	  (i32.eq)
+	  if
+	    (return)
+	  end
+	end
+        (loop $row_loop_1
+          ;; if i and coo_row point have the same row number
+          (i32.load (local.get $coo_row))
+          (local.get $i)
+          (i32.eq)
+          if
+            (local.get $temp)
+            (f32.load (local.get $coo_val))
+	    (f32.gt)
+	    if
+              (f32.load (local.get $coo_val))
+              (local.set $temp)
+	    end
+            (local.set $coo_row (i32.add (local.get $coo_row) (i32.const 4)))
+            (local.set $coo_col (i32.add (local.get $coo_col) (i32.const 4)))
+            (local.set $coo_val (i32.add (local.get $coo_val) (i32.const 4)))
+            (local.set $n (i32.add (local.get $n) (i32.const 1)))
+            (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+            (local.get $nnz)
+            (i32.ne)
+            if
+              (br $row_loop_1)
+            end
+            (local.get $n)
+	    (local.get $N)
+	    (i32.lt_s)
+	    if
+              (f32.const 0)
+	      (local.get $temp)
+	      (f32.lt)
+              if
+                (f32.const 0)
+	        (local.set $temp)
+	      end
+	    end
+            (local.get $min)
+            (local.get $temp)
+            (f32.store)
+            (return)
+          end
+        )
+        (local.get $n)
+	(local.get $N)
+	(i32.lt_s)
+	if
+          (f32.const 0)
+	  (local.get $temp)
+	  (f32.lt)
+          if
+            (f32.const 0)
+	    (local.set $temp)
+	  end
+	end
+        (local.get $min)
+        (local.get $temp)
+        (f32.store)
+        (local.set $min (i32.add (local.get $min) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $N)
+        (i32.ne)
+        (br_if $min_loop_1)
+      )
+    end
+  )
 )
+
 

@@ -383,6 +383,57 @@ function spts_test(files, callback)
   callback();
 }
 
+function element_wise_test(files, callback)
+{
+  // create an instance of swasms_MM_info object type
+  var mm_info = new swasmsModule.sswasm_MM_info();
+  // read matrix data from file into mm_info
+  swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
+  N = mm_info.nrows;
+  anz = mm_info.anz;
+
+  var A_coo, A_csr1, A_csr2;
+
+  // allocate memory for COO format
+  A_coo = swasmsModule.allocate_COO(mm_info);
+  // fill COO with matrix data
+  swasmsModule.create_COO_from_MM(mm_info, A_coo);
+  console.log("COO allocated");
+  swasmsModule.pretty_print_COO(A_coo); 
+  var min = A_coo.min(1);
+  swasmsModule.pretty_print_vec(min); 
+
+  /*
+  // allocate memory for CSR format
+  A_csr1 = swasmsModule.allocate_CSR(mm_info);
+  //convert COO to CSR
+  swasmsModule.coo_csr(A_coo, A_csr1);
+  //free COO
+  swasmsModule.free_COO(A_coo);
+  console.log("CSR allocated");
+
+  swasmsModule.pretty_print_CSR(A_csr1); 
+  A_csr2 = swasmsModule.swasms_ceil_csr(A_csr1);
+  //A_csr.ceil();
+  swasmsModule.pretty_print_CSR(A_csr2); 
+  //swasmsModule.pretty_print_CSR(A_csr1); 
+  swasmsModule.free_CSR(A_csr1);
+  swasmsModule.free_CSR(A_csr2);
+  */
+  swasmsModule.free_COO(A_coo);
+  console.log("done");
+  callback();
+}
+
+export function element_wise(callback)
+{
+  let promise = swasmsModule.load_file();
+  promise.then(
+    files => element_wise_test(files, callback),
+    error => callback()
+  );
+}
+
 export function spmv(callback)
 {
   let promise = swasmsModule.load_file();
