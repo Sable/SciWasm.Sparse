@@ -400,8 +400,11 @@ function element_wise_test(files, callback)
   swasmsModule.create_COO_from_MM(mm_info, A_coo);
   console.log("COO allocated");
   swasmsModule.pretty_print_COO(A_coo); 
-  var min = A_coo.min(1);
-  swasmsModule.pretty_print_vec(min); 
+  var vec1 = swasmModule.allocate_vec(N, 2);
+  A_coo.multiply(vec1);
+  swasmsModule.pretty_print_COO(A_coo); 
+  //var min = A_coo.min(1);
+  //swasmsModule.pretty_print_vec(min); 
 
   /*
   // allocate memory for CSR format

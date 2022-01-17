@@ -2,10 +2,8 @@ let memModule = await import('./matmachjs-lib.js');
 let memory = memModule.Module['wasmMemory'];
 let obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), memModule.Module);
 const malloc_instance = obj.instance;
-obj = await WebAssembly.instantiateStreaming(fetch('spmv_simd_32.wasm'), { js: { mem: memory }, 
-  console: { log: function(arg) {
-    console.log(arg);}}
-  });
+var importObject = { js: { mem: memory }, console: { log: function(arg) {console.log(arg);}}, math: { expm1: function(arg) { return Math.expm1(arg);}, log1p: function(arg) { return Math.log1p(arg);}, pow: function(arg1, arg2) { return Math.pow(arg1, arg2);}, sin: function(arg) { return Math.sin(arg);}, tan: function(arg) { return Math.tan(arg);}}}
+obj = await WebAssembly.instantiateStreaming(fetch('spmv_simd_32.wasm'), importObject);
 const sparse_instance = obj.instance;
 
 /* Constructor function to create an object sswasm_MM_info to
@@ -35,6 +33,14 @@ export function sswasm_COO_t(row_index, col_index, val_index, N, nnz)
   this.N = N;
 
   // element-wise methods
+  this.expm1 = swasms_self_expm1_coo;
+  this.log1p = swasms_self_log1p_coo;
+  this.sin = swasms_self_sin_coo;
+  this.tan = swasms_self_tan_coo;
+  this.pow = swasms_self_pow_coo;
+  this.deg2rad = swasms_self_deg2rad_coo;
+  this.rad2deg = swasms_self_rad2deg_coo;
+  this.multiply = swasms_self_multiply_coo;
   this.abs = swasms_self_abs_coo;
   this.neg = swasms_self_neg_coo;
   this.sqrt = swasms_self_sqrt_coo;
@@ -128,6 +134,50 @@ function sswasm_y_t(y_index, y_nelem){
 }
 
 // COO in_place operations
+
+function swasms_self_expm1_coo()
+{
+  sparse_instance.exports.self_expm1_coo(this.val_index, this.nnz);
+}
+
+function swasms_self_log1p_coo()
+{
+  sparse_instance.exports.self_log1p_coo(this.val_index, this.nnz);
+}
+
+function swasms_self_sin_coo()
+{
+  sparse_instance.exports.self_sin_coo(this.val_index, this.nnz);
+}
+
+function swasms_self_tan_coo()
+{
+  sparse_instance.exports.self_tan_coo(this.val_index, this.nnz);
+}
+
+function swasms_self_pow_coo(p)
+{
+  sparse_instance.exports.self_pow_coo(p, this.val_index, this.nnz);
+}
+
+function swasms_self_deg2rad_coo()
+{
+  sparse_instance.exports.self_deg2rad_coo(Math.PI, this.val_index, this.nnz);
+}
+
+function swasms_self_rad2deg_coo()
+{
+  sparse_instance.exports.self_rad2deg_coo(Math.PI, this.val_index, this.nnz);
+}
+
+function swasms_self_multiply_coo(other)
+{
+  if(typeof other === 'number')
+    sparse_instance.exports.self_multiply_scalar_coo(other, this.val_index, this.nnz);
+  if((typeof other === 'object') && (other instanceof sswasm_vec_t))
+    sparse_instance.exports.self_multiply_vector_coo(other, this.val_index, this.nnz);
+}
+
 
 function swasms_self_abs_coo()
 {
@@ -1269,10 +1319,13 @@ export function free_y(y_view)
     malloc_instance.exports._free(y_view.y_index);
 }
 
-export function allocate_vec(nelem)
+export function allocate_vec(nelem, val = 0)
 {
   var vec_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nelem);
   var vec_view = new sswasm_vec_t(vec_index, nelem);
+  var vec = new Float32Array(memory.buffer, vec_index, nelem);
+  for(var i = 0; i < nelem; i++)
+    vec[i] = val;
   return vec_view;
 }
 
