@@ -13,20 +13,20 @@
     </script>-->
     <script src="my.js"></script>
     <script type="module">
-      import * as swasmsModule from './spmv32.js';
+      //import * as swasmsModule from './spmv32.js';
       import * as mainModule from './main32.js';
-      (async () => {
-        await swasmsModule.sswasm_init();
-        mainModule.spmv(function()
+      //(async () => {
+        //await swasmsModule.sswasm_init();
+        //mainModule.spmv(function()
         //spts(function()
-        {
-          var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': mainModule.N, 'nnz':mainModule.anz, 'coo_sd':mainModule.coo_sd, 'coo':mainModule.coo_mflops, 'coo_sum':mainModule.coo_sum, 'csr_sd':mainModule.csr_sd, 'csr':mainModule.csr_mflops, 'csr_sum':mainModule.csr_sum, 'dia_sd':mainModule.dia_sd, 'dia':mainModule.dia_mflops, 'dia_sum':mainModule.dia_sum, 'ell_sd':mainModule.ell_sd, 'ell':mainModule.ell_mflops, 'ell_sum':mainModule.ell_sum, 'inner_max':mainModule.inner_max, 'outer_max':mainModule.outer_max});
-          var xmlhttp = new XMLHttpRequest();
-          xmlhttp.open("GET", "/result/" + result, false);
-          xmlhttp.send();
-          //window.close();
+        //{
+	mainModule.element_wise(function()
+	{
+          var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': mainModule.N, 'nnz':mainModule.nnz, 'coo_sd':mainModule.coo_sd, 'coo':mainModule.coo_mflops, 'coo_sum':mainModule.coo_sum, 'csr_sd':mainModule.csr_sd, 'csr':mainModule.csr_mflops, 'csr_sum':mainModule.csr_sum, 'dia_sd':mainModule.dia_sd, 'dia':mainModule.dia_mflops, 'dia_sum':mainModule.dia_sum, 'ell_sd':mainModule.ell_sd, 'ell':mainModule.ell_mflops, 'ell_sum':mainModule.ell_sum, 'inner_max':mainModule.inner_max, 'outer_max':mainModule.outer_max});
+	  fetch("/result/" + result)
+          .then(response => console.log(response.statusText));
         });
-      })();
+      //})();
     </script>
 
   <head>

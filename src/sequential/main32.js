@@ -4,18 +4,18 @@ export var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var variance;
 export var inner_max = 1000000, outer_max = 30;
-export var N, anz;
+export var N, nnz;
 
 import * as swasmsModule from './spmv32.js';
 
-function get_inner_max(anz)
+function get_inner_max(nnz)
 {
-  if(anz > 1000000) inner_max = 5;
-  else if (anz > 100000) inner_max = 100;
-  else if (anz > 50000) inner_max = 500;
-  else if(anz > 10000) inner_max = 1000;
-  else if(anz > 2000) inner_max = 5000;
-  else if(anz > 100) inner_max = 50000;
+  if(nnz > 1000000) inner_max = 5;
+  else if (nnz > 100000) inner_max = 100;
+  else if (nnz > 50000) inner_max = 500;
+  else if(nnz > 10000) inner_max = 1000;
+  else if(nnz > 2000) inner_max = 5000;
+  else if(nnz > 100) inner_max = 50000;
   inner_max *= 5;
 }
 
@@ -39,15 +39,15 @@ function allocate_memory_test(mm_info)
   var nc = swasmsModule.num_cols(A_csr);
   var A_dia, A_ell;
   
-  console.log((stride * nd)/mm_info.anz);
+  console.log((stride * nd)/mm_info.nnz);
 
-  if(nd*stride < Math.pow(2,27) && (((stride * nd)/mm_info.anz) <= 5)){ 
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/mm_info.nnz) <= 5)){ 
     A_dia = swasmsModule.allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     swasmsModule.csr_dia(A_csr, A_dia);
   }
 
-  if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/mm_info.anz) <= 5)){
+  if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/mm_info.nnz) <= 5)){
     A_ell = swasmsModule.allocate_ELL(mm_info, nc);
     //convert CSR to ELL
     swasmsModule.csr_ell(A_csr, A_ell);
@@ -78,9 +78,9 @@ function spmv_csr_test(files, callback)
   var mm_info = new swasmsModule.sswasm_MM_info();
   // read matrix data from file into mm_info
   swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
-  get_inner_max(mm_info.anz);
+  get_inner_max(mm_info.nnz);
   N = mm_info.nrows;
-  anz = mm_info.anz;
+  nnz = mm_info.nnz;
 
   var A_coo, A_csr, x, y;
 
@@ -220,7 +220,7 @@ function dia_test(A_dia, x, y)
     console.log("vector y is undefined");
     return;
   }
-  if((A_dia.nrows * A_dia.ndiags)/A_dia.nnz > 5){
+  if((A_dia.N * A_dia.ndiags)/A_dia.nnz > 5){
     console.log("too many elements in dia data array to compute spmv");
     return;
   }
@@ -302,8 +302,8 @@ function spmv_test(files, callback)
   var mm_info = new swasmsModule.sswasm_MM_info();
   swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
   N = mm_info.nrows;
-  anz = mm_info.anz;
-  get_inner_max(anz);
+  nnz = mm_info.nnz;
+  get_inner_max(nnz);
 
   var A_coo, A_csr, A_dia, A_ell, x, y;
   [A_coo, A_csr, A_dia, A_ell, x, y] = allocate_memory_test(mm_info);
@@ -390,21 +390,22 @@ function element_wise_test(files, callback)
   // read matrix data from file into mm_info
   swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
   N = mm_info.nrows;
-  anz = mm_info.anz;
+  nnz = mm_info.nnz;
 
-  var A_coo, A_csr1, A_csr2;
+  var A_coo;
 
   // allocate memory for COO format
   A_coo = swasmsModule.allocate_COO(mm_info);
   // fill COO with matrix data
   swasmsModule.create_COO_from_MM(mm_info, A_coo);
   console.log("COO allocated");
-  swasmsModule.pretty_print_COO(A_coo); 
-  var vec1 = swasmModule.allocate_vec(N, 2);
-  A_coo.multiply(vec1);
-  swasmsModule.pretty_print_COO(A_coo); 
   //var min = A_coo.min(1);
   //swasmsModule.pretty_print_vec(min); 
+  var A_csr = swasmsModule.coo_csr(A_coo);
+  swasmsModule.pretty_print_CSR(A_csr); 
+  var A_csr_sign = swasmsModule.sign(A_csr);
+  swasmsModule.pretty_print_CSR(A_csr_sign); 
+  swasmsModule.pretty_print_CSR(A_csr); 
 
   /*
   // allocate memory for CSR format
@@ -423,6 +424,8 @@ function element_wise_test(files, callback)
   swasmsModule.free_CSR(A_csr1);
   swasmsModule.free_CSR(A_csr2);
   */
+  swasmsModule.free_CSR(A_csr);
+  swasmsModule.free_COO(A_csr_sign);
   swasmsModule.free_COO(A_coo);
   console.log("done");
   callback();
@@ -430,6 +433,7 @@ function element_wise_test(files, callback)
 
 export function element_wise(callback)
 {
+  console.log("element wise");
   let promise = swasmsModule.load_file();
   promise.then(
     files => element_wise_test(files, callback),

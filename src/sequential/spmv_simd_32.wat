@@ -917,6 +917,30 @@
     )
   )
 
+  (func (export "sign_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    i32.const 0
+    local.set $i
+    (loop $loop
+      (local.get $out_val)
+      (if (result f32) (f32.gt (f32.load (local.get $in_val)) (f32.const 0.0))
+        (then
+	(f32.const 1)
+	)
+	(else
+	(f32.const -1)
+	)
+      )
+      (f32.store)
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $loop)
+    )
+  )
+
 
   (func (export "abs_coo") (param $in_val i32) (param $out_val i32) (param $nnz i32)
     (local $i i32)
