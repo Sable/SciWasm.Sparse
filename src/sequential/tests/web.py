@@ -5,19 +5,20 @@ import json
 
 from bottle import route, run, static_file
 
-@route('/static/<name>')
+@route('/static/<name:path>')
 def get_file(name):
-  print os.getcwd()
-  response = static_file(name, root=os.getcwd())
+  response = static_file(name, os.getcwd())
   response.set_header('Cache-Control', 'no-cache, max-age=0')
   #response.set_header('Expires', '0')
   #response.set_header('Pragma', 'no-cache')
   return response
 
-@route('/result/<json_string>')
+@route('/result/<json_string:path>')
 def result(json_string):
   parsed_json = json.loads(json_string) 
   output_file = parsed_json['output_file']
+  #print(output_file, file=sys.stderr)
+  #print(os.path.join(os.getcwd(), output_file), file=sys.stderr)
   f = open(os.path.join(os.getcwd(), output_file),'a')
   browser = parsed_json['browser']
   f.write(parsed_json['file'])
@@ -70,4 +71,7 @@ def result(json_string):
   #if browser == 1:
     #subprocess.call(['killall', '-9', 'firefox-bin']);
   return "OK"
+#print(os.getcwd(), file=sys.stderr)
+os.chdir('../')
+#print(os.getcwd(), file=sys.stderr)
 run(host='localhost', port=8080, quiet=True)

@@ -1,9 +1,9 @@
-let memModule = await import('./matmachjs-lib.js');
+let memModule = await import('/static/libs/matmachjs-lib.js');
 let memory = memModule.Module['wasmMemory'];
-let obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), memModule.Module);
+let obj = await WebAssembly.instantiateStreaming(fetch('/static/libs/matmachjs.wasm'), memModule.Module);
 const malloc_instance = obj.instance;
 var importObject = { js: { mem: memory }, console: { log: function(arg) {console.log(arg);}}, math: { expm1: function(arg) { return Math.expm1(arg);}, log1p: function(arg) { return Math.log1p(arg);}, pow: function(arg1, arg2) { return Math.pow(arg1, arg2);}, sin: function(arg) { return Math.sin(arg);}, tan: function(arg) { return Math.tan(arg);}}}
-obj = await WebAssembly.instantiateStreaming(fetch('spmv_simd_32.wasm'), importObject);
+obj = await WebAssembly.instantiateStreaming(fetch('/static/src/spmv_simd_32.wasm'), importObject);
 const sparse_instance = obj.instance;
 
 /* Constructor function to create an object sswasm_MM_info to

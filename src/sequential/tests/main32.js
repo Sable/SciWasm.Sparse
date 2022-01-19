@@ -6,7 +6,7 @@ var variance;
 export var inner_max = 1000000, outer_max = 30;
 export var N, nnz;
 
-import * as swasmsModule from './spmv32.js';
+import * as swasmsModule from '/static/src/spmv32.js';
 
 function get_inner_max(nnz)
 {

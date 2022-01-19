@@ -10,7 +10,7 @@ def main(argv):
   precision = 0
   b_found = False
   p_found = False
-  output_file = 'e.out'
+  output_file = 'tests/e.out'
   try :
     opts, args = getopt.getopt(argv, "hb:p:o:")
   except getopt.GetoptError:
@@ -58,16 +58,15 @@ def main(argv):
     num = num + 1;
   line1 = "var num = " + str(num) 
   line2 = "var filename = '" + os.path.splitext(basename)[0] + "'"  
-  line3 = "var len = 0"
-  line4 = "var browser = " + str(browser)
-  line5 = "var output_file = '" + output_file + "'"
-  line6 = "let TOTAL_MEMORY = 2147418112"
+  line3 = "var browser = " + str(browser)
+  line4 = "var output_file = '" + output_file + "'"
+  line5 = "let TOTAL_MEMORY = 2147418112"
   if browser == 1:
-    line6 = "let TOTAL_MEMORY = 16777216" 
+    line5 = "let TOTAL_MEMORY = 16777216" 
   with open('my.js', 'w') as g:
-    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5 + '\n' + line6 + '\n')
+    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5  + '\n')
   httpd = subprocess.Popen(["python", "web.py"], stdout=subprocess.PIPE)
-  url = "http://localhost:8080/static/index32.html"
+  url = "http://localhost:8080/static/tests/index32.html"
   if precision == 1:
     url = "http://localhost:8080/static/index64.html"
   #browser_path = r'google-chrome'

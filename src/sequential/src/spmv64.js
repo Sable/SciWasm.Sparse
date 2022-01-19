@@ -370,13 +370,14 @@ function get_inner_max()
   else if(anz > 10000) inner_max = 100;
   else if(anz > 2000) inner_max = 1000;
   else if(anz > 100) inner_max = 10000;
+  inner_max*=6;
 }
 
 async function sswasm_init()
 {
   var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
   malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_64.wasm'), { js: { mem: memory }, 
+  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_64.wasm'), { js: { mem: memory }, 
     console: { log: function(arg) {
       console.log(arg);}} 
   });
