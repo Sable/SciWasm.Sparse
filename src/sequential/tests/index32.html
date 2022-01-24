@@ -20,7 +20,7 @@
         //mainModule.spmv(function()
         //spts(function()
         //{
-	mainModule.element_wise(function()
+	mainModule.element_wise_test(function()
 	{
           var result = JSON.stringify({'browser':browser, 'output_file':output_file, 'file':filename, 'N': mainModule.N, 'nnz':mainModule.nnz, 'coo_sd':mainModule.coo_sd, 'coo':mainModule.coo_mflops, 'coo_sum':mainModule.coo_sum, 'csr_sd':mainModule.csr_sd, 'csr':mainModule.csr_mflops, 'csr_sum':mainModule.csr_sum, 'dia_sd':mainModule.dia_sd, 'dia':mainModule.dia_mflops, 'dia_sum':mainModule.dia_sum, 'ell_sd':mainModule.ell_sd, 'ell':mainModule.ell_mflops, 'ell_sum':mainModule.ell_sum, 'inner_max':mainModule.inner_max, 'outer_max':mainModule.outer_max});
 	  fetch("/result/" + result)

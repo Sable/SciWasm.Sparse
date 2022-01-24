@@ -440,8 +440,7 @@ export function pretty_print_COO(A_coo){
   console.log("coo_row_index :", A_coo.row_index);
   console.log("coo_col_index :", A_coo.col_index);
   console.log("coo_val_index :", A_coo.val_index);
-  //for(var i = 0; i < A_coo.nnz; i++)
-  for(var i = 0; i < 10; i++)
+  for(var i = 0; i < A_coo.nnz; i++)
     console.log(coo_row[i], coo_col[i], coo_val[i]);
 }
 
@@ -455,9 +454,7 @@ export function pretty_print_CSR(A_csr){
   console.log("csr_row_index :", A_csr.row_index);
   console.log("csr_col_index :", A_csr.col_index);
   console.log("csr_val_index :", A_csr.val_index);
-  //for(var i = 0; i < A_csr.N; i++){
-  for(var i = 0; i < 1; i++){
-      //console.log(i, csr_row[i]);
+  for(var i = 0; i < A_csr.N; i++){
     for(var j = csr_row[i]; j < csr_row[i+1] ; j++)
       console.log(i, csr_col[j], csr_val[j]);
   }
@@ -466,8 +463,7 @@ export function pretty_print_CSR(A_csr){
 function pretty_print_x(x_view){
   var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   console.log("x_index :", x_view.x_index); 
-  //for(var i = 0; i < x_view.x_nelem; i++)
-  for(var i = 0; i < 10; i++)
+  for(var i = 0; i < x_view.x_nelem; i++)
     console.log(x[i]);
 }
 
@@ -475,8 +471,7 @@ function pretty_print_x(x_view){
 function pretty_print_y(y_view){
   var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   console.log("y_index :", y_view.y_index); 
-  //for(var i = 0; i <y_view.y_nelem; i++)
-  for(var i = 0; i <10; i++)
+  for(var i = 0; i <y_view.y_nelem; i++)
     console.log(y[i]);
 }
 
@@ -959,7 +954,7 @@ function read_MM_header(file, mm_info)
 
 function calculate_actual_nnz(file, index, start, mm_info)
 {
-  for(var j = start; index < file.length - 1; index++){
+  for(var j = start; index < file.length; index++){
     var coord = file[index].split(" ");
     mm_info.row[j] = Number(coord[0]);
     mm_info.col[j] = Number(coord[1]);
@@ -996,7 +991,7 @@ function calculate_actual_nnz(file, index, start, mm_info)
   return j;
 }
 
-export function read_matrix_MM_files(files, num, mm_info, callback)
+export function read_matrix_MM_files(files, num, mm_info)
 { 
   var start = 0;
   mm_info.nnz = 0;
@@ -1007,7 +1002,7 @@ export function read_matrix_MM_files(files, num, mm_info, callback)
       index = read_MM_header(file, mm_info);
       if(mm_info.nentries > Math.pow(2,27)){
         console.log("entries : cannot allocate this much");
-        callback();
+	throw new Error('entries : invalid length, cannot allocate');
       }
       mm_info.row = new Int32Array(mm_info.nentries);
       mm_info.col = new Int32Array(mm_info.nentries);
@@ -1022,7 +1017,7 @@ export function read_matrix_MM_files(files, num, mm_info, callback)
   console.log(mm_info.nnz);
   if(mm_info.nnz > Math.pow(2,28)){
     console.log("nnz : cannot allocate this much");
-    callback();
+    throw new Error('nnz : invalid length, cannot allocate');
   }
 }
 
@@ -1423,40 +1418,60 @@ function parse_file(file)
   read_file_block(file, 0);
 }
 
-export var load_file = function(){
+export var load_file = function(filename){
   return new Promise(function(resolve, reject) {
-    var files = new Array(num);
-    var load_files = function(fileno, files, num){
-      var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
-      console.log(myname);
-      fetch(myname)
-      .then(response => response.text())
-      .then(data => {
-        try{
-          console.log("copying from file");
-          files[fileno] = data.toString().split("\n");
-          fileno++;
-	  console.log("copied");
-          if(fileno < num)
-            load_files(fileno, files, num);
-          else{
-            console.log("resolved");
-            return resolve(files);
-          }
-	}
-        catch(e){
-          console.log('Error : ', e);
-          reject(new Error(e));
+    console.log(filename);
+    fetch(filename)
+    .then(response => response.blob())
+    .then(blob => {
+      try{
+        // 32MB slice size
+        var limit = 32 * 1024 * 1024;
+        var size = blob.size;
+        console.log("size of file : ", size);
+        var num = Math.ceil(size/limit);
+        console.log("num of slices : ", num);
+        var files = new Array(num);
+        var data = "";
+
+        load_file_slice(0);
+
+        function load_file_slice(i){
+          if(i >= num){
+            return resolve([files, num]);
+	  }
+          var start = i * limit;
+          var end = ((i+1) * limit) > size ? size : (i+1) * limit;
+          console.log(start, end);
+          var slice = blob.slice(start, end);
+          slice.text().then(text => {
+	    data = data.concat(text);
+	    var last_index = data.lastIndexOf('\n');
+	    var portion = data.substring(0, last_index);
+	    files[i] = portion.split('\n');
+	    data = data.substring(last_index + 1);
+	    load_file_slice(i+1);
+	  });
         }
-      });
-    }
-    load_files(0, files, num);
+      }
+      catch(e){
+        console.log('Error : ', e);
+        reject(new Error(e));
+      }
+    });
   });
 }
 
-function mmread(filename)
+export async function mmread(filename)
 {
+  var v = await load_file(filename);
   // create an instance of swasms_MM_info object type
-  var mm_info = new swasmsModule.sswasm_MM_info();
-
+  var mm_info = new sswasm_MM_info();
+  // read matrix data from file into mm_info
+  read_matrix_MM_files(v[0], v[1], mm_info);
+  // allocate memory for COO format
+  var A_coo = allocate_COO(mm_info);
+  // fill COO with matrix data
+  create_COO_from_MM(mm_info, A_coo); 
+  return A_coo;
 }

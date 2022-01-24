@@ -44,27 +44,28 @@ def main(argv):
     print 'run.py -b <browser> -p <precision> <input_filename>'
     sys.exit()
   arg = args[0] 
-  ls = subprocess.Popen(["wc", "-l", arg], stdout=subprocess.PIPE)
-  size = int(ls.communicate()[0].split()[0])
-  basename = os.path.basename(arg)
-  loc = os.path.join(os.getcwd(),os.path.splitext(basename)[0])
-  split = subprocess.Popen(["split", "-l", str(limit), "-d", '--additional-suffix=.mtx', arg, loc], stdout=subprocess.PIPE)
-  split.communicate()
-  if size > limit:
-    num = size/limit
-  else:
-    num = 0
-  if size % limit:
-    num = num + 1;
-  line1 = "var num = " + str(num) 
-  line2 = "var filename = '" + os.path.splitext(basename)[0] + "'"  
-  line3 = "var browser = " + str(browser)
-  line4 = "var output_file = '" + output_file + "'"
-  line5 = "let TOTAL_MEMORY = 2147418112"
+  #ls = subprocess.Popen(["wc", "-l", arg], stdout=subprocess.PIPE)
+  #size = int(ls.communicate()[0].split()[0])
+  #basename = os.path.basename(arg)
+  #loc = os.path.join(os.getcwd(),os.path.splitext(basename)[0])
+  #split = subprocess.Popen(["split", "-l", str(limit), "-d", '--additional-suffix=.mtx', arg, loc], stdout=subprocess.PIPE)
+  #split.communicate()
+  #if size > limit:
+    #num = size/limit
+  #else:
+    #num = 0
+  #if size % limit:
+    #num = num + 1;
+  #line1 = "var num = " + str(num) 
+  #line2 = "var filename = '" + os.path.splitext(basename)[0] + "'"  
+  line1 = "var filename = '" + arg + "'"  
+  line2 = "var browser = " + str(browser)
+  line3 = "var output_file = '" + output_file + "'"
+  line4 = "let TOTAL_MEMORY = 2147418112"
   if browser == 1:
-    line5 = "let TOTAL_MEMORY = 16777216" 
+    line4 = "let TOTAL_MEMORY = 16777216" 
   with open('my.js', 'w') as g:
-    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n' + line5  + '\n')
+    g.write(line1 + '\n' + line2 + '\n' + line3 + '\n' + line4 + '\n')
   httpd = subprocess.Popen(["python", "web.py"], stdout=subprocess.PIPE)
   url = "http://localhost:8080/static/tests/index32.html"
   if precision == 1:
@@ -86,9 +87,9 @@ def main(argv):
   out, err = p.communicate()
   print out
   httpd.terminate()
-  files = os.path.splitext(basename)[0]
-  for i in range(num):
-    rm = subprocess.Popen(["rm", "-r", files+ str(i/10) + str(i%10) +'.mtx'], stdout=subprocess.PIPE)
+  #files = os.path.splitext(basename)[0]
+  #for i in range(num):
+    #rm = subprocess.Popen(["rm", "-r", files+ str(i/10) + str(i%10) +'.mtx'], stdout=subprocess.PIPE)
 
 if __name__ == "__main__":
   main(sys.argv[1:])

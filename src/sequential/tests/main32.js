@@ -383,22 +383,14 @@ function spts_test(files, callback)
   callback();
 }
 
-function element_wise_test(files, callback)
+export async function element_wise_test(callback)
 {
-  // create an instance of swasms_MM_info object type
-  var mm_info = new swasmsModule.sswasm_MM_info();
-  // read matrix data from file into mm_info
-  swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  nnz = mm_info.nnz;
+  var A_coo = await swasmsModule.mmread(filename);
 
-  var A_coo;
-
-  // allocate memory for COO format
-  A_coo = swasmsModule.allocate_COO(mm_info);
-  // fill COO with matrix data
-  swasmsModule.create_COO_from_MM(mm_info, A_coo);
-  console.log("COO allocated");
+  console.log(A_coo);
+  N = A_coo.N;
+  nnz = A_coo.nnz;
+  
   //var min = A_coo.min(1);
   //swasmsModule.pretty_print_vec(min); 
   var A_csr = swasmsModule.coo_csr(A_coo);
@@ -429,16 +421,6 @@ function element_wise_test(files, callback)
   swasmsModule.free_COO(A_coo);
   console.log("done");
   callback();
-}
-
-export function element_wise(callback)
-{
-  console.log("element wise");
-  let promise = swasmsModule.load_file();
-  promise.then(
-    files => element_wise_test(files, callback),
-    error => callback()
-  );
 }
 
 export function spmv(callback)
