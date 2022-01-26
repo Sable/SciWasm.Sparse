@@ -19,20 +19,20 @@ where \<browser\> is *chrome* for Google Chrome and *firefox* for Mozilla Firefo
 
 | Operation | Description | Implementation Status |
 | --------- | ----------- | --------------------- |
-| ceil | ceiling function | in progress |
-| floor | floor function | in progress |
-| deg2rad | degrees to radians function | in progress |
-| rad2deg | radians to degrees function | in progress |
-| expm1 |  exp(x) - 1 | in progress |
-| log1p | log(1 + x) | in progress |
-| power | power function | in progress |
-| rint | round function | in progress |
-| trunc | truncate function | in progress |
-| sign | sign indication | in progress |
-| sin | Trigonometric sine | in progress |
-| tan | Trigonometric tangent | in progress |
-| sqrt | square-root function | in progress |
-| multiply | element-wise multiply by scalar, vector or matrix | in progress|
+| ceil | ceiling function | Available |
+| floor | floor function | Available |
+| deg2rad | degrees to radians function | Available |
+| rad2deg | radians to degrees function | Available |
+| expm1 |  exp(x) - 1 | Available |
+| log1p | log(1 + x) | Available |
+| power | power function | Available |
+| rint | round function | Available |
+| trunc | truncate function | Available |
+| sign | sign indication | Available |
+| sin | Trigonometric sine | Available |
+| tan | Trigonometric tangent | Available |
+| sqrt | square-root function | Available |
+| multiply | element-wise multiply by scalar | Available|
 
 ## Supported Format Conversion Operations
 | Operation | Description | Implementation Status |
@@ -53,9 +53,9 @@ where \<browser\> is *chrome* for Google Chrome and *firefox* for Mozilla Firefo
 ## Other Supported Operations
 | Operation | Description | Implementation Status |
 | --------- | ----------- | --------------------- |
-| transpose | returns transposed sparse matrix | in progress |
-| diagonal | returns kth diagonal | in progress |
-| set_diag | set kth diagonal's elements | in progress |
+| transpose | returns transposed sparse matrix | Available |
+| diagonal | returns kth diagonal | Available |
+| set_diag | set kth diagonal's elements | Available |
 | sum | sum matrix elements over given axis | in progress |
 | mean | arithmetic mean over given axis | in progress |
 | max | maximum over given axis | in progress |
