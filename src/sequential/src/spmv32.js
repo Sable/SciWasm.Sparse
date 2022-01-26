@@ -139,6 +139,23 @@ function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.ncols = ncols;
   this.N = N;
   this.nnz = nnz;
+
+  // element-wise methods
+  this.expm1 = sparse_self_expm1_ell;
+  this.log1p = sparse_self_log1p_ell;
+  this.sin = sparse_self_sin_ell;
+  this.tan = sparse_self_tan_ell;
+  this.pow = sparse_self_pow_ell;
+  this.sign = sparse_self_sign_ell;
+  this.abs = sparse_self_abs_ell;
+  this.neg = sparse_self_neg_ell;
+  this.sqrt = sparse_self_sqrt_ell;
+  this.ceil = sparse_self_ceil_ell;
+  this.floor = sparse_self_floor_ell;
+  this.trunc = sparse_self_trunc_ell;
+  this.nearest = sparse_self_nearest_ell;
+  this.deg2rad = sparse_self_deg2rad_ell;
+  this.rad2deg = sparse_self_rad2deg_ell;
 }
 
 export function sparse_vec_t(vec_index, vec_nelem){
@@ -424,6 +441,83 @@ function sparse_self_rad2deg_dia()
 function sparse_self_sign_dia()
 {
   sparse_instance.exports.self_sign_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+// ELL in-place element-wise operations
+
+function sparse_self_expm1_ell()
+{
+  sparse_instance.exports.self_expm1_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_log1p_ell()
+{
+  sparse_instance.exports.self_log1p_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_sin_ell()
+{
+  sparse_instance.exports.self_sin_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_tan_ell()
+{
+  sparse_instance.exports.self_tan_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_pow_ell(p)
+{
+  sparse_instance.exports.self_pow_ell(p, this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_abs_ell()
+{
+  sparse_instance.exports.self_abs_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_neg_ell()
+{
+  sparse_instance.exports.self_neg_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_sqrt_ell()
+{
+  sparse_instance.exports.self_sqrt_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_ceil_ell()
+{
+  sparse_instance.exports.self_ceil_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_floor_ell()
+{
+  sparse_instance.exports.self_floor_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_trunc_ell()
+{
+  sparse_instance.exports.self_trunc_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_nearest_ell()
+{
+  sparse_instance.exports.self_nearest_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_deg2rad_ell()
+{
+  sparse_instance.exports.self_deg2rad_ell(Math.PI, this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_rad2deg_ell()
+{
+  sparse_instance.exports.self_rad2deg_ell(Math.PI, this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_sign_ell()
+{
+  sparse_instance.exports.self_sign_ell(this.data_index, this.ncols, this.N);
 }
 
 // element-wise operations
@@ -811,7 +905,7 @@ export function pretty_print(obj){
   }
 }
 
-export function pretty_print_COO(A_coo){
+function pretty_print_COO(A_coo){
   var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
   var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
   var coo_val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz); 
@@ -824,7 +918,7 @@ export function pretty_print_COO(A_coo){
     console.log(coo_row[i], coo_col[i], coo_val[i]);
 }
 
-export function pretty_print_CSR(A_csr){
+function pretty_print_CSR(A_csr){
   var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float32Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
@@ -840,7 +934,7 @@ export function pretty_print_CSR(A_csr){
   }
 }
 
-export function pretty_print_DIA(A_dia)
+function pretty_print_DIA(A_dia)
 {
   var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
   var data = new Float32Array(memory.buffer, A_dia.data_index, A_dia.ndiags * A_dia.stride);
@@ -858,13 +952,18 @@ export function pretty_print_DIA(A_dia)
   }
 }
 
-export function pretty_print_ell(A_ell)
+function pretty_print_ELL(A_ell)
 {
   var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.N);
   var data = new Float32Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.N);
   console.log("ncols : ", A_ell.ncols);
   console.log("indices_index : ", A_ell.indices_index);
   console.log("data_index : ", A_ell.data_index);
+  for(var j = 0; j < A_ell.ncols; j++){
+    for(var i = 0; i < A_ell.N; i++){
+      console.log(i, indices[j*A_ell.N+i], data[j*A_ell.N+i]);
+    }
+  }
 }
 
 function pretty_print_x(x_view){
@@ -882,7 +981,7 @@ function pretty_print_y(y_view){
     console.log(y[i]);
 }
 
-export function pretty_print_vec(vec_view){
+function pretty_print_vec(vec_view){
   if(vec_view === undefined){
     console.log("input_paramter : undefined");
     return;
