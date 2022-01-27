@@ -1,16 +1,15 @@
-var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1;
-var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
-var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
-var anz = 0;
-var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
-var N;
-var variance;
-var inside = 0, inner_max = 100000, outer_max = 30;
-let memory = Module['wasmMemory'];
-var malloc_instance;
-var sparse_instance;
+let memModule = await import('/static/libs/matmachjs-lib.js');
+let memory = memModule.Module['wasmMemory'];
+let obj = await WebAssembly.instantiateStreaming(fetch('/static/libs/matmachjs.wasm'), memModule.Module);
+const malloc_instance = obj.instance;
+var importObject = { js: { mem: memory }, console: { log: function(arg) {console.log(arg);}}, math: { expm1: function(arg) { return Math.expm1(arg);}, log1p: function(arg) { return Math.log1p(arg);}, pow: function(arg1, arg2) { return Math.pow(arg1, arg2);}, sin: function(arg) { return Math.sin(arg);}, tan: function(arg) { return Math.tan(arg);}}}
+obj = await WebAssembly.instantiateStreaming(fetch('/static/src/sparse_opt_64.wasm'), importObject);
+const sparse_instance = obj.instance;
 
-function sswasm_MM_info(){
+/* Constructor function to create an object sparse_MM_info to
+ * represent the matrix data from a Matrix-Market format input file */
+export function sparse_MM_info()
+{
   this.field = '';
   this.symmetry = '';
   this.nrows = 0;
@@ -19,10 +18,11 @@ function sswasm_MM_info(){
   this.row;
   this.col;
   this.val;
-  this.anz = 0;
+  this.nnz = 0;
 }
 
-function sswasm_COO_t(row_index, col_index, val_index, nnz){
+export function sparse_COO_t(row_index, col_index, val_index, N, nnz)
+{
   this.row;
   this.col;
   this.val;
@@ -30,50 +30,808 @@ function sswasm_COO_t(row_index, col_index, val_index, nnz){
   this.col_index = col_index;
   this.val_index = val_index;
   this.nnz = nnz;
+  this.N = N;
+
+  // element-wise methods
+  this.expm1 = sparse_self_expm1_coo;
+  this.log1p = sparse_self_log1p_coo;
+  this.sin = sparse_self_sin_coo;
+  this.tan = sparse_self_tan_coo;
+  this.pow = sparse_self_pow_coo;
+  this.deg2rad = sparse_self_deg2rad_coo;
+  this.rad2deg = sparse_self_rad2deg_coo;
+  this.sign = sparse_self_sign_coo;
+  this.multiply = sparse_self_multiply_coo;
+  this.abs = sparse_self_abs_coo;
+  this.neg = sparse_self_neg_coo;
+  this.sqrt = sparse_self_sqrt_coo;
+  this.ceil = sparse_self_ceil_coo;
+  this.floor = sparse_self_floor_coo;
+  this.trunc = sparse_self_trunc_coo;
+  this.nearest = sparse_self_nearest_coo;
+
+  // other methods
+  this.transpose = sparse_self_transpose_coo;
+  this.diagonal = sparse_self_diagonal_coo;
+  this.min = sparse_self_min_coo;
 }
 
-function sswasm_CSR_t(row_index, col_index, val_index, nrows, nnz){
+export function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
+{
   this.row;
   this.col;
   this.val;
   this.row_index = row_index;
   this.col_index = col_index;
   this.val_index = val_index;
-  this.nrows = nrows;
+  this.nnz_row_index = nnz_row_index;
+  this.N = N;
+  this.nnz = nnz;
+  this.permutation_index;
+  this.permutation;
+  this.num_zero_rows = 0;
+  this.num_one_rows = 0;
+  this.num_two_rows = 0;
+  this.num_three_rows = 0;
+
+  //methods
+  this.expm1 = sparse_self_expm1_csr;
+  this.log1p = sparse_self_log1p_csr;
+  this.sin = sparse_self_sin_csr;
+  this.tan = sparse_self_tan_csr;
+  this.pow = sparse_self_pow_csr;
+  this.deg2rad = sparse_self_deg2rad_csr;
+  this.rad2deg = sparse_self_rad2deg_csr;
+  this.sign = sparse_self_sign_csr;
+  this.abs = sparse_self_abs_csr;
+  this.neg = sparse_self_neg_csr;
+  this.sqrt = sparse_self_sqrt_csr;
+  this.ceil = sparse_self_ceil_csr;
+  this.floor = sparse_self_floor_csr;
+  this.trunc = sparse_self_trunc_csr;
+  this.nearest = sparse_self_nearest_csr;
+}
+
+function sparse_CSC_t(col_index, row_index, val_index, ncols, nnz){
+  this.col;
+  this.row;
+  this.val;
+  this.col_index = col_index;
+  this.row_index = row_index;
+  this.val_index = val_index;
+  this.ncols = ncols;
   this.nnz = nnz;
 }
 
-function sswasm_DIA_t(offset_index, data_index, ndiags, nrows, stride, nnz){
+function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz){
   this.offset;
   this.data;
   this.offset_index = offset_index;
   this.data_index = data_index;;
   this.ndiags = ndiags;
-  this.nrows = nrows;
+  this.N = N;
   this.stride = stride;
   this.nnz = nnz;
+
+  // element-wise methods
+  this.expm1 = sparse_self_expm1_dia;
+  this.log1p = sparse_self_log1p_dia;
+  this.sin = sparse_self_sin_dia;
+  this.tan = sparse_self_tan_dia;
+  this.pow = sparse_self_pow_dia;
+  this.sign = sparse_self_sign_dia;
+  this.abs = sparse_self_abs_dia;
+  this.neg = sparse_self_neg_dia;
+  this.sqrt = sparse_self_sqrt_dia;
+  this.ceil = sparse_self_ceil_dia;
+  this.floor = sparse_self_floor_dia;
+  this.trunc = sparse_self_trunc_dia;
+  this.nearest = sparse_self_nearest_dia;
+  this.deg2rad = sparse_self_deg2rad_dia;
+  this.rad2deg = sparse_self_rad2deg_dia;
 }
 
-function sswasm_ELL_t(indices_index, data_index, ncols, nrows, nnz){
+function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.indices;
   this.data;
   this.indices_index = indices_index;
   this.data_index = data_index;
   this.ncols = ncols;
-  this.nrows = nrows;
+  this.N = N;
   this.nnz = nnz;
+
+  // element-wise methods
+  this.expm1 = sparse_self_expm1_ell;
+  this.log1p = sparse_self_log1p_ell;
+  this.sin = sparse_self_sin_ell;
+  this.tan = sparse_self_tan_ell;
+  this.pow = sparse_self_pow_ell;
+  this.sign = sparse_self_sign_ell;
+  this.abs = sparse_self_abs_ell;
+  this.neg = sparse_self_neg_ell;
+  this.sqrt = sparse_self_sqrt_ell;
+  this.ceil = sparse_self_ceil_ell;
+  this.floor = sparse_self_floor_ell;
+  this.trunc = sparse_self_trunc_ell;
+  this.nearest = sparse_self_nearest_ell;
+  this.deg2rad = sparse_self_deg2rad_ell;
+  this.rad2deg = sparse_self_rad2deg_ell;
 }
 
-function sswasm_x_t(x_index, x_nelem){
+export function sparse_vec_t(vec_index, vec_nelem){
+  this.vec;
+  this.vec_index = vec_index;
+  this.vec_nelem = vec_nelem;
+}
+
+function sparse_x_t(x_index, x_nelem){
   this.x;
   this.x_index = x_index;
   this.x_nelem = x_nelem;
 }
 
-function sswasm_y_t(y_index, y_nelem){
+function sparse_y_t(y_index, y_nelem){
   this.y;
   this.y_index = y_index;
   this.y_nelem = y_nelem;
+}
+
+// COO in_place operations
+
+function sparse_self_expm1_coo()
+{
+  sparse_instance.exports.self_expm1_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_log1p_coo()
+{
+  sparse_instance.exports.self_log1p_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_sin_coo()
+{
+  sparse_instance.exports.self_sin_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_tan_coo()
+{
+  sparse_instance.exports.self_tan_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_pow_coo(p)
+{
+  sparse_instance.exports.self_pow_coo(p, this.val_index, this.nnz);
+}
+
+function sparse_self_deg2rad_coo()
+{
+  sparse_instance.exports.self_deg2rad_coo(Math.PI, this.val_index, this.nnz);
+}
+
+function sparse_self_rad2deg_coo()
+{
+  sparse_instance.exports.self_rad2deg_coo(Math.PI, this.val_index, this.nnz);
+}
+
+function sparse_self_sign_coo()
+{
+  sparse_instance.exports.self_sign_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_multiply_coo(other)
+{
+  if(typeof other === 'number')
+    sparse_instance.exports.self_multiply_scalar_coo(other, this.val_index, this.nnz);
+  if((typeof other === 'object') && (other instanceof sparse_vec_t))
+    sparse_instance.exports.self_multiply_vector_coo(other, this.val_index, this.nnz);
+}
+
+function sparse_self_abs_coo()
+{
+  sparse_instance.exports.self_abs_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_neg_coo()
+{
+  sparse_instance.exports.self_neg_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_sqrt_coo()
+{
+  sparse_instance.exports.self_sqrt_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_ceil_coo()
+{
+  sparse_instance.exports.self_ceil_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_floor_coo()
+{
+  sparse_instance.exports.self_floor_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_trunc_coo()
+{
+  sparse_instance.exports.self_trunc_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_nearest_coo()
+{
+  sparse_instance.exports.self_nearest_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_transpose_coo()
+{
+  var row_index = this.row_index;
+  var col_index = this.col_index;
+
+  // switch row and col vectors
+  this.col_index = row_index;
+  this.row_index = col_index;
+
+  quick_sort_COO(this, 0, this.nnz - 1);
+}
+
+function sparse_self_diagonal_coo(offset)
+{
+  if(this.N - Math.abs(offset) <= 0)
+    return;
+  var diag_vec = allocate_vec(this.N - Math.abs(offset));
+  sparse_instance.exports.diagonal_coo(offset, this.row_index, this.col_index, this.val_index, diag_vec.vec_index, this.N, this.nnz);
+  return diag_vec;
+}
+
+function sparse_self_min_coo(axis)
+{
+  var min_vec = allocate_vec(this.N);
+  sparse_instance.exports.min_coo(axis, this.row_index, this.col_index, this.val_index, min_vec.vec_index, this.N, this.nnz);
+  return min_vec;
+}
+
+// CSR in-place element-wise operations
+
+function sparse_self_expm1_csr()
+{
+  sparse_instance.exports.self_expm1_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_log1p_csr()
+{
+  sparse_instance.exports.self_log1p_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_sin_csr()
+{
+  sparse_instance.exports.self_sin_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_tan_csr()
+{
+  sparse_instance.exports.self_tan_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_pow_csr(p)
+{
+  sparse_instance.exports.self_pow_coo(p, this.val_index, this.nnz);
+}
+
+function sparse_self_deg2rad_csr()
+{
+  sparse_instance.exports.self_deg2rad_coo(Math.PI, this.val_index, this.nnz);
+}
+
+function sparse_self_rad2deg_csr()
+{
+  sparse_instance.exports.self_rad2deg_coo(Math.PI, this.val_index, this.nnz);
+}
+
+function sparse_self_sign_csr()
+{
+  sparse_instance.exports.self_sign_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_abs_csr()
+{
+  sparse_instance.exports.self_abs_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_neg_csr()
+{
+  sparse_instance.exports.self_neg_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_sqrt_csr()
+{
+  sparse_instance.exports.self_sqrt_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_ceil_csr()
+{
+  sparse_instance.exports.self_ceil_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_floor_csr()
+{
+  sparse_instance.exports.self_floor_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_trunc_csr()
+{
+  sparse_instance.exports.self_trunc_coo(this.val_index, this.nnz);
+}
+
+function sparse_self_nearest_csr()
+{
+  sparse_instance.exports.self_nearest_coo(this.val_index, this.nnz);
+}
+
+// DIA in-place element-wise operations
+
+function sparse_self_expm1_dia()
+{
+  sparse_instance.exports.self_expm1_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_log1p_dia()
+{
+  sparse_instance.exports.self_log1p_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_sin_dia()
+{
+  sparse_instance.exports.self_sin_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_tan_dia()
+{
+  sparse_instance.exports.self_tan_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_pow_dia(p)
+{
+  sparse_instance.exports.self_pow_dia(p, this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_abs_dia()
+{
+  sparse_instance.exports.self_abs_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_neg_dia()
+{
+  sparse_instance.exports.self_neg_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_sqrt_dia()
+{
+  sparse_instance.exports.self_sqrt_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_ceil_dia()
+{
+  sparse_instance.exports.self_ceil_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_floor_dia()
+{
+  sparse_instance.exports.self_floor_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_trunc_dia()
+{
+  sparse_instance.exports.self_trunc_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_nearest_dia()
+{
+  sparse_instance.exports.self_nearest_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_deg2rad_dia()
+{
+  sparse_instance.exports.self_deg2rad_dia(Math.PI, this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_rad2deg_dia()
+{
+  sparse_instance.exports.self_rad2deg_dia(Math.PI, this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_sign_dia()
+{
+  sparse_instance.exports.self_sign_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+// ELL in-place element-wise operations
+
+function sparse_self_expm1_ell()
+{
+  sparse_instance.exports.self_expm1_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_log1p_ell()
+{
+  sparse_instance.exports.self_log1p_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_sin_ell()
+{
+  sparse_instance.exports.self_sin_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_tan_ell()
+{
+  sparse_instance.exports.self_tan_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_pow_ell(p)
+{
+  sparse_instance.exports.self_pow_ell(p, this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_abs_ell()
+{
+  sparse_instance.exports.self_abs_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_neg_ell()
+{
+  sparse_instance.exports.self_neg_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_sqrt_ell()
+{
+  sparse_instance.exports.self_sqrt_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_ceil_ell()
+{
+  sparse_instance.exports.self_ceil_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_floor_ell()
+{
+  sparse_instance.exports.self_floor_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_trunc_ell()
+{
+  sparse_instance.exports.self_trunc_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_nearest_ell()
+{
+  sparse_instance.exports.self_nearest_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_deg2rad_ell()
+{
+  sparse_instance.exports.self_deg2rad_ell(Math.PI, this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_rad2deg_ell()
+{
+  sparse_instance.exports.self_rad2deg_ell(Math.PI, this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_sign_ell()
+{
+  sparse_instance.exports.self_sign_ell(this.data_index, this.ncols, this.N);
+}
+
+// element-wise operations
+
+export function expm1(A_in)
+{
+  console.log("expm1 called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.expm1_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.expm1_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function log1p(A_in)
+{
+  console.log("log1p called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.log1p_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.log1p_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function sin(A_in)
+{
+  console.log("sin called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.sin_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.sin_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function tan(A_in)
+{
+  console.log("tan called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.tan_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.tan_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function pow(A_in, p)
+{
+  console.log("pow called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.pow_coo(p, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.pow_coo(p, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function deg2rad(A_in)
+{
+  console.log("deg2rad called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.deg2rad_coo(Math.PI, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.deg2rad_coo(Math.PI, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function rad2deg(A_in)
+{
+  console.log("rad2deg called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.rad2deg_coo(Math.PI, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.rad2deg_coo(Math.PI, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function sign(A_in)
+{
+  console.log("sign called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.sign_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.sign_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function abs(A_in)
+{
+  console.log("abs called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.abs_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.abs_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function neg(A_in)
+{
+  console.log("neg called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.neg_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.neg_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function sqrt(A_in)
+{
+  console.log("sqrt called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.sqrt_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.sqrt_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function ceil(A_in)
+{
+  console.log("ceil called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.ceil_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.ceil_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function floor(A_in)
+{
+  console.log("floor called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.ceil_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.ceil_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function trunc(A_in)
+{
+  console.log("trunc called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.trunc_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.trunc_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+export function nearest(A_in)
+{
+  console.log("nearest called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_copy_COO(A_in);
+    memcpy_aux_coo(A_in, A_out);
+    sparse_instance.exports.nearest_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) { 
+    var A_out = allocate_copy_CSR(A_in);
+    memcpy_aux_csr(A_in, A_out);
+    sparse_instance.exports.nearest_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+}
+
+function memcpy_aux_coo(A_coo_in, A_coo_out)
+{
+  sparse_instance.exports.memcpy(A_coo_in.row_index, A_coo_out.row_index, Int32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  sparse_instance.exports.memcpy(A_coo_in.col_index, A_coo_out.col_index, Int32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+}
+
+function memcpy_aux_csr(A_csr_in, A_csr_out)
+{
+  sparse_instance.exports.memcpy(A_csr_in.row_index, A_csr_out.row_index, Int32Array.BYTES_PER_ELEMENT * (A_csr_in.N + 1));
+  sparse_instance.exports.memcpy(A_csr_in.col_index, A_csr_out.col_index, Int32Array.BYTES_PER_ELEMENT * A_csr_in.nnz);
+}
+
+export function spmv(A_in, x_view, y_view, inner_max=1)
+{
+  if(A_in === undefined){
+    console.log("spmv input : undefined");
+    return;
+  }
+  if(A_in instanceof sparse_COO_t) {
+    sparse_spmv_coo(A_in, x_view, y_view, inner_max);
+    console.log("spmv COO");
+  }
+  if(A_in instanceof sparse_CSR_t) {
+    sparse_spmv_csr(A_in, x_view, y_view, inner_max);
+    console.log("spmv CSR");
+  }
+  if(A_in instanceof sparse_DIA_t) {
+    sparse_spmv_dia(A_in, x_view, y_view, inner_max);
+    console.log("spmv DIA");
+  }
+  if(A_in instanceof sparse_ELL_t) {
+    sparse_spmv_ell(A_in, x_view, y_view, inner_max);
+    console.log("spmv ELL");
+  }
+  
+}
+
+function sparse_spmv_coo(A_coo, x_view, y_view, inner_max)
+{
+    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
+}
+
+function sparse_spmv_csr(A_csr, x_view, y_view, inner_max)
+{
+  sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.N, inner_max);
+}
+
+function sparse_spmv_dia(A_dia, x_view, y_view, inner_max)
+{
+  sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.N, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
+}
+
+function sparse_spmv_ell(A_ell, x_view, y_view, inner_max)
+{
+  sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.N, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
 }
 
 function matlab_modulo(x, y) {
@@ -92,21 +850,59 @@ function fletcher_sum(A) {
   return sum2 * 256 + sum1;
 }
 
-function fletcher_sum_y(y_view)
+export function fletcher_sum_y(y_view)
 {
   var y = new Float64Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   return parseInt(fletcher_sum(y));
 }
 
-function init_x(x_view){
+export function init_x(x_view){
   var x = new Float64Array(memory.buffer, x_view.x_index, x_view.x_nelem);
   for(var i = 0; i < x_view.x_nelem; i++)
     x[i] = i;
 }
 
-function clear_y(y_view){
+export function clear_y(y_view){
   var y = new Float64Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   y.fill(0);
+}
+
+function copy_x_to_y(x_view, y_view){
+  var x = new Float64Array(memory.buffer, x_view.x_index, x_view.x_nelem);
+  var y = new Float64Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  for(var i = 0; i < y_view.y_nelem; i++)
+    y[i] = x[i];
+}
+
+export function pretty_print(obj){
+  if(typeof obj === undefined){
+    console.log("pretty print object: undefined");
+    return;
+  }
+  if(obj instanceof sparse_COO_t){
+    pretty_print_COO(obj);
+    console.log("pretty print object: COO");
+  }
+  else if(obj instanceof sparse_CSR_t){
+    pretty_print_CSR(obj);
+    console.log("pretty print object: CSR");
+  }
+  else if(obj instanceof sparse_DIA_t){
+    pretty_print_DIA(obj);
+    console.log("pretty print object: DIA");
+  }
+  else if(obj instanceof sparse_ELL_t){
+    pretty_print_ELL(obj);
+    console.log("pretty print object: ELL");
+  }
+  else if(obj instanceof sparse_x_t){
+    pretty_print_x(obj);
+    console.log("pretty print object: x");
+  }
+  else if(obj instanceof sparse_y_t){
+    pretty_print_y(obj);
+    console.log("pretty print object: y");
+  }
 }
 
 function pretty_print_COO(A_coo){
@@ -123,17 +919,50 @@ function pretty_print_COO(A_coo){
 }
 
 function pretty_print_CSR(A_csr){
-  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float64Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
   
   console.log("nnz : ", A_csr.nnz); 
+  console.log("N : ", A_csr.N); 
   console.log("csr_row_index :", A_csr.row_index);
   console.log("csr_col_index :", A_csr.col_index);
   console.log("csr_val_index :", A_csr.val_index);
-  for(var i = 0; i < A_csr.nrows; i++){
+  for(var i = 0; i < A_csr.N; i++){
     for(var j = csr_row[i]; j < csr_row[i+1] ; j++)
       console.log(i, csr_col[j], csr_val[j]);
+  }
+}
+
+function pretty_print_DIA(A_dia)
+{
+  var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
+  var data = new Float64Array(memory.buffer, A_dia.data_index, A_dia.ndiags * A_dia.stride);
+  console.log("ndiags : ", A_dia.ndiags);
+  console.log("offset_index : ", A_dia.offset_index);
+  console.log("data_index : ", A_dia.data_index);
+  for(var i = 0; i < A_dia.ndiags; i++){
+    var k = offset[i];
+    var index = 0;
+    var istart = (k < 0) ? (index = A_dia.N - A_dia.stride, -k) : 0;
+    var iend = (A_dia.N < A_dia.N-k) ? A_dia.N : A_dia.N-k;
+    for(var j = istart; j < iend; j++){
+      console.log(j, k+j, data[i*A_dia.stride + j - index]);
+    }
+  }
+}
+
+function pretty_print_ELL(A_ell)
+{
+  var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.N);
+  var data = new Float64Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.N);
+  console.log("ncols : ", A_ell.ncols);
+  console.log("indices_index : ", A_ell.indices_index);
+  console.log("data_index : ", A_ell.data_index);
+  for(var j = 0; j < A_ell.ncols; j++){
+    for(var i = 0; i < A_ell.N; i++){
+      console.log(i, indices[j*A_ell.N+i], data[j*A_ell.N+i]);
+    }
   }
 }
 
@@ -152,10 +981,26 @@ function pretty_print_y(y_view){
     console.log(y[i]);
 }
 
-function num_cols(A_csr)
+function pretty_print_vec(vec_view){
+  if(vec_view === undefined){
+    console.log("input_paramter : undefined");
+    return;
+  }
+  if(!(vec_view instanceof sparse_vec_t)){
+    console.log("input_paramter : incompatible object");
+    return;
+  }
+  var v = new Float64Array(memory.buffer, vec_view.vec_index, vec_view.vec_nelem);
+  console.log("vec_index :", vec_view.vec_index);
+  for(var i = 0; i < vec_view.vec_nelem; i++)
+    console.log(v[i]);
+}
+
+
+export function num_cols(A_csr)
 {
-  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
-  var N = A_csr.nrows;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
+  var N = A_csr.N;
   var temp, max = 0;
   for(var i = 0; i < N ; i++){
     temp = csr_row[i+1] - csr_row[i];
@@ -165,17 +1010,30 @@ function num_cols(A_csr)
   return max;
 }
 
-function csr_ell(A_csr, A_ell)
+export function csr_ell(A_csr)
 {
-  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
+  var nnz = A_csr.nnz; 
+  var N = A_csr.N;
+  var nc = num_cols(A_csr);
+  var A_ell;
+  
+  // allocate memory for A_ell
+  if((nc*N < Math.pow(2,27)) && (((nc*N)/nnz) <= 5)){
+    A_ell = allocate_ELL(N, nnz, nc);
+    if(A_ell === undefined)
+     return;
+  } 
+  else{
+    console.log("not efficient to store this matrix in ELL");
+    return;
+  }
+
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float64Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
 
-  var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.nrows);
-  var data = new Float64Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.nrows);
-
-  var nz = A_csr.nnz; 
-  var N = A_csr.nrows;
+  var indices = new Int32Array(memory.buffer, A_ell.indices_index, A_ell.ncols * A_ell.N);
+  var data = new Float64Array(memory.buffer, A_ell.data_index, A_ell.ncols * A_ell.N);
 
   var i, j, k, temp, max = 0;
   for(i = 0; i < N; i++){
@@ -186,13 +1044,14 @@ function csr_ell(A_csr, A_ell)
       k++;
     }
   }
+  return A_ell;
 }
 
-function num_diags(A_csr)
+export function num_diags(A_csr)
 {
-  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
-  var N = A_csr.nrows;
+  var N = A_csr.N;
   var ind = new Int32Array(2*N-1);
   var num_diag = 0;
   ind.fill(0);
@@ -211,26 +1070,41 @@ function num_diags(A_csr)
     }
     diag_no++; 
   }
-  stride = N - min;
+  var stride = N - min;
+  //stride = N;
   return [num_diag,stride];
 }
 
 
-function csr_dia(A_csr, A_dia)
+export function csr_dia(A_csr)
 {
-  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
+  var nnz = A_csr.nnz; 
+  var N = A_csr.N;
+  var result = num_diags(A_csr);
+  var nd = result[0];
+  var stride = result[1];
+  var A_dia;
+
+  //allocate memory for A_dia
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/nnz) <= 5)){ 
+    A_dia = allocate_DIA(N, nnz, nd, stride);
+    if(A_dia === undefined)
+      return;
+  }
+  else{
+    console.log("not efficient to store this matrix in DIA");
+    return;
+  }
+
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float64Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
 
   var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
   var data = new Float64Array(memory.buffer, A_dia.data_index, A_dia.ndiags * A_dia.stride);
 
-  var nz = A_csr.nnz; 
-  var N = A_csr.nrows;
-  var stride = A_dia.stride;
-
   var ind = new Int32Array(2*N-1);
-  var i, j, move;
+  var i, j, k, move;
   ind.fill(0);
 
   for(i = 0; i < N; i++){
@@ -261,6 +1135,7 @@ function csr_dia(A_csr, A_dia)
       }
     }
   }
+  return A_dia;
 }
 
 
@@ -316,13 +1191,62 @@ function sort(start, end, array1, array2)
   }
 }
 
-function coo_csr(A_coo, A_csr)
+function coo_csc(A_coo, A_csc)
 {
   var row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
   var col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
   var val = new Float64Array(memory.buffer, A_coo.val_index, A_coo.nnz); 
 
-  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.nrows + 1); 
+  var csc_col = new Int32Array(memory.buffer, A_csc.col_index, A_csc.ncols + 1); 
+  var csc_row = new Int32Array(memory.buffer, A_csc.row_index, A_csc.nnz); 
+  var csc_val = new Float64Array(memory.buffer, A_csc.val_index, A_csc.nnz); 
+  csc_row.fill(0);
+  csc_col.fill(0);
+  csc_val.fill(0);
+
+  var nz = A_csc.nnz; 
+  var N = A_csc.ncols;
+
+  var j;
+  for(j = 0; j < nz; j++){
+    csc_col[col[j]]++; 
+  }
+
+  var i = 0, i0 = 0;
+  for(j = 0; j < N; j++){
+    i0 = csc_col[j];
+    csc_col[j] = i;
+    i += i0;
+  }
+
+  for(j = 0; j < nz; j++){
+    i = csc_col[col[j]];
+    csc_row[i] = row[j];
+    csc_val[i] = val[j];
+    csc_col[col[j]]++;
+  }
+
+  for(j = N-1; j > 0; j--){
+    csc_col[j] = csc_col[j-1]; 
+  }
+  csc_col[0] = 0;
+  csc_col[N] = nz;
+  for(j = 0; j < N; j++)
+    sort(csc_col[j], csc_col[j+1], csc_row, csc_val); 
+}
+
+// return A_csr
+export function coo_csr(A_coo)
+{
+  var A_csr = allocate_CSR(A_coo.N, A_coo.nnz);
+  if(A_csr === undefined)
+    return;
+
+  var row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
+  var col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
+  var val = new Float64Array(memory.buffer, A_coo.val_index, A_coo.nnz); 
+
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1); 
   var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz); 
   var csr_val = new Float64Array(memory.buffer, A_csr.val_index, A_csr.nnz); 
   csr_row.fill(0);
@@ -330,7 +1254,7 @@ function coo_csr(A_coo, A_csr)
   csr_val.fill(0);
  
   var nz = A_csr.nnz; 
-  var N = A_csr.nrows;
+  var N = A_csr.N;
 
   var i;
   for(i = 0; i < nz; i++){
@@ -358,102 +1282,164 @@ function coo_csr(A_coo, A_csr)
   csr_row[N] = nz;
   for(i = 0; i < N; i++)
     sort(csr_row[i], csr_row[i+1], csr_col, csr_val); 
+
+  return A_csr;
 }
 
+
+function sort_rows_by_nnz(A_csr)
+{
+  var N = A_csr.N;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var csr_val = new Float64Array(memory.buffer, A_csr.val_index, A_csr.nnz);
+
+  var freq = new Int32Array(N+1);
+  freq.fill(0);
+  var starting_index = new Int32Array(N+1);
+  var i = 0;
+
+
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (N + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nz);
+  var csr_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * nz);
+  var A_csr_new = new sparse_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, N, nz);
+  A_csr_new.permutation_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var permutation = new Int32Array(memory.buffer, A_csr_new.permutation_index, N);
+  var nnz_per_row = new Int32Array(memory.buffer, A_csr_new.nnz_row_index, N);
+
+  console.log("calculate nnz per row and frequency");
+  for(i = 0; i < N; i++){
+    nnz_per_row[i] = csr_row[i+1] - csr_row[i];
+    freq[nnz_per_row[i]]++;
+  }
+
+  console.log("calculate starting index");
+  starting_index[0] = 0;
+  for(i = 1; i <= N; i++){
+    starting_index[i] = starting_index[i-1] + freq[i-1];
+  }
+
+  var csr_row_new = new Int32Array(memory.buffer, A_csr_new.row_index, A_csr_new.N + 1);
+  var csr_col_new = new Int32Array(memory.buffer, A_csr_new.col_index, A_csr_new.nnz);
+  var csr_val_new = new Float64Array(memory.buffer, A_csr_new.val_index, A_csr_new.nnz);
+  csr_row_new.fill(0);
+  csr_col_new.fill(0);
+  csr_val_new.fill(0);
+  A_csr_new.num_zero_rows = freq[0];
+  A_csr_new.num_one_rows = freq[0] + freq[1];
+  A_csr_new.num_two_rows = freq[0] + freq[1] + freq[2];
+  A_csr_new.num_three_rows = freq[0] + freq[1] + freq[2] + freq[3];
+
+  console.log("calculate permutation")
+  for(i = 0; i < N; i++){
+    permutation[starting_index[nnz_per_row[i]]] = i;
+    starting_index[nnz_per_row[i]]++;
+  }
+  //pretty_print_CSR_permutation(A_csr);
+
+  console.log("calculate new CSR")
+  var j = 0, temp, k;
+  csr_row_new[0] = 0;
+  for(i = 0; i < N; i++){
+   k = csr_row[permutation[i]];
+   temp = nnz_per_row[permutation[i]];
+   //console.log(i, temp);
+   csr_row_new[i+1] = csr_row_new[i] + temp;
+   while(temp != 0){
+     csr_col_new[j] = csr_col[k];
+     //csr_col_new[j] = 0;
+     csr_val_new[j++] = csr_val[k++];
+     temp--;
+   }
+  }
+  //pretty_print_CSR(A_csr_new);
+  return A_csr_new;
+}
+
+function sort_y_rows_by_nnz(y_view, A_csr)
+{
+  var N = A_csr.N;
+  var y = new Float64Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  var permutation = new Int32Array(memory.buffer, A_csr.permutation_index, N);
+
+  var y_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * N);
+  var y_new = new Float64Array(memory.buffer, y_index, N);
+
+  for(i = 0; i < N; i++){
+    y_new[permutation[i]] = y[i];
+  }
+
+  y_view.y_index = y_index;
+}
+
+
+function calculate_csr_locality_index(A_csr)
+{
+  var N = A_csr.N;
+  var nz = A_csr.nnz;
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, A_csr.N + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, A_csr.nnz);
+  var tot_num_lines = Math.floor(N/16)+1;
+  console.log("total number of cache lines : ", tot_num_lines);
+  var last_used = new Int32Array(tot_num_lines);
+  last_used.fill(-1);
+  var i, j, distance, sum = 0;
+  var reuse_distance = new Int32Array(N);
+  reuse_distance.fill(0);
+
+  for(i = 0; i < N; i++){
+    for(j = csr_row[i]; j < csr_row[i+1]; j++){
+      if(last_used[Math.floor(csr_col[j]/16)] == -1){
+        last_used[Math.floor(csr_col[j]/16)] = i;
+        continue;
+      }
+      distance = i - last_used[Math.floor(csr_col[j]/16)];
+      if(distance <= i)
+        reuse_distance[distance]++;
+      last_used[Math.floor(csr_col[j]/16)] = i;
+    }
+  }
+  for(i = 0; i < 16; i++){
+    sum += reuse_distance[i];
+  }
+  return (sum*100)/nz;
+}
+
+
+function spts_csc_test(A_csc, x_view, y_view)
+{
+  console.log("CSC");
+  if(typeof A_csc === undefined){
+    console.log("matrix is undefined");
+    return;
+  }
+  if(typeof x_view === "undefined"){
+    console.log("vector x is undefined");
+    return;
+  }
+  if(typeof y_view === "undefined"){
+    console.log("vector y is undefined");
+    return;
+  }
   
-
-function get_inner_max()
-{
-  if(anz > 1000000) inner_max = 1;
-  else if (anz > 100000) inner_max = 10;
-  else if (anz > 50000) inner_max = 50;
-  else if(anz > 10000) inner_max = 100;
-  else if(anz > 2000) inner_max = 1000;
-  else if(anz > 100) inner_max = 10000;
-  inner_max*=6;
-}
-
-async function sswasm_init()
-{
-  var obj = await WebAssembly.instantiateStreaming(fetch('matmachjs.wasm'), Module);
-  malloc_instance = obj.instance;
-  obj = await WebAssembly.instantiateStreaming(fetch('spmv_opt_64.wasm'), { js: { mem: memory }, 
-    console: { log: function(arg) {
-      console.log(arg);}} 
-  });
-  sparse_instance = obj.instance;
-}
-
-function coo_test(A_coo, x_view, y_view)
-{
-  console.log("COO");
-  if(typeof A_coo === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
     clear_y(y_view);
-    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
+    sparse_instance.exports.spts_csc_wrapper(A_csc.col_index, A_csc.row_index, A_csc.val_index, x_view.x_index, y_view.y_index, A_csc.ncols, inner_max);
   }
   for(var i = 0; i < outer_max; i++){
     clear_y(y_view);
     t1 = Date.now();
-    sparse_instance.exports.spmv_coo_wrapper(A_coo.row_index, A_coo.col_index, A_coo.val_index, x_view.x_index, y_view.y_index, A_coo.nnz, inner_max);
+    sparse_instance.exports.spts_csc_wrapper(A_csc.col_index, A_csc.row_index, A_csc.val_index, x_view.x_index, y_view.y_index, A_csc.ncols, inner_max);
     t2 = Date.now();
-    coo_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_coo.nnz/((t2 - t1)/1000);
+    csr_flops[i] = 1/Math.pow(10,6) * inner_max * (2 * A_csc.nnz - A_csc.ncols)/((t2 - t1)/1000);
     tt = tt + t2 - t1;
   }
   tt = tt/1000; 
-  coo_mflops = 1/Math.pow(10,6) * 2 * A_coo.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (coo_mflops - coo_flops[i]) * (coo_mflops - coo_flops[i]);
-  variance /= outer_max;
-  coo_sd = Math.sqrt(variance);
-  coo_sum = fletcher_sum_y(y_view);
-  console.log('coo sum is ', coo_sum);
-  console.log('coo sd is ', coo_sd);
-}
-
-function csr_test(A_csr, x_view, y_view)
-{
-  console.log("CSR");
-  if(typeof A_csr === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_csr_wrapper(A_csr.row_index, A_csr.col_index, A_csr.val_index, x_view.x_index, y_view.y_index, A_csr.nrows, inner_max);
-    t2 = Date.now();
-    csr_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_csr.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  csr_mflops = 1/Math.pow(10,6) * 2 * A_csr.nnz * inner_max * outer_max/ tt;
+  csr_mflops = 1/Math.pow(10,6) * (2 * A_csc.nnz - A_csc.ncols) * inner_max * outer_max/ tt;
   variance = 0;
   for(var i = 0; i < outer_max; i++)
     variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -461,88 +1447,11 @@ function csr_test(A_csr, x_view, y_view)
   csr_sd = Math.sqrt(variance);
   csr_sum = fletcher_sum_y(y_view);
   console.log('csr sum is ', csr_sum);
+  console.log('csr mflops is ', csr_mflops);
   console.log('csr sd is ', csr_sd);
 }
 
-function dia_test(A_dia, x_view, y_view)
-{
-  console.log("DIA");
-  if(typeof A_dia === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_dia_wrapper(A_dia.offset_index, A_dia.data_index, A_dia.nrows, A_dia.ndiags, A_dia.stride, x_view.x_index, y_view.y_index, inner_max);
-    t2 = Date.now();
-    dia_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_dia.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  dia_mflops = 1/Math.pow(10,6) * 2 * A_dia.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
-  variance /= outer_max;
-  dia_sd = Math.sqrt(variance);
-  dia_sum = fletcher_sum_y(y_view);
-  console.log('dia sum is ', dia_sum);
-  console.log('dia sd is ', dia_sd);
-}
 
-function ell_test(A_ell, x_view, y_view)
-{
-  console.log("ELL");
-  if(typeof A_ell === "undefined"){
-    console.log("matrix is undefined");
-    return;
-  }
-  if(typeof x_view === "undefined"){
-    console.log("vector x is undefined");
-    return;
-  }
-  if(typeof y_view === "undefined"){
-    console.log("vector y is undefined");
-    return;
-  }
-  var t1, t2, tt = 0.0;
-  for(var i = 0; i < 10; i++){
-    clear_y(y_view);
-    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
-  }
-  for(var i = 0; i < outer_max; i++){
-    clear_y(y_view);
-    t1 = Date.now();
-    sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.nrows, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
-    t2 = Date.now();
-    ell_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_ell.nnz/((t2 - t1)/1000);
-    tt = tt + t2 - t1;
-  }
-  tt = tt/1000; 
-  ell_mflops = 1/Math.pow(10,6) * 2 * A_ell.nnz * inner_max * outer_max/ tt;
-  variance = 0;
-  for(var i = 0; i < outer_max; i++)
-    variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
-  variance /= outer_max;
-  ell_sd = Math.sqrt(variance);
-  ell_sum = fletcher_sum_y(y_view);
-  console.log('ell sum is ', ell_sum);
-  console.log('ell sd is ', ell_sd);
-}
 
 function read_MM_header(file, mm_info)
 {
@@ -571,7 +1480,7 @@ function read_MM_header(file, mm_info)
 
 function calculate_actual_nnz(file, index, start, mm_info)
 {
-  for(var j = start; index < file.length - 1; index++){
+  for(var j = start; index < file.length; index++){
     var coord = file[index].split(" ");
     mm_info.row[j] = Number(coord[0]);
     mm_info.col[j] = Number(coord[1]);
@@ -582,17 +1491,17 @@ function calculate_actual_nnz(file, index, start, mm_info)
         if(mm_info.val[j] < 0 || mm_info.val[j] > 0){
           // only one non-zero for each diagonal entry
           if(mm_info.row[j] == mm_info.col[j])
-            mm_info.anz++; 
+            mm_info.nnz++; 
           // two non-zeros for each non-diagonal entry
           else
-            mm_info.anz = mm_info.anz + 2;
+            mm_info.nnz = mm_info.nnz + 2;
         }
       }
       else{
         if(mm_info.row[j] == mm_info.col[j])
-          mm_info.anz++; 
+          mm_info.nnz++; 
         else
-          mm_info.anz = mm_info.anz + 2;
+          mm_info.nnz = mm_info.nnz + 2;
       } 
     }
     else{
@@ -600,7 +1509,7 @@ function calculate_actual_nnz(file, index, start, mm_info)
         mm_info.val[j] = Number(coord[2]);
          // exclude explicit zero entries
         if(mm_info.val[j] < 0 || mm_info.val[j] > 0)
-          mm_info.anz++;
+          mm_info.nnz++;
       }
     }
     j++;
@@ -608,10 +1517,10 @@ function calculate_actual_nnz(file, index, start, mm_info)
   return j;
 }
 
-function read_matrix_MM_files(files, num, mm_info, callback)
+export function read_matrix_MM_files(files, num, mm_info)
 { 
   var start = 0;
-  mm_info.anz = 0;
+  mm_info.nnz = 0;
   for(var i = 0; i < num; i++){
     var file = files[i];
     var index = 0;
@@ -619,27 +1528,145 @@ function read_matrix_MM_files(files, num, mm_info, callback)
       index = read_MM_header(file, mm_info);
       if(mm_info.nentries > Math.pow(2,27)){
         console.log("entries : cannot allocate this much");
-        callback();
+	throw new Error('entries : invalid length, cannot allocate');
       }
-      mm_info.row = row = new Int32Array(mm_info.nentries);
-      mm_info.col = col = new Int32Array(mm_info.nentries);
+      mm_info.row = new Int32Array(mm_info.nentries);
+      mm_info.col = new Int32Array(mm_info.nentries);
       if(mm_info.field != "pattern")
-        mm_info.val = val = new Float64Array(mm_info.nentries);
+        mm_info.val = new Float64Array(mm_info.nentries);
     }
     start = calculate_actual_nnz(file, index, start, mm_info)
   }
-  if(mm_info.anz == 0)
-    anz = mm_info.nentries;
-  else
-    anz = mm_info.anz;
-  console.log(anz);
-  if(anz > Math.pow(2,28)){
-    console.log("anz : cannot allocate this much");
-    callback();
+  if(mm_info.nnz == 0){
+    mm_info.nnz = mm_info.nentries;
+  }
+  console.log(mm_info.nnz);
+  if(mm_info.nnz > Math.pow(2,28)){
+    console.log("nnz : cannot allocate this much");
+    throw new Error('nnz : invalid length, cannot allocate');
   }
 }
 
-function create_COO_from_MM(mm_info, A_coo)
+function create_LCOO_from_MM(mm_info)
+{
+  var row = mm_info.row;
+  var col = mm_info.col;
+  var val = mm_info.val;
+  var L_nnz = mm_info.nrows;
+
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n])
+          L_nnz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n] && (val[n] > 0 || val[n] < 0))
+          L_nnz++;
+      }
+    }
+  }
+  else{
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]))
+          L_nnz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]) && (val[n] > 0 || val[n] < 0))
+          L_nnz++;
+      }
+    }
+  }
+
+  mm_info.nnz = L_nnz;
+  var A_coo = allocate_COO(mm_info);
+  var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz);
+  var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz);
+  var coo_val = new Float64Array(memory.buffer, A_coo.val_index, A_coo.nnz);
+  var i = 0;
+
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+        else if(row[n] < col[n]){
+          coo_row[i] = Number(col[n] - 1);
+          coo_col[i] = Number(row[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+          else if(row[n] < col[n]){
+            coo_row[i] = Number(col[n] - 1);
+            coo_col[i] = Number(row[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+    }
+  }
+  else{
+    if(mm_info.field == "pattern"){
+      for(n = 0; n < mm_info.nentries; n++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+      }
+    }
+    else{
+      var count_zero = 0;
+      console.log("general real");
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            if(coo_row[i] == 0)
+              count_zero++;
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+      console.log("read", i, mm_info.nnz, mm_info.nrows, count_zero);
+    }
+  }
+  for(var n = 0; n < mm_info.nrows; n++){
+    coo_row[i] = n;
+    coo_col[i] = n;
+    coo_val[i] = 1.0;
+    i++;
+  }
+  quick_sort_COO(A_coo, 0, mm_info.nnz-1);
+  return A_coo;
+}
+
+
+export function create_COO_from_MM(mm_info, A_coo)
 {
   var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz); 
   var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz); 
@@ -670,12 +1697,16 @@ function create_COO_from_MM(mm_info, A_coo)
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
+          //if(!(Number.isSafeInteger(val[n])))
+            //val[n] = 0.0
           coo_val[i] = Number(val[n]);
           if(row[n] == col[n])
             i++;
           else{
             coo_row[i+1] = Number(col[n] - 1);
             coo_col[i+1] = Number(row[n] - 1);
+            //if(!(Number.isSafeInteger(val[n])))
+              //val[n] = 0.0
             coo_val[i+1] = Number(val[n]);
             i = i + 2;
           }
@@ -696,67 +1727,210 @@ function create_COO_from_MM(mm_info, A_coo)
         if(val[n] < 0 || val[n] > 0){
           coo_row[i] = Number(row[n] - 1);
           coo_col[i] = Number(col[n] - 1);
+          //if(!(Number.isSafeInteger(val[n])))
+            //val[n] = 0.0
           coo_val[i] = Number(val[n]);
           i++;
         }
       }
     }
   }
-  quick_sort_COO(A_coo, 0, anz-1);      
+  quick_sort_COO(A_coo, 0, mm_info.nnz-1);      
 }
 
-function allocate_COO(mm_info)
+export function allocate_copy_COO(A_coo_in)
 {
   // COO memory allocation
-  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var coo_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * anz);
-  var A_coo = new sswasm_COO_t(coo_row_index, coo_col_index, coo_val_index, anz); 
+  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  var coo_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  var A_coo_out = new sparse_COO_t(coo_row_index, coo_col_index, coo_val_index, A_coo_in.N, A_coo_in.nnz);
+  return A_coo_out;
+}
+
+export function allocate_COO(mm_info)
+{
+  // COO memory allocation
+  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.nnz);
+  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.nnz);
+  var coo_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * mm_info.nnz);
+  var A_coo = new sparse_COO_t(coo_row_index, coo_col_index, coo_val_index, mm_info.nrows, mm_info.nnz); 
   return A_coo;
 }
 
-function allocate_CSR(mm_info)
+export function free(obj)
 {
-  // CSR memory allocation
-  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.nrows + 1));
-  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * anz);
-  var csr_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * anz);
-  var A_csr = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, mm_info.nrows, anz);
-  return A_csr;
+  if(typeof obj === undefined){
+    console.log("free object: undefined"); 
+    return;
+  }
+
+  if(obj instanceof sparse_COO_t){
+    free_COO(obj);
+    console.log("free object: COO"); 
+  }
+  else if(obj instanceof sparse_CSR_t){
+    free_CSR(obj);
+    console.log("free object: CSR"); 
+  }
+  else if(obj instanceof sparse_DIA_t){
+    free_DIA(obj);
+    console.log("free object: DIA"); 
+  }
+  else if(obj instanceof sparse_ELL_t){
+    free_ELL(obj);
+    console.log("free object: ELL"); 
+  }
+  else if(obj instanceof sparse_x_t){
+    free_x(obj);
+    console.log("free object: x"); 
+  }
+  else if(obj instanceof sparse_y_t){
+    free_y(obj);
+    console.log("free object: y"); 
+  }
+  else if(obj instanceof sparse_vec_t){
+    free_vec(obj);
+    console.log("free object: vec"); 
+  }
 }
 
 
-function allocate_DIA(mm_info, ndiags, stride)
+function free_COO(A_coo)
+{
+  // COO memory free
+  if(typeof A_coo !== undefined){
+    malloc_instance.exports._free(A_coo.row_index);
+    malloc_instance.exports._free(A_coo.col_index);
+    malloc_instance.exports._free(A_coo.val_index);
+  }
+}
+
+export function allocate_copy_CSR(A_csr_in)
+{
+  // CSR memory allocation
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (A_csr_in.N + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_csr_in.N);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_csr_in.nnz);
+  var csr_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * A_csr_in.nnz);
+  var A_csr_out = new sparse_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, A_csr_in.N, A_csr_in.nnz);
+  return A_csr_out;
+}
+
+export function allocate_CSR(nrows, nnz)
+{
+  // CSR memory allocation
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (nrows + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nrows);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nnz);
+  var csr_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * nnz);
+  var A_csr = new sparse_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, nrows, nnz);
+  return A_csr;
+}
+
+function free_CSR(A_csr)
+{
+  // CSR memory free
+  if(typeof A_csr !== undefined){
+    malloc_instance.exports._free(A_csr.row_index);
+    malloc_instance.exports._free(A_csr.col_index);
+    malloc_instance.exports._free(A_csr.val_index);
+    malloc_instance.exports._free(A_csr.nnz_row_index);
+  }
+}
+
+function allocate_CSC(mm_info)
+{
+  // CSC memory allocation
+  var csc_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (mm_info.ncols + 1));
+  var csc_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * mm_info.nnz);
+  var csc_val_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * mm_info.nnz);
+  var A_csc = new sparse_CSC_t(csc_col_index, csc_row_index, csc_val_index, mm_info.nrows, mm_info.nnz);
+  return A_csc;
+}
+
+export function allocate_DIA(N, nnz, ndiags, stride)
 {
   // DIA memory allocation
   var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ndiags);
   var dia_data_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * ndiags * stride);
-  A_dia = new sswasm_DIA_t(offset_index, dia_data_index, ndiags, mm_info.nrows, stride, anz);
+  var A_dia = new sparse_DIA_t(offset_index, dia_data_index, ndiags, stride, N, nnz);
   return A_dia;
 }
 
-function allocate_ELL(mm_info, ncols)
+function free_DIA(A_dia)
+{
+  if(typeof A_dia !== undefined){ 
+    malloc_instance.exports._free(A_dia.offset_index);
+    malloc_instance.exports._free(A_dia.data_index);
+  }
+}
+
+export function allocate_ELL(N, nnz, ncols)
 {
   // ELL memory allocation
-  var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ncols * mm_info.nrows);
-  var ell_data_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * ncols * mm_info.nrows);
-  A_ell = new sswasm_ELL_t(indices_index, ell_data_index, ncols, mm_info.nrows, anz);
+  try{
+    var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ncols * N);
+    var ell_data_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * ncols * N);
+  }
+  catch(e){
+    console.log('Error : ', e);
+    return;
+  }
+  var A_ell = new sparse_ELL_t(indices_index, ell_data_index, ncols, N, nnz);
   return A_ell;
 }
 
-function allocate_x(mm_info)
+function free_ELL(A_ell)
 {
-  var x_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * mm_info.ncols);
-  var x_view = new sswasm_x_t(x_index, mm_info.ncols);
+  if(typeof A_ell !== undefined){ 
+    malloc_instance.exports._free(A_ell.indices_index);
+    malloc_instance.exports._free(A_ell.data_index);
+  }
+}
+
+export function allocate_x(N)
+{
+  var x_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * N);
+  var x_view = new sparse_x_t(x_index, N);
   return x_view;
 }
 
-function allocate_y(mm_info)
+function free_x(x_view)
 {
-  var y_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * mm_info.nrows);
-  var y_view = new sswasm_y_t(y_index, mm_info.nrows);
+  if(typeof x_view !== undefined)
+    malloc_instance.exports._free(x_view.x_index);
+}
+
+export function allocate_y(N)
+{
+  var y_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * N);
+  var y_view = new sparse_y_t(y_index, N);
   return y_view;
 }
+
+function free_y(y_view)
+{
+  if(typeof y_view !== undefined)
+    malloc_instance.exports._free(y_view.y_index);
+}
+
+export function allocate_vec(nelem, val = 0)
+{
+  var vec_index = malloc_instance.exports._malloc(Float64Array.BYTES_PER_ELEMENT * nelem);
+  var vec_view = new sparse_vec_t(vec_index, nelem);
+  var vec = new Float64Array(memory.buffer, vec_index, nelem);
+  for(var i = 0; i < nelem; i++)
+    vec[i] = val;
+  return vec_view;
+}
+
+function free_vec(vec_view)
+{
+  if(typeof vec_view !== undefined)
+    malloc_instance.exports._free(vec_view.vec_index);
+}
+
 
 /* Note: Since an ArrayBuffer’s byteLength is immutable, 
 after a successful Memory.prototype.grow() operation the 
@@ -764,96 +1938,17 @@ buffer getter will return a new ArrayBuffer object
 (with the new byteLength) and any previous ArrayBuffer 
 objects become “detached”, or disconnected from the 
 underlying memory they previously pointed to.*/ 
-function allocate_memory_test(mm_info)
-{
-  const bytesPerPage = 64 * 1024;
-  var max_pages = 16384;
-  
-  var A_coo = allocate_COO(mm_info);
-  create_COO_from_MM(mm_info, A_coo); 
 
-  var A_csr = allocate_CSR(mm_info);
-  //convert COO to CSR
-  coo_csr(A_coo, A_csr);
 
-  //get DIA info
-  var result = num_diags(A_csr);
-  var nd = result[0];
-  var stride = result[1];
-  //get ELL info
-  var nc = num_cols(A_csr);
-  var A_dia, A_ell;
-
-  if(nd*stride < Math.pow(2,27)){ 
-    A_dia = allocate_DIA(mm_info, nd, stride);
-    //convert CSR to DIA
-    csr_dia(A_csr, A_dia);
-  }
-
-  if(nc*mm_info.nrows < Math.pow(2,27)){
-    A_ell = allocate_ELL(mm_info, nc);
-    //convert CSR to ELL
-    csr_ell(A_csr, A_ell);
-  } 
-
-  var x_view = allocate_x(mm_info);
-  init_x(x_view);
-
-  var y_view = allocate_y(mm_info);
-  clear_y(y_view);
-
-  return [A_coo, A_csr, A_dia, A_ell, x_view, y_view];
+function spts_init_x(x_view){
+  var x = new Float64Array(memory.buffer, x_view.x_index, x_view.x_nelem);
+  for(var i = 0; i < x_view.x_nelem; i++)
+    x[i] = 1.0;
 }
-
-function free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view)
-{
-  if(typeof A_coo !== 'undefined'){ 
-    malloc_instance.exports._free(A_coo.row_index);
-    malloc_instance.exports._free(A_coo.col_index);
-    malloc_instance.exports._free(A_coo.col_index);
-  }
-
-  if(typeof A_csr !== 'undefined'){ 
-    malloc_instance.exports._free(A_csr.row_index);
-    malloc_instance.exports._free(A_csr.col_index);
-    malloc_instance.exports._free(A_csr.col_index);
-  }
-
-  if(typeof A_dia !== 'undefined'){ 
-    malloc_instance.exports._free(A_dia.offset_index);
-    malloc_instance.exports._free(A_dia.data_index);
-  }
-
-  if(typeof A_ell !== 'undefined'){ 
-    malloc_instance.exports._free(A_ell.indices_index);
-    malloc_instance.exports._free(A_ell.data_index);
-  }
-
-  if(typeof x_view !== 'undefined')
-    malloc_instance.exports._free(x_view.x_index);
-
-  if(typeof y_view !== 'undefined')
-    malloc_instance.exports._free(y_view.y_index);
-}
-
-
-function spmv_test(files, callback)
-{
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  get_inner_max();
-
-  var A_coo, A_csr, A_dia, A_ell, x_view, y_view;
-  [A_coo, A_csr, A_dia, A_ell, x_view, y_view] = allocate_memory_test(mm_info);
-
-  coo_test(A_coo, x_view, y_view);
-  csr_test(A_csr, x_view, y_view);
-  dia_test(A_dia, x_view, y_view);
-  ell_test(A_ell, x_view, y_view);
-  free_memory_test(A_coo, A_csr, A_dia, A_ell, x_view, y_view);
-  console.log("done");
-  callback();
+function spts_init_y(y_view){
+  var y = new Float64Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  for(var i = 0; i < y_view.y_nelem; i++)
+    y[i] = 1.0;
 }
 
 /* 
@@ -893,32 +1988,62 @@ function parse_file(file)
   read_file_block(file, 0);
 }
 
-var load_files = function(fileno, files, num, callback1, callback2){
-  var request = new XMLHttpRequest();
-  var myname = filename + (Math.floor(fileno/10)).toString() + (fileno%10).toString() + '.mtx'
-  console.log(myname);
-  request.onreadystatechange = function() {
-    if(request.readyState == 4 && request.status == 200){
+export var load_file = function(filename){
+  return new Promise(function(resolve, reject) {
+    console.log(filename);
+    fetch(filename)
+    .then(response => response.blob())
+    .then(blob => {
       try{
-        files[fileno] = request.responseText.split("\n");
-        fileno++;
-        if(fileno < num)
-          load_files(fileno, files, num, callback1, callback2);
-        else
-          callback2(files, callback1);
+        // 32MB slice size
+        var limit = 32 * 1024 * 1024;
+        var size = blob.size;
+        console.log("size of file : ", size);
+        var num = Math.ceil(size/limit);
+        console.log("num of slices : ", num);
+        var files = new Array(num);
+        var data = "";
+
+        load_file_slice(0);
+
+        function load_file_slice(i){
+          if(i >= num){
+            return resolve([files, num]);
+	  }
+          var start = i * limit;
+          var end = ((i+1) * limit) > size ? size : (i+1) * limit;
+          console.log(start, end);
+          var slice = blob.slice(start, end);
+          slice.text().then(text => {
+	    data = data.concat(text);
+	    var last_index = data.lastIndexOf('\n');
+	    var portion = data.substring(0, last_index);
+	    files[i] = portion.split('\n');
+	    data = data.substring(last_index + 1);
+	    load_file_slice(i+1);
+	  });
+        }
       }
       catch(e){
         console.log('Error : ', e);
-        callback1();
+        reject(new Error(e));
       }
-    } 
-  }
-  request.open('GET', myname, true);
-  request.send();
+    });
+  });
 }
 
-function spmv(callback)
+export async function mmread(filename)
 {
-  var files = new Array(num);
-  load_files(0, files, num, callback, spmv_test);
+  var v = await load_file(filename);
+  // create an instance of sparse_MM_info object type
+  var mm_info = new sparse_MM_info();
+  // read matrix data from file into mm_info
+  read_matrix_MM_files(v[0], v[1], mm_info);
+  // allocate memory for COO format
+  var A_coo = allocate_COO(mm_info);
+  if(A_coo === undefined)
+    return;
+  // fill COO with matrix data
+  create_COO_from_MM(mm_info, A_coo); 
+  return A_coo;
 }

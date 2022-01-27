@@ -46,8 +46,9 @@ def main(argv):
   arg = args[0] 
   #ls = subprocess.Popen(["wc", "-l", arg], stdout=subprocess.PIPE)
   #size = int(ls.communicate()[0].split()[0])
-  #basename = os.path.basename(arg)
-  #loc = os.path.join(os.getcwd(),os.path.splitext(basename)[0])
+  basename = os.path.basename(arg)
+  #loc = os.path.join(os.getcwd(),basename)
+  status = subprocess.call('cp ' + arg + ' ' + basename, shell=True)
   #split = subprocess.Popen(["split", "-l", str(limit), "-d", '--additional-suffix=.mtx', arg, loc], stdout=subprocess.PIPE)
   #split.communicate()
   #if size > limit:
@@ -57,8 +58,8 @@ def main(argv):
   #if size % limit:
     #num = num + 1;
   #line1 = "var num = " + str(num) 
-  #line2 = "var filename = '" + os.path.splitext(basename)[0] + "'"  
-  line1 = "var filename = '" + arg + "'"  
+  #line1 = "var filename = '" + os.path.splitext(basename)[0] + "'"  
+  line1 = "var filename = '" + basename + "'"  
   line2 = "var browser = " + str(browser)
   line3 = "var output_file = '" + output_file + "'"
   line4 = "let TOTAL_MEMORY = 2147418112"
@@ -69,9 +70,9 @@ def main(argv):
   httpd = subprocess.Popen(["python", "web.py"], stdout=subprocess.PIPE)
   url = "http://localhost:8080/static/tests/index32.html"
   if precision == 1:
-    url = "http://localhost:8080/static/index64.html"
+    url = "http://localhost:8080/static/tests/index64.html"
   #browser_path = r'google-chrome'
-  browser_path = r'/mnt/local/HDD_data/cheetah/chrome96/opt/google/chrome/chrome'
+  browser_path = r'/mnt/local/HDD_data/cheetah/chrome97/opt/google/chrome/chrome'
   browser_opts = ' '
   browser_opts = ' '.join(["--js-flags=\"--experimental-wasm-simd --wasm-no-bounds-checks --wasm-no-stack-checks\"", "--headless --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --enable-features=SharedArrayBuffer"])
   if browser == 1:
@@ -87,6 +88,7 @@ def main(argv):
   out, err = p.communicate()
   print out
   httpd.terminate()
+  status = subprocess.call('rm ' + os.path.splitext(basename)[0] + '.mtx', shell=True)
   #files = os.path.splitext(basename)[0]
   #for i in range(num):
     #rm = subprocess.Popen(["rm", "-r", files+ str(i/10) + str(i%10) +'.mtx'], stdout=subprocess.PIPE)
