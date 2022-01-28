@@ -531,6 +531,105 @@ onmessage = function(e) {
     my_instance.exports.self_multiply_coo(id, scalar, val_index, end-start);
     postMessage(id);
   }
+  if(e.data[0] == "expm1_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_expm1_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "log1p_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_log1p_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "sin_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_sin_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "tan_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_tan_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "pow_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    let p = e.data[9];
+    my_instance.exports.self_pow_dia(id, p, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "deg2rad_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    let pi = e.data[9];
+    my_instance.exports.self_deg2rad_dia(id, pi, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "rad2deg_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    let pi = e.data[9];
+    my_instance.exports.self_rad2deg_dia(id, p, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "sign_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_sign_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
   if(e.data[0] == "abs_dia"){
     assert(id == e.data[1], "Worker IDs don't match.");
     let start = e.data[2];
@@ -541,6 +640,231 @@ onmessage = function(e) {
     let stride = e.data[7];
     let N = e.data[8];
     my_instance.exports.self_abs_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "neg_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_neg_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "sqrt_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_sqrt_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "ceil_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_ceil_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "floor_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_floor_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "trunc_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_trunc_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "nearest_dia"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let offset_index = e.data[4];
+    let dia_data_index = e.data[5];
+    let num_diag = e.data[6];
+    let stride = e.data[7];
+    let N = e.data[8];
+    my_instance.exports.self_nearest_dia(id, offset_index, dia_data_index, start, end, num_diag, stride, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "expm1_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_expm1_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "log1p_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_log1p_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "sin_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_sin_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "tan_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_tan_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "pow_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    let p = e.data[7];
+    my_instance.exports.self_pow_ell(id, p, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "deg2rad_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    let pi = e.data[7];
+    my_instance.exports.self_deg2rad_ell(id, pi, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "rad2deg_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    let pi = e.data[7];
+    my_instance.exports.self_rad2deg_ell(id, pi, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "sign_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_sign_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "abs_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_abs_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "neg_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_neg_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "sqrt_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_sqrt_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "ceil_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_ceil_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "floor_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_floor_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "trunc_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_trunc_ell(id, ell_data_index, start, end, num_cols, N);
+    postMessage(id);
+  }
+  if(e.data[0] == "nearest_ell"){
+    assert(id == e.data[1], "Worker IDs don't match.");
+    let start = e.data[2];
+    let end = e.data[3];
+    let ell_data_index = e.data[4];
+    let num_cols = e.data[5];
+    let N = e.data[6];
+    my_instance.exports.self_nearest_ell(id, ell_data_index, start, end, num_cols, N);
     postMessage(id);
   }
 }

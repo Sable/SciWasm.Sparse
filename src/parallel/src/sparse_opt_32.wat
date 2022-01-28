@@ -3555,6 +3555,895 @@
     ))
   )
 
+  (func (export "self_expm1_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+  
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+
+        (loop $inner_loop
+          (local.get $this_data)
+          (f32.load (local.get $this_data))
+          (call $expm1f)
+          (f32.store)
+          (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+          (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+          (local.get $end)
+          (i32.lt_s)
+          (br_if $inner_loop)
+        )
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_log1p_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+  
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+
+        (loop $inner_loop
+          (local.get $this_data)
+          (f32.load (local.get $this_data))
+          (call $log1pf)
+          (f32.store)
+          (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+          (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+          (local.get $end)
+          (i32.lt_s)
+          (br_if $inner_loop)
+        )
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_sin_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+  
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+
+        (loop $inner_loop
+          (local.get $this_data)
+          (f32.load (local.get $this_data))
+          (call $sinf)
+          (f32.store)
+          (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+          (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+          (local.get $end)
+          (i32.lt_s)
+          (br_if $inner_loop)
+        )
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_tan_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+  
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+
+        (loop $inner_loop
+          (local.get $this_data)
+          (f32.load (local.get $this_data))
+          (call $tanf)
+          (f32.store)
+          (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+          (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+          (local.get $end)
+          (i32.lt_s)
+          (br_if $inner_loop)
+        )
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_sign_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+  
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+
+        (loop $inner_loop
+          (local.get $this_data)
+	  (if (result f32) (f32.eq (f32.load (local.get $this_data)) (f32.const 0.0))
+          (then
+            (f32.const 0)
+          )
+          (else
+            (if (result f32) (f32.gt (f32.load (local.get $this_data)) (f32.const 0.0))
+            (then
+              (f32.const 1)
+            )
+            (else
+              (f32.const -1)
+            ))
+          ))
+          (f32.store)
+          (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+          (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+          (local.get $end)
+          (i32.lt_s)
+          (br_if $inner_loop)
+        )
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_pow_dia") (param $id i32) (param $p f32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+  
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+
+        (loop $inner_loop
+          (local.get $this_data)
+          (f32.load (local.get $this_data))
+	  (local.get $p)
+          (call $powf)
+          (f32.store)
+          (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+          (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+          (local.get $end)
+          (i32.lt_s)
+          (br_if $inner_loop)
+        )
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_deg2rad_dia") (param $id i32) (param $pi f32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+    (local $pi_on_180 f32)
+
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+    (local.get $pi)
+    (f32.const 180)
+    (f32.div)
+    (local.set $pi_on_180)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (local.get $pi_on_180)
+            (f32.mul)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.splat (local.get $pi_on_180))
+            (f32x4.mul)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_rad2deg_dia") (param $id i32) (param $pi f32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+    (local $pi_on_180 f32)
+
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+    (local.get $pi)
+    (f32.const 180)
+    (f32.div)
+    (local.set $pi_on_180)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (local.get $pi_on_180)
+            (f32.div)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.splat (local.get $pi_on_180))
+            (f32x4.div)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
 
 
   (func (export "self_abs_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
@@ -3591,9 +4480,6 @@
 
     (i32.const 0)
     (local.set $exp2)
-
-    (i32.add (local.get $end_row) (i32.const 1))
-    (local.set $end_row)
 
     (loop $outer_loop
       ;; diagonal offset
@@ -3692,6 +4578,791 @@
   )
 
 
+  (func (export "self_neg_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (f32.neg)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.neg)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_sqrt_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (f32.sqrt)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.sqrt)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_ceil_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (f32.ceil)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.ceil)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_floor_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (f32.floor)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.floor)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_trunc_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (f32.trunc)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.trunc)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "self_nearest_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $new_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end 
+    (local.get $ndiags) 
+    (i32.const 0)
+    (i32.le_s) 
+    if
+      (return)
+    end 
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      local.set $k
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (i32.lt_s (local.get $n) (local.get $start_row))
+        (then
+          (local.get $start_row)
+          (local.set $n)
+        )
+      )
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          local.get $N
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (if (i32.gt_s (local.get $end) (local.get $end_row))
+        (then
+          (local.get $end_row)
+          (local.set $end)
+        )
+      )
+      (if (i32.lt_s (local.get $n) (local.get $end))
+      (then
+        (local.get $end)
+        (local.get $n)
+        (i32.sub)
+        (i32.const 4)
+        (i32.rem_u)
+        (local.get $n)
+        (i32.add)
+        (local.set $new_end)
+        (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+        (local.set $this_data)
+        (local.get $n)
+        (local.get $new_end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $inner_loop
+            (local.get $this_data)
+            (f32.load (local.get $this_data))
+            (f32.nearest)
+            (f32.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+            (local.get $new_end)
+            (i32.lt_s)
+            (br_if $inner_loop)
+          )
+        ))
+        (local.get $new_end)
+        (local.get $end)
+        (i32.lt_s)
+        (if
+        (then
+          (loop $vector_inner_loop
+            (local.get $this_data)
+            (v128.load (local.get $this_data))
+            (f32x4.nearest)
+            (v128.store)
+            (local.set $this_data (i32.add (local.get $this_data) (i32.const 16)))
+            (tee_local $n (i32.add (local.get $n) (i32.const 4)))
+            (local.get $end)
+            (i32.lt_s)
+            (br_if $vector_inner_loop)
+          )
+        ))
+      ))
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
 
   (func $spmv_dia (export "spmv_dia") (param $id i32) (param $offset i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_diag i32) (param $N i32) (param $x i32) (param $y i32)
     (local $i i32)
@@ -4746,6 +6417,815 @@
       (local.set $i (i32.add (local.get $i) (i32.const 1)))
       (br $top)
     ))
+  )
+
+  
+  (func $self_expm1_ell (export "self_expm1_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (call $expm1f)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_log1p_ell (export "self_log1p_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (call $log1pf)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_sin_ell (export "self_sin_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (call $sinf)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_tan_ell (export "self_tan_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (call $tanf)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_pow_ell (export "self_pow_ell") (param $id i32) (param $p f32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+	(local.get $p)
+        (call $powf)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_deg2rad_ell (export "self_deg2rad_ell") (param $id i32) (param $pi f32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+    (local $pi_on_180 f32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+
+    (local.get $pi)
+    (f32.const 180)
+    (f32.div)
+    (local.set $pi_on_180)
+
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (local.get $pi_on_180)
+        (f32.mul)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_rad2deg_ell (export "self_rad2deg_ell") (param $id i32) (param $pi f32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+    (local $pi_on_180 f32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+
+    (local.get $pi)
+    (f32.const 180)
+    (f32.div)
+    (local.set $pi_on_180)
+
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (local.get $pi_on_180)
+        (f32.div)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_sign_ell (export "self_sign_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+	(if (result f32) (f32.eq (f32.load (local.get $this_data)) (f32.const 0.0))
+        (then
+          (f32.const 0)
+          )
+        (else
+          (if (result f32) (f32.gt (f32.load (local.get $this_data)) (f32.const 0.0))
+          (then
+            (f32.const 1)
+            )
+          (else
+            (f32.const -1)
+          ))
+        ))
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_abs_ell (export "self_abs_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.abs)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_neg_ell (export "self_neg_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.neg)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_sqrt_ell (export "self_sqrt_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.sqrt)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_ceil_ell (export "self_ceil_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.ceil)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_floor_ell (export "self_floor_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.floor)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_trunc_ell (export "self_trunc_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.trunc)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func $self_nearest_ell (export "self_nearest_ell") (param $id i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $exp1 i32) ;; j * N
+    (local $this_data i32)
+
+    (local.get $start_row)
+    (local.get $end_row)
+    i32.ge_s
+    if
+      (return)
+    end
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.set $exp1 (i32.const 0))
+
+    (loop $outer_loop
+      (local.set $i (local.get $start_row))
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp1) (local.get $i)) (i32.const 2)))
+      (local.set $this_data)
+      (loop $inner_loop
+        (local.get $this_data)
+        (f32.load (local.get $this_data))
+        (f32.nearest)
+        (f32.store)
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $end_row)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $exp1 (i32.add (local.get $exp1) (local.get $N)))
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.lt_s)
+      (br_if $outer_loop)
+    )
   )
 
   (func $spmv_ell_col (export "spmv_ell_col") (param $id i32) (param $indices i32) (param $data i32) (param $start_row i32) (param $end_row i32) (param $num_cols i32) (param $N i32) (param $x i32) (param $y i32)
