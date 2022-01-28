@@ -1,20 +1,24 @@
 var before_locality_index, after_locality_index;
-var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1;
-var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
-var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
+export var coo_mflops = -1, csr_mflops = -1, dia_mflops = -1, ell_mflops = -1;
+export var coo_sum=-1, csr_sum=-1, dia_sum=-1, ell_sum=-1;
+export var coo_sd=-1, csr_sd=-1, dia_sd=-1, ell_sd=-1;
 var coo_flops = [], csr_flops = [], dia_flops = [], ell_flops = [];
 var variance;
-var csr_row_mflops = -1, csr_row_gs_mflops = -1, csr_nnz_mflops = -1, csr_nnz_gs_mflops = -1, csr_nnz_sorted_mflops = -1, csr_nnz_gs_sorted_mflops = -1, csr_nnz_short_mflops = -1, csr_nnz_gs_short_mflops = -1, csr_nnz_unroll2_mflops = -1, csr_nnz_unroll3_mflops = -1, csr_nnz_unroll4_mflops = -1, csr_nnz_unroll6_mflops = -1;
-var csr_row_sum = -1, csr_row_gs_sum = -1, csr_nnz_sum = -1, csr_nnz_gs_sum = -1, csr_nnz_sorted_sum = -1, csr_nnz_gs_sorted_sum = -1, csr_nnz_short_sum = -1, csr_nnz_gs_short_sum = -1, csr_nnz_unroll2_sum = -1, csr_nnz_unroll3_sum = -1, csr_nnz_unroll4_sum = -1, csr_nnz_unroll6_sum = -1;
-var csr_row_sd = -1, csr_row_gs_sd = -1, csr_nnz_sd = -1, csr_nnz_gs_sd = -1, csr_nnz_sorted_sd = -1, csr_nnz_gs_sorted_sd = -1, csr_nnz_short_sd = -1, csr_nnz_gs_short_sd = -1, csr_nnz_unroll2_sd = -1, csr_nnz_unroll3_sd = -1, csr_nnz_unroll4_sd = -1, csr_nnz_unroll6_sd = -1;
-var dia_row_mflops = -1, bdia_row_mflops = -1, dia_nnz_mflops = -1, bdia_nnz_mflops = -1;
-var dia_row_sum = -1, bdia_row_sum = -1, dia_nnz_sum = -1, bdia_nnz_sum = -1;
-var dia_row_sd = -1, bdia_row_sd = -1, dia_nnz_sd = -1, bdia_nnz_sd = -1;
-var ell_col_sum = -1, ell_col_sd = -1, ell_col_mflops = -1;
-var ell_gs_sum = -1, ell_gs_sd = -1, ell_gs_mflops = -1;
-var bell_gs_sum = -1, bell_gs_sd = -1, bell_gs_mflops = -1;
-var coo_gs_sum = -1, coo_gs_sd = -1, coo_gs_mflops = -1;
-var coo_nnz_sum = -1, coo_nnz_sd = -1, coo_nnz_mflops = -1;
+export var csr_row_mflops = -1, csr_row_gs_mflops = -1, csr_nnz_mflops = -1, csr_nnz_gs_mflops = -1, csr_nnz_sorted_mflops = -1, csr_nnz_gs_sorted_mflops = -1, csr_nnz_short_mflops = -1, csr_nnz_gs_short_mflops = -1, csr_nnz_unroll2_mflops = -1, csr_nnz_unroll3_mflops = -1, csr_nnz_unroll4_mflops = -1, csr_nnz_unroll6_mflops = -1;
+export var csr_row_sum = -1, csr_row_gs_sum = -1, csr_nnz_sum = -1, csr_nnz_gs_sum = -1, csr_nnz_sorted_sum = -1, csr_nnz_gs_sorted_sum = -1, csr_nnz_short_sum = -1, csr_nnz_gs_short_sum = -1, csr_nnz_unroll2_sum = -1, csr_nnz_unroll3_sum = -1, csr_nnz_unroll4_sum = -1, csr_nnz_unroll6_sum = -1;
+export var csr_row_sd = -1, csr_row_gs_sd = -1, csr_nnz_sd = -1, csr_nnz_gs_sd = -1, csr_nnz_sorted_sd = -1, csr_nnz_gs_sorted_sd = -1, csr_nnz_short_sd = -1, csr_nnz_gs_short_sd = -1, csr_nnz_unroll2_sd = -1, csr_nnz_unroll3_sd = -1, csr_nnz_unroll4_sd = -1, csr_nnz_unroll6_sd = -1;
+export var dia_row_mflops = -1, bdia_row_mflops = -1, dia_nnz_mflops = -1, bdia_nnz_mflops = -1;
+export var dia_row_sum = -1, bdia_row_sum = -1, dia_nnz_sum = -1, bdia_nnz_sum = -1;
+export var dia_row_sd = -1, bdia_row_sd = -1, dia_nnz_sd = -1, bdia_nnz_sd = -1;
+export var ell_col_sum = -1, ell_col_sd = -1, ell_col_mflops = -1;
+export var ell_gs_sum = -1, ell_gs_sd = -1, ell_gs_mflops = -1;
+export var bell_gs_sum = -1, bell_gs_sd = -1, bell_gs_mflops = -1;
+export var coo_gs_sum = -1, coo_gs_sd = -1, coo_gs_mflops = -1;
+export var coo_nnz_sum = -1, coo_nnz_sd = -1, coo_nnz_mflops = -1;
+export var N, nnz;
+export var inner_max = 1000000, outer_max = 30;
+
+import * as swasmsModule from '/static/src/spmv32.js';
 
 function coo_test(A_coo, x_view, y_view, workers, gs)
 {
@@ -35,8 +39,8 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
   }
   var N_per_worker = Math.floor(N/num_workers);
   var rem_N  = N - N_per_worker * num_workers; 
-  var nnz_per_worker = Math.floor(anz/num_workers);
-  var rem = anz - nnz_per_worker * num_workers;
+  var nnz_per_worker = Math.floor(nnz/num_workers);
+  var rem = nnz - nnz_per_worker * num_workers;
   var t1, t2, tt = 0.0;
   var t = 0;
   function runCOO(){
@@ -95,9 +99,9 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
       //for(var i = 0; i < num_workers; i++)
         //sparse_instance.exports.sum(y_view.y_index, A_coo.w_y_view[i].y_index, N);
       t2 = Date.now();
-      //console.log(1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000));
+      //console.log(1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000));
       if(t >= 10){
-        coo_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+        coo_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
         tt += t2 - t1;
       }
       t++;
@@ -109,7 +113,7 @@ function coo_test(A_coo, x_view, y_view, workers, gs)
       }
       else{
         tt = tt/1000;
-        coo_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+        coo_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
         variance = 0;
         for(var i = 0; i < outer_max; i++)
           variance += (coo_mflops - coo_flops[i]) * (coo_mflops - coo_flops[i]);
@@ -235,7 +239,7 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs, sorted, short_r
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -251,7 +255,7 @@ function static_nnz_csr_test(A_csr, x_view, y_view, workers, gs, sorted, short_r
 	}
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -366,7 +370,7 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -374,7 +378,7 @@ function static_nnz_reorder_csr_test(A_csr_original, x_view, y_view, workers)
           runCSR();
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -453,7 +457,7 @@ function csr_test(A_csr, x_view, y_view, workers, gs)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -465,7 +469,7 @@ function csr_test(A_csr, x_view, y_view, workers, gs)
 	}
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -590,7 +594,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -608,7 +612,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
 	}
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -696,7 +700,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          dia_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          dia_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -704,7 +708,7 @@ function static_nnz_sorted_unrolled_csr_test(A_csr, x_view, y_view, workers, unr
           runDIA();
         else{
           tt = tt/1000;
-          dia_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          dia_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
@@ -794,7 +798,7 @@ function dia_col_test(A_dia, x_view, y_view, workers, blocked, basic)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          dia_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          dia_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -808,7 +812,7 @@ function dia_col_test(A_dia, x_view, y_view, workers, blocked, basic)
         }
         else{
           tt = tt/1000;
-          dia_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          dia_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
@@ -891,7 +895,7 @@ function dia_col_static_nnz_test(A_dia, x_view, y_view, workers, blocked)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          dia_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          dia_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -903,7 +907,7 @@ function dia_col_static_nnz_test(A_dia, x_view, y_view, workers, blocked)
 	}
         else{
           tt = tt/1000;
-          dia_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          dia_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (dia_mflops - dia_flops[i]) * (dia_mflops - dia_flops[i]);
@@ -990,7 +994,7 @@ function ell_row_test(A_ell, x_view, y_view, workers, gs)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          ell_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          ell_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -1002,7 +1006,7 @@ function ell_row_test(A_ell, x_view, y_view, workers, gs)
 	}
         else{
           tt = tt/1000;
-          ell_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          ell_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
@@ -1091,7 +1095,7 @@ function ell_col_test(A_ell, x_view, y_view, workers, gs, blocked)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          ell_flops[t-10] = 1/Math.pow(10,6) * 2 * anz * inner_max/ ((t2 - t1)/1000);
+          ell_flops[t-10] = 1/Math.pow(10,6) * 2 * nnz * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -1105,7 +1109,7 @@ function ell_col_test(A_ell, x_view, y_view, workers, gs, blocked)
 	}
         else{
           tt = tt/1000;
-          ell_mflops = 1/Math.pow(10,6) * 2 * anz * outer_max * inner_max/ tt;
+          ell_mflops = 1/Math.pow(10,6) * 2 * nnz * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (ell_mflops - ell_flops[i]) * (ell_mflops - ell_flops[i]);
@@ -1144,37 +1148,53 @@ function ell_col_test(A_ell, x_view, y_view, workers, gs, blocked)
   });
 }
 
-function spmv_coo_test(files, callback)
+export async function spmv_coo_test(callback)
 {
-  console.log("inside coo test");
-  var mm_info = new sswasm_MM_info();
-  read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  get_inner_max();
+  console.log("coo test");
+  var Acoo = await swasmsModule.mmread(filename);
 
-  var A_coo, x_view, y_view;
+  N = Acoo.N;
+  nnz = Acoo.nnz;
 
-  console.log("memory allocated");
+  //swasmsModule.pretty_print_COO(Acoo);
+  var x = swasmsModule.allocate_x(N);
+  swasmsModule.init_x(x);
+  var y = swasmsModule.allocate_y(N);
+  swasmsModule.clear_y(y);
 
-  A_coo = allocate_COO(mm_info);
-  create_COO_from_MM(mm_info, A_coo);
-  console.log("COO allocated");
-  x_view = allocate_x(mm_info);
-  init_x(x_view);
-  y_view = allocate_y(mm_info);
-  clear_y(y_view);
-
-  var coo_promise = coo_test(A_coo, x_view, y_view, workers, 0);
+  await swasmsModule.sparse_spmv_coo(Acoo, x, y);
+  /*var coo_promise = coo_test(Acoo, x, y, workers, 0);
   coo_promise.then(coo_value => {
-    var coo_gs_promise = coo_test(A_coo, x_view, y_view, workers, 1);
+    var coo_gs_promise = coo_test(Acoo, x, y, workers, 1);
     coo_gs_promise.then(coo_gs_value => {
-      free_memory_coo(A_coo);
-      free_memory_x(x_view);
-      free_memory_y(y_view);
+      free_memory_coo(Acoo);
+      free_memory_x(x);
+      free_memory_y(y);
       console.log("done");
       callback();
     });
-  });
+  });*/
+  coo_nnz_sum = swasmsModule.fletcher_sum_y(y);
+  console.log("done");
+  callback();
+}
+
+export async function element_wise_test(callback)
+{
+  console.log("element wise test");
+  var Acoo = await swasmsModule.mmread(filename);
+
+  N = Acoo.N;
+  nnz = Acoo.nnz;
+  var Acsr  = swasmsModule.coo_csr(Acoo);
+  var Adia  = swasmsModule.csr_dia_col(Acsr);
+  swasmsModule.pretty_print(Adia);
+  var ret = await Adia.abs();
+  console.log(ret);
+  swasmsModule.pretty_print(Adia);
+
+  console.log("done");
+  callback();
 }
 
 
@@ -1201,7 +1221,7 @@ function spmv_ell_test(files, callback)
 
   //get ELL info
   var nc = num_cols(A_csr);
-  if((nc*N < Math.pow(2,27)) && (((N * nc)/anz) <= 5)){
+  if((nc*N < Math.pow(2,27)) && (((N * nc)/nnz) <= 5)){
     A_ell = allocate_ELL(mm_info, nc);
     //convert CSR to ELL
     csr_ell_col(A_csr, A_ell);
@@ -1258,7 +1278,7 @@ function spmv_dia_test(files, callback)
   var result = num_diags(A_csr);
   var nd = result[0];
   var stride = result[1];
-  if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/nnz) <= 5)){
     A_dia = allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia_col(A_csr, A_dia);
@@ -1324,6 +1344,7 @@ function spmv_csr_s_test(files, callback)
 
   var csr_nnz_promise = static_nnz_csr_test(A_csr, x_view, y_view, workers, 0, 0, 0, 0);
   csr_nnz_promise.then(csr_nnz_value => {
+    //pretty_print_y(y_view);
     free_memory_csr(A_csr);
     free_memory_x(x_view);
     free_memory_y(y_view);
@@ -1357,7 +1378,7 @@ function spmv_dia_basic_test(files, callback)
   var result = num_diags(A_csr);
   var nd = result[0];
   var stride = result[1];
-  if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){
+  if(nd*stride < Math.pow(2,27) && (((stride * nd)/nnz) <= 5)){
     A_dia = allocate_DIA(mm_info, nd, stride);
     //convert CSR to DIA
     csr_dia_col(A_csr, A_dia);
@@ -1460,6 +1481,7 @@ function spmv_csr_nnz_test(files, callback)
   console.log("inside csr nnz test");
   var mm_info = new sswasm_MM_info();
   read_matrix_MM_files(files, num, mm_info, callback);
+  console.log(mm_info.nnz);
   N = mm_info.nrows;
   get_inner_max();
 
@@ -1633,7 +1655,7 @@ function spmv_all_test(files, callback)
       var result = num_diags(A_csr);
       var nd = result[0];
       var stride = result[1];
-      if(nd*stride < Math.pow(2,27) && (((stride * nd)/anz) <= 5)){
+      if(nd*stride < Math.pow(2,27) && (((stride * nd)/nnz) <= 5)){
         A_dia = allocate_DIA(mm_info, nd, stride);
         //convert CSR to DIA
         csr_dia_col(A_csr, A_dia);
@@ -1644,7 +1666,7 @@ function spmv_all_test(files, callback)
         free_memory_dia(A_dia);
         //get ELL info
         var nc = num_cols(A_csr);
-        if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/anz) <= 5)){
+        if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/nnz) <= 5)){
           A_ell = allocate_ELL(mm_info, nc);
           //convert CSR to ELL
           csr_ell(A_csr, A_ell);
@@ -1684,6 +1706,32 @@ function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
     var t1, t2, tt = 0.0;
     var t = 0;
 
+    /*for(var i = 0; i < num_workers; i++){
+      var array_flag_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+      var array_flag = new Int32Array(memory.buffer, array_flag_index, N);
+      for(var j = 0; j < N; j++)
+        array_flag[j] = 0;
+      A_level_csr.array_flag_index.push(array_flag_index);
+    }*/
+   
+    A_level_csr.worker_level_index = malloc_instance.exports._malloc(num_workers * Int32Array.BYTES_PER_ELEMENT);
+    var worker_level = new Int32Array(memory.buffer, A_level_csr.worker_level_index, num_workers);
+    for(var j = 0; j < N; j++)
+      worker_level[j] = -1;
+
+
+    A_level_csr.row_level_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+    A_level_csr.row_worker_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+    
+    spts_get_inner_max();
+    console.log(inner_max);
+
+    pending_workers = num_workers;
+    for(var i = 0; i < num_workers; i++){
+      workers.worker[i].postMessage(["spts_metadata", i, A_level_csr.level_index, A_level_csr.nlevels, num_workers, N, A_level_csr.row_level_index, A_level_csr.row_worker_index]);
+      workers.worker[i].onmessage = runSpTS;
+    }
+
     function runCSR(){
       console.log("calling runCSR");
       pending_workers = num_workers;
@@ -1691,7 +1739,7 @@ function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
       spts_init_y(y_view);
       t1 = Date.now();
       for(var i = 0; i < num_workers; i++){
-        workers.worker[i].postMessage(["spts_csr_opt_level_sync_free", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.permutation_index, A_level_csr.nlevels, A_level_csr.barrier_index, A_level_csr.flag_index, A_level_csr.array_flag_index, A_level_csr.global_level_index, A_level_csr.array_level_index, num_workers, N, inner_max]);
+        workers.worker[i].postMessage(["spts_csr_opt_level_sync_free", i, A_level_csr.level_index, A_level_csr.row_index, A_level_csr.col_index, A_level_csr.val_index, x_view.x_index, y_view.y_index, A_level_csr.permutation_index, A_level_csr.nlevels, A_level_csr.barrier_index, A_level_csr.flag_index, A_level_csr.global_level_index, A_level_csr.global_rows_index, A_level_csr.array_level_index, A_level_csr.row_level_index, A_level_csr.row_worker_index, A_level_csr.worker_level_index, num_workers, N, inner_max]);
         workers.worker[i].onmessage = storeCSR;
       }
     }
@@ -1702,7 +1750,7 @@ function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * anz - N) * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * nnz - N) * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -1713,7 +1761,7 @@ function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
         }
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * (2 * anz - N) * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * (2 * nnz - N) * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -1729,8 +1777,11 @@ function spts_csr_level_sync_free_test(A_csr, x_view, y_view)
         }
       }
     }
-
-    runCSR();
+    function runSpTS(event){
+      pending_workers -= 1;
+      if(pending_workers <= 0)
+        runCSR();
+    }
   });
 }
 
@@ -1772,7 +1823,7 @@ function spts_csr_sync_free_test(A_csr, x_view, y_view)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * anz - N) * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * nnz - N) * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -1783,7 +1834,7 @@ function spts_csr_sync_free_test(A_csr, x_view, y_view)
         }
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * (2 * anz - N) * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * (2 * nnz - N) * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -1824,6 +1875,9 @@ function spts_level_csr_test(A_csr, x_view, y_view)
     var t1, t2, tt = 0.0;
     var t = 0;
 
+    spts_get_inner_max();
+    console.log(inner_max);
+
     function runCSR(){
       console.log("calling runCSR");
       pending_workers = num_workers;
@@ -1842,7 +1896,7 @@ function spts_level_csr_test(A_csr, x_view, y_view)
       if(pending_workers <= 0){
         t2 = Date.now();
         if(t >= 10){
-          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * anz - N) * inner_max/ ((t2 - t1)/1000);
+          csr_flops[t-10] = 1/Math.pow(10,6) * (2 * nnz - N) * inner_max/ ((t2 - t1)/1000);
           tt += t2 - t1;
         }
         t++;
@@ -1853,7 +1907,7 @@ function spts_level_csr_test(A_csr, x_view, y_view)
         }
         else{
           tt = tt/1000;
-          csr_mflops = 1/Math.pow(10,6) * (2 * anz - N) * outer_max * inner_max/ tt;
+          csr_mflops = 1/Math.pow(10,6) * (2 * nnz - N) * outer_max * inner_max/ tt;
           variance = 0;
           for(var i = 0; i < outer_max; i++)
             variance += (csr_mflops - csr_flops[i]) * (csr_mflops - csr_flops[i]);
@@ -1900,10 +1954,9 @@ function spts_test(files, callback)
   //clear_y(y_view);
   //spts_init_y(y_view);
 
-  get_inner_max();
-  var spts_promise = spts_level_csr_test(A_csr, x_view, y_view);
+  //var spts_promise = spts_level_csr_test(A_csr, x_view, y_view);
   //var spts_promise = spts_csr_sync_free_test(A_csr, x_view, y_view);
-  //var spts_promise = spts_csr_level_sync_free_test(A_csr, x_view, y_view);
+  var spts_promise = spts_csr_level_sync_free_test(A_csr, x_view, y_view);
   spts_promise.then(spts_value => {
 
     free_memory_csr(A_csr);
@@ -1914,32 +1967,28 @@ function spts_test(files, callback)
   });
 }
 
-function spmv(callback)
+export function sparse_op(callback)
 {
-  let promise = load_file();
-  promise.then(files => {
-    console.log("inside promise")
-    if(tests == 'all')
-      spmv_all_test(files, callback)
-    else if(tests == 'dia')
-      spmv_dia_test(files, callback)
-    else if(tests == 'ell')
-      spmv_ell_test(files, callback)
-    else if(tests == 'csr_nnz')
-      spmv_csr_nnz_test(files, callback)
-    else if(tests == 'csr_row')
-      spmv_csr_row_test(files, callback)
-    else if(tests == 'coo')
-      spmv_coo_test(files, callback)
-    else if(tests == 'csr_s')
-      spmv_csr_s_test(files, callback)
-    else if(tests == 'dia_basic')
-      spmv_dia_basic_test(files, callback)
-    else if(tests == 'csr_reorder')
-      spmv_csr_nnz_reorder_test(files, callback)
-    else if(tests == 'spts')
-      spts_test(files, callback)
-  },
-  error => callback()
-  ); 
+  if(tests == 'element_wise')
+    element_wise_test(callback)
+  else if(tests == 'all')
+    spmv_all_test(callback)
+  else if(tests == 'dia')
+    spmv_dia_test(callback)
+  else if(tests == 'ell')
+    spmv_ell_test(callback)
+  else if(tests == 'csr_nnz')
+    spmv_csr_nnz_test(callback)
+  else if(tests == 'csr_row')
+    spmv_csr_row_test(callback)
+  else if(tests == 'coo')
+    spmv_coo_test(callback)
+  else if(tests == 'csr_s')
+    spmv_csr_s_test(callback)
+  else if(tests == 'dia_basic')
+    spmv_dia_basic_test(callback)
+  else if(tests == 'csr_reorder')
+    spmv_csr_nnz_reorder_test(callback)
+  else if(tests == 'spts')
+    spts_test(callback)
 }

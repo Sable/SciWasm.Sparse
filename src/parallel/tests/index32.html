@@ -2,51 +2,55 @@
   <head>
     <meta charset="utf-8"/>
     <script src="input.js"></script>
-    <script src="matmachjs-lib.js"></script>
-    <script src="spmv32.js"></script>
-    <script src="spts32.js"></script>
-    <script src="main32.js"></script>
-    <script type='text/javascript'>
-      (async () => {
-        await sswasm_init(); 
-        spmv(function(){
+    <script type="module">
+      import * as mainModule from '/static/tests/main32.js';
+      mainModule.sparse_op(function()
+      {
+        if(tests = 'element_wise'){
+	  fetch("/element_wise/")
+          .then(response => console.log(response.statusText));
+	}
+        if(tests == 'all'){
           var all_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_sd':coo_sd, 'coo':coo_mflops, 'coo_sum':coo_sum, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum, 'ell_sd':ell_sd, 'ell':ell_mflops, 'ell_sum':ell_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
-
+	  fetch("/spmv/" + all_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'dia'){
           var dia_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'dia_row_sd':dia_row_sd, 'dia_row':dia_row_mflops, 'dia_row_sum':dia_row_sum, 'bdia_row_sd':bdia_row_sd, 'bdia_row':bdia_row_mflops, 'bdia_row_sum':bdia_row_sum, 'dia_nnz_sd':dia_nnz_sd, 'dia_nnz':dia_nnz_mflops, 'dia_nnz_sum':dia_nnz_sum, 'bdia_nnz_sd':bdia_nnz_sd, 'bdia_nnz':bdia_nnz_mflops, 'bdia_nnz_sum':bdia_nnz_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
-
+	  fetch("/spmv/" + dia_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'ell'){
           var ell_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'ell_col_sd':ell_col_sd, 'ell_col':ell_col_mflops, 'ell_col_sum':ell_col_sum, 'ell_gs_sd':ell_gs_sd, 'ell_gs':ell_gs_mflops, 'ell_gs_sum':ell_gs_sum, 'bell_gs_sd':bell_gs_sd, 'bell_gs':bell_gs_mflops, 'bell_gs_sum':bell_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
-
-          var coo_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'coo_nnz_sd':coo_nnz_sd, 'coo_nnz':coo_nnz_mflops, 'coo_nnz_sum':coo_nnz_sum, 'coo_gs_sd':coo_gs_sd, 'coo_gs':coo_gs_mflops, 'coo_gs_sum':coo_gs_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
-		
+	  fetch("/spmv/" + ell_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'coo'){
+          var coo_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': mainModule.N, 'nnz':mainModule.nnz, 'coo_nnz_sd':mainModule.coo_nnz_sd, 'coo_nnz':mainModule.coo_nnz_mflops, 'coo_nnz_sum':mainModule.coo_nnz_sum, 'coo_gs_sd':mainModule.coo_gs_sd, 'coo_gs':mainModule.coo_gs_mflops, 'coo_gs_sum':mainModule.coo_gs_sum, 'inner_max':mainModule.inner_max, 'outer_max':mainModule.outer_max, 'num_workers':num_workers});
+	  fetch("/spmv/" + coo_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'csr_nnz' || tests == 'csr_reorder'){
           var csr_nnz_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum, 'csr_nnz_gs_sd':csr_nnz_gs_sd, 'csr_nnz_gs':csr_nnz_gs_mflops, 'csr_nnz_gs_sum':csr_nnz_gs_sum, 'csr_nnz_sorted_sd':csr_nnz_sorted_sd, 'csr_nnz_sorted':csr_nnz_sorted_mflops, 'csr_nnz_sorted_sum':csr_nnz_sorted_sum, 'csr_nnz_gs_sorted_sd':csr_nnz_gs_sorted_sd, 'csr_nnz_gs_sorted':csr_nnz_gs_sorted_mflops, 'csr_nnz_gs_sorted_sum':csr_nnz_gs_sorted_sum, 'csr_nnz_short_sd':csr_nnz_short_sd, 'csr_nnz_short':csr_nnz_short_mflops, 'csr_nnz_short_sum':csr_nnz_short_sum, 'csr_nnz_gs_short_sd':csr_nnz_gs_short_sd, 'csr_nnz_gs_short':csr_nnz_gs_short_mflops, 'csr_nnz_gs_short_sum':csr_nnz_gs_short_sum, 'csr_nnz_unroll2_sd':csr_nnz_unroll2_sd, 'csr_nnz_unroll2':csr_nnz_unroll2_mflops, 'csr_nnz_unroll2_sum':csr_nnz_unroll2_sum, 'csr_nnz_unroll3_sd':csr_nnz_unroll3_sd, 'csr_nnz_unroll3':csr_nnz_unroll3_mflops, 'csr_nnz_unroll3_sum':csr_nnz_unroll3_sum, 'csr_nnz_unroll4_sd':csr_nnz_unroll4_sd, 'csr_nnz_unroll4':csr_nnz_unroll4_mflops, 'csr_nnz_unroll4_sum':csr_nnz_unroll4_sum, 'csr_nnz_unroll6_sd':csr_nnz_unroll6_sd, 'csr_nnz_unroll6':csr_nnz_unroll6_mflops, 'csr_nnz_unroll6_sum':csr_nnz_unroll6_sum, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers,'before_locality_index':before_locality_index, 'after_locality_index':after_locality_index});
-
+	  fetch("/spmv/" + csr_nnz_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'csr_s'){
           var csr_s_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'csr_nnz_sd':csr_nnz_sd, 'csr_nnz':csr_nnz_mflops, 'csr_nnz_sum':csr_nnz_sum,'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+	  fetch("/spmv/" + csr_s_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'dia_basic'){
           var dia_basic_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'dia_sd':dia_sd, 'dia':dia_mflops, 'dia_sum':dia_sum,'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers});
+	  fetch("/spmv/" + dia_basic_result)
+          .then(response => console.log(response.statusText));
+	}
+	else if(tests == 'spts'){
           var spts_result = JSON.stringify({'tests':tests, 'browser':browser, 'output_file':output_file, 'file':filename, 'N': N, 'nnz':anz, 'num_levels':num_levels, 'inner_max':inner_max, 'outer_max':outer_max, 'num_workers':num_workers, 'csr_sd':csr_sd, 'csr':csr_mflops, 'csr_sum':csr_sum});
-
-
-          var xmlhttp = new XMLHttpRequest();
-	  if(tests == 'all')
-            xmlhttp.open("GET", "/result/" + all_result, false);
-	  else if(tests == 'dia')
-            xmlhttp.open("GET", "/result/" + dia_result, false);
-	  else if(tests == 'ell')
-            xmlhttp.open("GET", "/result/" + ell_result, false);
-	  else if(tests == 'coo')
-            xmlhttp.open("GET", "/result/" + coo_result, false);
-	  else if(tests == 'csr_nnz' || tests == 'csr_reorder')
-            xmlhttp.open("GET", "/result/" + csr_nnz_result, false);
-	  else if(tests == 'csr_s')
-            xmlhttp.open("GET", "/result/" + csr_s_result, false);
-	  else if(tests == 'dia_basic')
-            xmlhttp.open("GET", "/result/" + dia_basic_result, false);
-	  else if(tests == 'spts')
-            xmlhttp.open("GET", "/result/" + spts_result, false);
-          xmlhttp.send();
-          //window.close()
+	  fetch("/spmv/" + spts_result)
+          .then(response => console.log(response.statusText));
+	}
         });
-      })();
     </script>
-
   <head>
 </html>

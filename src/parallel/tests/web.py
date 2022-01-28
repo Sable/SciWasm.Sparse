@@ -5,21 +5,27 @@ import json
 
 from bottle import route, run, static_file
 
-@route('/static/<name>')
+@route('/static/<name:path>')
 def get_file(name):
   response = static_file(name, root=os.getcwd())
   response.set_header('Cache-Control', 'no-cache, max-age=0')
+  response.set_header('Cross-Origin-Embedder-Policy','require-corp')
+  response.set_header('Cross-Origin-Opener-Policy', 'same-origin')
   #response.set_header('Expires', '0')
   #response.set_header('Pragma', 'no-cache')
   return response
 
-@route('/result/<json_string>')
+@route('/element_wise/')
+def result():
+  return "OK"
+
+@route('/spmv/<json_string:path>')
 def result(json_string):
   parsed_json = json.loads(json_string) 
   output_file = parsed_json['output_file']
   f = open(os.path.join(os.getcwd(), output_file),'a')
   browser = parsed_json['browser']
-  f.write(parsed_json['file'])
+  f.write(os.path.splitext(os.path.basename(parsed_json['file']))[0])
   f.write(",")
   f.write(str(parsed_json['num_workers']))
   f.write(",")
@@ -251,9 +257,10 @@ def result(json_string):
   f.close()
   if browser == 0:
     subprocess.call(['killall', '-9', 'chrome']);
-  elif browser == 1:
-    subprocess.call(['killall', '-9', 'firefox']);
-    sys.stderr.close()
-    sys.exit(0)
+  #elif browser == 1:
+    #subprocess.call(['killall', '-9', 'firefox']);
+    #sys.stderr.close()
+    #sys.exit(0)
   return "OK"
+os.chdir('../')
 run(host='localhost', port=8080, quiet=True)
