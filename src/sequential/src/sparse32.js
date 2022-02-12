@@ -1,14 +1,17 @@
+// import the matmachjs libs to setup WebAssembly memory and enable malloc and free routines on it.
 let memModule = await import('/static/libs/matmachjs-lib.js');
 let memory = memModule.Module['wasmMemory'];
 let obj = await WebAssembly.instantiateStreaming(fetch('/static/libs/matmachjs.wasm'), memModule.Module);
 const malloc_instance = obj.instance;
+
+// create an object to import memory and JavaScript methods into WebAssembly.
 var importObject = { js: { mem: memory }, console: { log: function(arg) {console.log(arg);}}, math: { expm1: function(arg) { return Math.expm1(arg);}, log1p: function(arg) { return Math.log1p(arg);}, pow: function(arg1, arg2) { return Math.pow(arg1, arg2);}, sin: function(arg) { return Math.sin(arg);}, tan: function(arg) { return Math.tan(arg);}}}
-obj = await WebAssembly.instantiateStreaming(fetch('/static/src/spmv_simd_32.wasm'), importObject);
+obj = await WebAssembly.instantiateStreaming(fetch('/static/src/sparse_opt_32.wasm'), importObject);
 const sparse_instance = obj.instance;
 
 /* Constructor function to create an object sparse_MM_info to
  * represent the matrix data from a Matrix-Market format input file */
-export function sparse_MM_info()
+function sparse_MM_info()
 {
   this.field = '';
   this.symmetry = '';
@@ -21,7 +24,9 @@ export function sparse_MM_info()
   this.nnz = 0;
 }
 
-export function sparse_COO_t(row_index, col_index, val_index, N, nnz)
+/* Constructor function to create an object sparse_COO_t to
+ * represent the matrix data in the COO format  */
+function sparse_COO_t(row_index, col_index, val_index, N, nnz)
 {
   this.row;
   this.col;
@@ -56,7 +61,9 @@ export function sparse_COO_t(row_index, col_index, val_index, N, nnz)
   this.min = sparse_self_min_coo;
 }
 
-export function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
+/* Constructor function to create an object sparse_CSR_t to
+ * represent the matrix data in the CSR format  */
+function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
 {
   this.row;
   this.col;
@@ -92,6 +99,8 @@ export function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, 
   this.nearest = sparse_self_nearest_csr;
 }
 
+/* Constructor function to create an object sparse_CSC_t to
+ * represent the matrix data in the CSC format  */
 function sparse_CSC_t(col_index, row_index, val_index, ncols, nnz){
   this.col;
   this.row;
@@ -103,6 +112,8 @@ function sparse_CSC_t(col_index, row_index, val_index, ncols, nnz){
   this.nnz = nnz;
 }
 
+/* Constructor function to create an object sparse_DIA_t to
+ * represent the matrix data in the DIA format  */
 function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz){
   this.offset;
   this.data;
@@ -131,6 +142,8 @@ function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz){
   this.rad2deg = sparse_self_rad2deg_dia;
 }
 
+/* Constructor function to create an object sparse_ELL_t to
+ * represent the matrix data in the ELL format  */
 function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.indices;
   this.data;
@@ -158,7 +171,7 @@ function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.rad2deg = sparse_self_rad2deg_ell;
 }
 
-export function sparse_vec_t(vec_index, vec_nelem){
+function sparse_vec_t(vec_index, vec_nelem){
   this.vec;
   this.vec_index = vec_index;
   this.vec_nelem = vec_nelem;
@@ -537,6 +550,18 @@ export function expm1(A_in)
     sparse_instance.exports.expm1_coo(A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.expm1_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.expm1_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function log1p(A_in)
@@ -552,6 +577,18 @@ export function log1p(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.log1p_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.log1p_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.log1p_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -571,6 +608,18 @@ export function sin(A_in)
     sparse_instance.exports.sin_coo(A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.sin_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.sin_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function tan(A_in)
@@ -586,6 +635,18 @@ export function tan(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.tan_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.tan_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.tan_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -605,6 +666,18 @@ export function pow(A_in, p)
     sparse_instance.exports.pow_coo(p, A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.pow_dia(p, A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.pow_ell(p, A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function deg2rad(A_in)
@@ -620,6 +693,18 @@ export function deg2rad(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.deg2rad_coo(Math.PI, A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.deg2rad_dia(Math.PI, A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.deg2rad_ell(Math.PI, A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -639,6 +724,18 @@ export function rad2deg(A_in)
     sparse_instance.exports.rad2deg_coo(Math.PI, A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.rad2deg_dia(Math.PI, A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.rad2deg_ell(Math.PI, A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function sign(A_in)
@@ -654,6 +751,18 @@ export function sign(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.sign_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.sign_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.sign_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -673,6 +782,18 @@ export function abs(A_in)
     sparse_instance.exports.abs_coo(A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.abs_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.abs_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function neg(A_in)
@@ -688,6 +809,18 @@ export function neg(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.neg_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.neg_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.neg_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -707,6 +840,18 @@ export function sqrt(A_in)
     sparse_instance.exports.sqrt_coo(A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.sqrt_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.sqrt_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function ceil(A_in)
@@ -722,6 +867,18 @@ export function ceil(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.ceil_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.ceil_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.ceil_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -741,6 +898,18 @@ export function floor(A_in)
     sparse_instance.exports.ceil_coo(A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.floor_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.floor_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 export function trunc(A_in)
@@ -756,6 +925,18 @@ export function trunc(A_in)
     var A_out = allocate_copy_CSR(A_in);
     memcpy_aux_csr(A_in, A_out);
     sparse_instance.exports.trunc_coo(A_in.val_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.trunc_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.trunc_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
     return A_out;
   }
 }
@@ -775,6 +956,18 @@ export function nearest(A_in)
     sparse_instance.exports.nearest_coo(A_in.val_index, A_out.val_index, A_in.nnz);
     return A_out;
   }
+  else if(A_in instanceof sparse_DIA_t) { 
+    var A_out = allocate_copy_DIA(A_in);
+    memcpy_aux_dia(A_in, A_out);
+    sparse_instance.exports.nearest_dia(A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) { 
+    var A_out = allocate_copy_ELL(A_in);
+    memcpy_aux_ell(A_in, A_out);
+    sparse_instance.exports.nearest_ell(A_in.data_index, A_out.data_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
 }
 
 function memcpy_aux_coo(A_coo_in, A_coo_out)
@@ -787,6 +980,16 @@ function memcpy_aux_csr(A_csr_in, A_csr_out)
 {
   sparse_instance.exports.memcpy(A_csr_in.row_index, A_csr_out.row_index, Int32Array.BYTES_PER_ELEMENT * (A_csr_in.N + 1));
   sparse_instance.exports.memcpy(A_csr_in.col_index, A_csr_out.col_index, Int32Array.BYTES_PER_ELEMENT * A_csr_in.nnz);
+}
+
+function memcpy_aux_dia(A_dia_in, A_dia_out)
+{
+  sparse_instance.exports.memcpy(A_dia_in.offset_index, A_dia_out.offset_index, Int32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags);
+}
+
+function memcpy_aux_ell(A_ell_in, A_ell_out)
+{
+  sparse_instance.exports.memcpy(A_ell_in.indices_index, A_ell_out.indices_index, Int32Array.BYTES_PER_ELEMENT * A_ell_in.ncols * A_ell_in.N);
 }
 
 export function spmv(A_in, x_view, y_view, inner_max=1)
@@ -833,6 +1036,12 @@ function sparse_spmv_ell(A_ell, x_view, y_view, inner_max)
 {
   sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.N, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
 }
+
+
+
+
+
+
 
 function matlab_modulo(x, y) {
   var n = Math.floor(x/y);
@@ -1843,6 +2052,15 @@ function allocate_CSC(mm_info)
   return A_csc;
 }
 
+export function allocate_copy_DIA(A_dia_in)
+{
+  // DIA memory allocation
+  var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags);
+  var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags * A_dia_in.stride);
+  var A_dia_out = new sparse_DIA_t(offset_index, dia_data_index, A_dia_in.ndiags, A_dia_in.stride, A_dia_in.N, A_dia_in.nnz);
+  return A_dia_out;
+}
+
 export function allocate_DIA(N, nnz, ndiags, stride)
 {
   // DIA memory allocation
@@ -1863,11 +2081,33 @@ function free_DIA(A_dia)
 export function allocate_ELL(N, nnz, ncols)
 {
   // ELL memory allocation
-  var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ncols * N);
-  var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ncols * N);
+  try{
+    var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * ncols * N);
+    var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * ncols * N);
+  }
+  catch(e){
+    console.log('Error : ', e);
+    return;
+  }
   var A_ell = new sparse_ELL_t(indices_index, ell_data_index, ncols, N, nnz);
   return A_ell;
 }
+
+export function allocate_copy_ELL(A_ell_in)
+{
+  // ELL memory allocation
+  try{
+    var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_ell_in.ncols * A_ell_in.N);
+    var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * A_ell_in.ncols * A_ell_in.N);
+  }
+  catch(e){
+    console.log('Error : ', e);
+    return;
+  }
+  var A_ell_out = new sparse_ELL_t(indices_index, ell_data_index, A_ell_in.ncols, A_ell_in.N, A_ell_in.nnz);
+  return A_ell_out;
+}
+
 
 function free_ELL(A_ell)
 {
