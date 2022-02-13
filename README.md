@@ -1,11 +1,12 @@
 # SciWasm.Sparse
 
-SciWasm.Sparse is a WebAssembly/JavaScript library module for highly efficient web-based sparse matrix computations.
-This hand-tuned library supports both serial and parallel Sparse BLAS Level II operations, element-wise operations, 
-and conversion routines for a number of sparse matrix storage formats.
+SciWasm.Sparse is a web-based computing framework that offers efficient and scalable sparse matrix CPU kernels to support 
+high-performance computing in web browsers. It supports both serial and parallel Sparse BLAS Level II operations, 
+element-wise operations, and conversion routines for a number of sparse matrix storage formats.
 
-## To run a serial sparse matrix-vector multiplication benchmark
-    ./run.py -b <browser> -p single <matrix_market_input_file_path>
+## To run a serial single-precision sparse matrix-vector multiplication (SpMV) benchmark
+    cd sequential/tests
+    ./run -b <browser> -p single -t spmv <matrix_market_input_file_path>
 where \<browser\> is *chrome* for Google Chrome and *firefox* for Mozilla Firefox
     
 ## Supported Sparse BLAS Level II Operations
@@ -45,10 +46,4 @@ where \<browser\> is *chrome* for Google Chrome and *firefox* for Mozilla Firefo
 | Operation | Description | Implementation Status |
 | --------- | ----------- | --------------------- |
 | transpose | returns transposed sparse matrix | Available |
-| diagonal | returns kth diagonal | Available |
-| set_diag | set kth diagonal's elements | Available |
-| sum | sum matrix elements over given axis | in progress |
-| mean | arithmetic mean over given axis | in progress |
-| max | maximum over given axis | in progress |
-| min | minimum over given axis | in progress |
-| resize | resize matrix in-place | in progress |
+| eliminate_zeros | removes zero entries from the matrix | Available |
