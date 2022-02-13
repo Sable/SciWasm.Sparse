@@ -527,8 +527,8 @@
     (loop $loop
       (if (i32.or (f32.gt (f32.load (local.get $in_val)) (f32.const 0.0)) (f32.lt (f32.load (local.get $in_val)) (f32.const 0.0)))
         (then
-          (f32.store (local.get $out_row) (f32.load (local.get $in_row)))
-          (f32.store (local.get $out_col) (f32.load (local.get $in_col)))
+          (i32.store (local.get $out_row) (i32.load (local.get $in_row)))
+          (i32.store (local.get $out_col) (i32.load (local.get $in_col)))
           (f32.store (local.get $out_val) (f32.load (local.get $in_val)))
           (local.set $out_row (i32.add (local.get $out_row) (i32.const 4)))
           (local.set $out_col (i32.add (local.get $out_col) (i32.const 4)))
@@ -544,6 +544,55 @@
       (br_if $loop)
     )
   ) 
+
+  (func (export "copy_nonzeros_csr") (param $in_row_ptr i32) (param $in_col i32) (param $in_val i32) (param $out_row_ptr i32) (param $out_col i32) (param $out_val i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $count i32)
+    (i32.const 0)
+    (local.set $i)
+    (i32.store (local.get $out_row_ptr) (i32.const 0))
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $count)
+      (local.set $j (i32.load (local.get $in_row_ptr)))
+      (local.set $in_row_ptr (i32.add (local.get $in_row_ptr) (i32.const 4)))
+      (local.get $j)
+      (i32.load (local.get $in_row_ptr))
+      (i32.lt_s)
+      if
+        (loop $inner_loop
+          (if (i32.or (f32.gt (f32.load (local.get $in_val)) (f32.const 0.0)) (f32.lt (f32.load (local.get $in_val)) (f32.const 0.0)))
+            (then
+            (i32.store (local.get $out_col) (i32.load (local.get $in_col)))
+            (f32.store (local.get $out_val) (f32.load (local.get $in_val)))
+            (local.set $out_col (i32.add (local.get $out_col) (i32.const 4)))
+            (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+            (local.set $count (i32.add (local.get $count) (i32.const 1)))
+            )
+          )
+          (local.set $in_col (i32.add (local.get $in_col) (i32.const 4)))
+          (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+          (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+          (local.get $in_row_ptr)
+          (i32.load)
+          (i32.ne)
+          (br_if $inner_loop)
+	)
+      end
+      (i32.load (local.get $out_row_ptr))
+      (local.get $count)
+      (i32.add)
+      (local.set $count)
+      (local.tee $out_row_ptr (i32.add (local.get $out_row_ptr) (i32.const 4)))
+      (local.get $count)
+      (i32.store)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $N)
+      (i32.le_s)     
+      (br_if $outer_loop)
+    )
+  )
 
   (func (export "self_expm1_coo") (param $val i32) (param $nnz i32)
     (local $i i32)
@@ -1895,6 +1944,195 @@
       )
     end
   )
+
+  (func (export "count_nonzeros_dia") (param $offset i32) (param $data i32) (param $ndiags i32) (param $stride i32) (param $N i32) (result i32 i32)
+    (local $i i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_data i32)
+    (local $count i32)
+    (local $nnz i32)
+    (local $count_diags i32)
+
+    (i32.const 0)
+    (local.set $i)
+
+    (i32.const 0)
+    (local.set $count_diags)
+    (i32.const 0)
+    (local.set $nnz)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $count)
+      ;; diagonal offset
+      (i32.load (local.get $offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (i32.add (local.get $data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+      (local.set $this_data)
+
+      (loop $inner_loop
+        (if (i32.or (f32.gt (f32.load (local.get $this_data)) (f32.const 0.0)) (f32.lt (f32.load (local.get $this_data)) (f32.const 0.0)))
+          (then
+          (local.set $count (i32.add (local.get $count) (i32.const 1)))
+	  )
+        )
+        (local.set $this_data (i32.add (local.get $this_data) (i32.const 4)))
+        (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+        (local.get $end)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.get $count)
+      (i32.const 0)
+      (i32.ne)
+      if
+        (local.set $nnz (i32.add (local.get $nnz) (local.get $count)))
+        (local.set $count_diags (i32.add (local.get $count_diags) (i32.const 1)))
+      end
+      (local.set $offset (i32.add (local.get $offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+    (local.get $count_diags)
+    (local.get $nnz)
+    (return)
+  )
+
+  (func (export "copy_nonzeros_dia") (param $in_offset i32) (param $in_data i32) (param $out_offset i32) (param $out_data i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $k i32)
+    (local $n i32)
+    (local $end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_in_data i32)
+    (local $this_out_data i32)
+    (local $count i32)
+
+    (i32.const 0)
+    (local.set $i)
+
+    (i32.const 0)
+    (local.set $j)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $count)
+      ;; diagonal offset
+      (i32.load (local.get $in_offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $n)
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $end)
+      (i32.add (local.get $in_data) (i32.shl (i32.add (local.get $exp3) (local.get $n)) (i32.const 2)))
+      (local.set $this_in_data)
+      ;; candidate out_data pointer
+      ;; if not used due to empty diagonal, it will be re-set correctly in the next iteration because j won't change 
+      (i32.add (local.get $out_data) (i32.shl (i32.add (local.get $j) (local.get $n)) (i32.const 2)))
+      (local.set $this_out_data)
+
+      (loop $inner_loop
+        (if (i32.or (f32.gt (f32.load (local.get $this_in_data)) (f32.const 0.0)) (f32.lt (f32.load (local.get $this_in_data)) (f32.const 0.0)))
+          (then
+          (f32.store (local.get $this_out_data) (f32.load (local.get $this_in_data)))
+          (local.set $this_out_data (i32.add (local.get $this_out_data) (i32.const 4)))
+          (local.set $count (i32.add (local.get $count) (i32.const 1)))
+          )
+        )
+        (local.set $this_in_data (i32.add (local.get $this_in_data) (i32.const 4)))
+        (tee_local $n (i32.add (local.get $n) (i32.const 1)))
+        (local.get $end)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.get $count)
+      (i32.const 0)
+      (i32.ne)
+      if
+        (i32.store (local.get $out_offset) (i32.load (local.get $in_offset)))
+        (local.set $out_offset (i32.add (local.get $out_offset) (i32.const 4)))
+        (local.set $j (i32.add (local.get $j) (local.get $stride)))
+      end
+      (local.set $in_offset (i32.add (local.get $in_offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
 
   (func (export "self_expm1_dia") (param $offset i32) (param $data i32) (param $ndiags i32) (param $stride i32) (param $N i32)
     (local $i i32)
@@ -5579,6 +5817,135 @@
       (br_if $outer_loop)
     )
   )
+
+  (func (export "count_nonzeros_ell") (param $data i32) (param $nnz_row i32) (param $ncols i32) (param $N i32) (result i32 i32)
+    (local $i i32)
+    (local $j i32)
+    (local $count i32)
+    (local $current i32)
+    (local $nnz i32)
+    (local $count_cols i32)
+
+    (i32.const 0)
+    (local.set $nnz)
+    (i32.const 0)
+    (local.set $count_cols)
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (local.get $count_cols)
+      (local.get $nnz)
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $i)
+      (i32.const 0)
+      (local.set $count)
+      (loop $inner_loop
+        (if (i32.or (f32.gt (f32.load (local.get $data)) (f32.const 0.0)) (f32.lt (f32.load (local.get $data)) (f32.const 0.0)))
+          (then
+          (local.set $count (i32.add (local.get $count) (i32.const 1)))
+	  (i32.add (local.get $nnz_row) (i32.shl (local.get $i) (i32.const 2)))
+	  (local.set $current)
+	  (local.get $current)
+	  (i32.add (i32.load (local.get $current)) (i32.const 1)) 
+	  (i32.store)
+	  (i32.load (local.get $current))
+	  (local.get $count_cols)
+	  (i32.gt_s)
+	  if
+	    (i32.load (local.get $current))
+	    (local.set $count_cols)
+	  end
+	  )
+        )
+        (local.set $data (i32.add (local.get $data) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $N)
+        (i32.ne)
+        (br_if $inner_loop)
+      )
+      (local.get $count)
+      (i32.const 0)
+      (i32.ne)
+      if
+        (local.set $nnz (i32.add (local.get $nnz) (local.get $count)))
+      end
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+    (local.get $count_cols)
+    (local.get $nnz)
+    (return)
+  )
+
+  (func (export "copy_nonzeros_ell") (param $in_data i32) (param $in_indices i32) (param $out_data i32) (param $out_indices i32) (param $nnz_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $current i32)
+    (local $this_out_data i32)
+    (local $this_out_indices i32)
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $i)
+      (loop $inner_loop
+        (if (i32.or (f32.gt (f32.load (local.get $in_data)) (f32.const 0.0)) (f32.lt (f32.load (local.get $in_data)) (f32.const 0.0)))
+          (then
+          (i32.add (local.get $nnz_row) (i32.shl (local.get $i) (i32.const 2)))
+          (local.set $current)
+	  ;; this_out_data = out_data + (k*N+i)*4, where k is an index stored and updated inside nnz_row for each row of ELL format
+          (local.set $this_out_data (i32.add (local.get $out_data) (i32.shl (i32.add (i32.load (local.get $current)) (local.get $i)) (i32.const 2))))
+          (local.set $this_out_indices (i32.add (local.get $out_indices) (i32.shl (i32.add (i32.load (local.get $current)) (local.get $i)) (i32.const 2))))
+          (f32.store (local.get $this_out_data) (f32.load (local.get $in_data)))
+          (i32.store (local.get $this_out_indices) (i32.load (local.get $in_indices)))
+	  
+          (local.get $current)
+          (i32.add (i32.load (local.get $current)) (local.get $N))
+          (i32.store)
+          )
+        )
+        (local.set $in_data (i32.add (local.get $in_data) (i32.const 4)))
+        (local.set $in_indices (i32.add (local.get $in_indices) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $N)
+        (i32.ne)
+        (br_if $inner_loop)
+      )
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
 
 
   (func $self_expm1_ell (export "self_expm1_ell") (param $data i32) (param $ncols i32) (param $N i32)
