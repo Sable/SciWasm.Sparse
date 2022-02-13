@@ -497,6 +497,54 @@
     ))
   )    
 
+  (func (export "count_nonzeros_coo") (param $val i32) (param $nnz i32) (result i32)
+    (local $i i32)
+    (local $count i32)
+    i32.const 0
+    local.set $i
+    (i32.const 0)
+    (local.set $count)
+    (loop $loop
+      (if (i32.or (f32.gt (f32.load (local.get $val)) (f32.const 0.0)) (f32.lt (f32.load (local.get $val)) (f32.const 0.0)))
+        (then
+          (local.set $count (i32.add (local.get $count) (i32.const 1)))
+	)
+      )
+      (local.set $val (i32.add (local.get $val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $loop)
+    )
+    (local.get $count)
+    (return)
+  )
+
+  (func (export "copy_nonzeros_coo") (param $in_row i32) (param $in_col i32) (param $in_val i32) (param $out_row i32) (param $out_col i32) (param $out_val i32) (param $nnz i32)
+    (local $i i32)
+    i32.const 0
+    local.set $i
+    (loop $loop
+      (if (i32.or (f32.gt (f32.load (local.get $in_val)) (f32.const 0.0)) (f32.lt (f32.load (local.get $in_val)) (f32.const 0.0)))
+        (then
+          (f32.store (local.get $out_row) (f32.load (local.get $in_row)))
+          (f32.store (local.get $out_col) (f32.load (local.get $in_col)))
+          (f32.store (local.get $out_val) (f32.load (local.get $in_val)))
+          (local.set $out_row (i32.add (local.get $out_row) (i32.const 4)))
+          (local.set $out_col (i32.add (local.get $out_col) (i32.const 4)))
+          (local.set $out_val (i32.add (local.get $out_val) (i32.const 4)))
+        )
+      )
+      (local.set $in_row (i32.add (local.get $in_row) (i32.const 4)))
+      (local.set $in_col (i32.add (local.get $in_col) (i32.const 4)))
+      (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.ne)
+      (br_if $loop)
+    )
+  ) 
+
   (func (export "self_expm1_coo") (param $val i32) (param $nnz i32)
     (local $i i32)
     i32.const 0
