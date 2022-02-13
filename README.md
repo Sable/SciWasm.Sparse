@@ -32,23 +32,14 @@ where \<browser\> is *chrome* for Google Chrome and *firefox* for Mozilla Firefo
 | sin | Trigonometric sine | Available |
 | tan | Trigonometric tangent | Available |
 | sqrt | square-root function | Available |
-| multiply | element-wise multiply by scalar | Available|
+| multiply | element-wise multiply by scalar | Available |
 
 ## Supported Format Conversion Operations
 | Operation | Description | Implementation Status |
 | --------- | ----------- | --------------------- |
 | coo_csr | COO to CSR | Available |
-| coo_dia | COO to DIA | in progress |
-| coo_ell | COO to ELL | in progress |
-| csr_coo | CSR to COO | in progress |
 | csr_dia | CSR to DIA | Available |
 | csr_ell | CSR to ELL | Available |
-| dia_coo | DIA to COO | in progress |
-| dia_csr | DIA to CSR | in progress |
-| dia_ell | DIA to ELL | in progress |
-| ell_coo | ELL to COO | in progress |
-| ell_csr | ELL to CSR | in progress |
-| ell_dia | ELL to DIA | in progress |
 
 ## Other Supported Operations
 | Operation | Description | Implementation Status |
