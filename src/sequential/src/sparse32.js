@@ -530,6 +530,8 @@ function sparse_self_eliminate_zeros_dia(){
   if(count == this.nnz)
     return;
   var Adia = allocate_DIA(this.N, count, count_diags, this.stride);
+  var data = new Float32Array(memory.buffer, Adia.data_index, Adia.ndiags * Adia.stride);
+  data.fill(0);
   sparse_instance.exports.copy_nonzeros_dia(this.offset_index, this.data_index, Adia.offset_index, Adia.data_index, this.ndiags, this.stride, this.N);
   
   malloc_instance.exports._free(this.offset_index);
@@ -646,6 +648,10 @@ function sparse_self_eliminate_zeros_ell(){
     return;
   var Aell = allocate_ELL(this.N, count, count_cols);
   nnz_row.fill(0);
+  var indices = new Int32Array(memory.buffer, Aell.indices_index, Aell.ncols * Aell.N);
+  var data = new Float32Array(memory.buffer, Aell.data_index, Aell.ncols * Aell.N);
+  indices.fill(0);
+  data.fill(0);
   sparse_instance.exports.copy_nonzeros_ell(this.data_index, this.indices_index, Aell.data_index, Aell.indices_index, nnz_row_index, this.ncols, this.N);
 
   malloc_instance.exports._free(this.indices_index);
@@ -1093,6 +1099,110 @@ export function nearest(A_in)
     return A_out;
   }
 }
+
+export function transpose(A_in)
+{
+  console.log("transpose called");
+  if(A_in instanceof sparse_COO_t) {
+    var A_out = allocate_COO(A_in.N, A_in.nnz)
+    sparse_instance.exports.memcpy(A_in.row_index, A_out.col_index, Int32Array.BYTES_PER_ELEMENT * A_in.nnz);
+    sparse_instance.exports.memcpy(A_in.col_index, A_out.row_index, Int32Array.BYTES_PER_ELEMENT * A_in.nnz);
+    sparse_instance.exports.memcpy(A_in.val_index, A_out.val_index, Int32Array.BYTES_PER_ELEMENT * A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var A_out = allocate_CSR(A_in.N, A_in.nnz);
+    var csr_row = new Int32Array(memory.buffer, A_out.row_index, A_out.N + 1); 
+    csr_row.fill(0);
+    sparse_instance.exports.transpose_csr(A_in.row_index, A_in.col_index, A_in.val_index, A_out.row_index, A_out.col_index, A_out.val_index, A_in.N, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) {
+    var A_out = allocate_DIA(A_in.N, A_in.nnz, A_in.ndiags, A_in.stride);
+    sparse_instance.exports.transpose_dia(A_in.offset_index, A_in.data_index, A_out.offset_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) {
+    var nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_in.N);
+    var nnz_row = new Int32Array(memory.buffer, nnz_row_index, A_in.N);
+    nnz_row.fill(0);
+    var count_cols = sparse_instance.exports.count_transpose_cols_ell(A_in.data_index, A_in.indices_index, nnz_row_index, A_in.ncols, A_in.N);
+    var A_out = allocate_ELL(A_in.N, A_in.nnz, count_cols);
+    nnz_row.fill(0);
+    sparse_instance.exports.transpose_ell(A_in.data_index, A_in.indices_index, A_out.data_index, A_out.indices_index, nnz_row_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
+}
+
+export function eliminate_zeros(A_in)
+{
+  console.log("eliminate_zeros called");
+  if(A_in instanceof sparse_COO_t) {
+    var count = sparse_instance.exports.count_nonzeros_coo(A_in.val_index, A_in.nnz);
+    if(count == A_in.nnz){
+      var A_out = allocate_COO(A_in.N, A_in.nnz)
+      sparse_instance.exports.memcpy(A_in.row_index, A_out.row_index, Int32Array.BYTES_PER_ELEMENT * A_in.nnz);
+      sparse_instance.exports.memcpy(A_in.col_index, A_out.col_index, Int32Array.BYTES_PER_ELEMENT * A_in.nnz);
+      sparse_instance.exports.memcpy(A_in.val_index, A_out.val_index, Float32Array.BYTES_PER_ELEMENT * A_in.nnz);
+      return A_out;
+    }
+    var A_out = allocate_COO(A_in.N, count);
+    sparse_instance.exports.copy_nonzeros_coo(A_in.row_index, A_in.col_index, A_in.val_index, A_out.row_index, A_out.col_index, A_out.val_index, A_in.nnz);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_CSR_t) {
+    var count = sparse_instance.exports.count_nonzeros_coo(A_in.val_index, A_in.nnz);
+    if(count == A_in.nnz){
+      var A_out = allocate_CSR(A_in.N, A_in.nnz);
+      sparse_instance.exports.memcpy(A_in.row_index, A_out.row_index, Int32Array.BYTES_PER_ELEMENT * (A_in.N + 1));
+      sparse_instance.exports.memcpy(A_in.col_index, A_out.col_index, Int32Array.BYTES_PER_ELEMENT * A_in.nnz);
+      sparse_instance.exports.memcpy(A_in.val_index, A_out.val_index, Float32Array.BYTES_PER_ELEMENT * A_in.nnz);
+      return A_out;
+    }
+    var A_out = allocate_CSR(A_in.N, count);
+    sparse_instance.exports.copy_nonzeros_csr(A_in.row_index, A_in.col_index, A_in.val_index, A_out.row_index, A_out.col_index, A_out.val_index, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_DIA_t) {
+    var ret = sparse_instance.exports.count_nonzeros_dia(A_in.offset_index, A_in.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    var count_diags = ret[0];
+    var count = ret[1];
+    if(count == A_in.nnz){
+      var A_out = allocate_DIA(A_in.N, A_in.nnz, A_in.ndiags, A_in.stride);
+      sparse_instance.exports.memcpy(A_in.offset_index, A_out.offset_index, Int32Array.BYTES_PER_ELEMENT * A_in.ndiags);
+      sparse_instance.exports.memcpy(A_in.data_index, A_out.data_index, Float32Array.BYTES_PER_ELEMENT * A_in.ndiags * A_in.stride);
+      return A_out;
+    }
+    var A_out = allocate_DIA(A_in.N, count, count_diags, A_in.stride);
+    var data = new Float32Array(memory.buffer, A_out.data_index, A_out.ndiags * A_out.stride);
+    data.fill(0);
+    sparse_instance.exports.copy_nonzeros_dia(A_in.offset_index, A_in.data_index, A_out.offset_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N);
+    return A_out;
+  }
+  else if(A_in instanceof sparse_ELL_t) {
+    var nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_in.N);
+    var nnz_row = new Int32Array(memory.buffer, nnz_row_index, A_in.N);
+    nnz_row.fill(0);
+    var ret = sparse_instance.exports.count_nonzeros_ell(A_in.data_index, nnz_row_index, A_in.ncols, A_in.N);
+    var count_cols = ret[0];
+    var count = ret[1];
+    if(count == A_in.nnz){
+      var A_out = allocate_ELL(A_in.N, A_in.nnz, A_in.ncols);
+      sparse_instance.exports.memcpy(A_in.indices_index, A_out.indices_index, Int32Array.BYTES_PER_ELEMENT * A_in.ncols * A_in.N);
+      sparse_instance.exports.memcpy(A_in.data_index, A_out.data_index, Float32Array.BYTES_PER_ELEMENT * A_in.ncols * A_in.N);
+      return A_out;
+    }
+    var A_out = allocate_ELL(A_in.N, count, count_cols);
+    nnz_row.fill(0);
+    var indices = new Int32Array(memory.buffer, A_out.indices_index, A_out.ncols * A_out.N);
+    var data = new Float32Array(memory.buffer, A_out.data_index, A_out.ncols * A_out.N);
+    indices.fill(0);
+    data.fill(0);
+    sparse_instance.exports.copy_nonzeros_ell(A_in.data_index, A_in.indices_index, A_out.data_index, A_out.indices_index, nnz_row_index, A_in.ncols, A_in.N);
+    return A_out;
+  }
+}
+
 
 function memcpy_aux_coo(A_coo_in, A_coo_out)
 {
