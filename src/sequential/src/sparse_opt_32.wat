@@ -6344,4 +6344,359 @@
       (br_if $outer_loop)
     )
   )
+
+  (func (export "transpose_csr") (param $in_row_ptr i32) (param $in_col i32) (param $in_val i32) (param $out_row_ptr i32) (param $out_col i32) (param $out_val i32) (param $N i32) (param $nnz i32)
+    (local $i i32)
+    (local $j i32)
+    (local $addr i32)
+    (local $sum i32)
+    (local $this_in_col i32)
+    (local $this_out_row_ptr i32)
+
+    (i32.const 0)
+    (local.set $i)
+    (local.get $in_col)
+    (local.set $this_in_col)
+    (loop $nnz_loop
+      (i32.add (local.get $out_row_ptr) (i32.shl (i32.load (local.get $this_in_col)) (i32.const 2))) 
+      (local.set $addr)
+      (local.get $addr)
+      (i32.load (local.get $addr))
+      (i32.const 1)
+      (i32.add)
+      (i32.store)
+      (local.set $this_in_col (i32.add (local.get $this_in_col) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $nnz)
+      (i32.lt_s)
+      (br_if $nnz_loop)      
+    )
+
+    (i32.const 0)
+    (local.set $i)
+    (i32.const 0)
+    (local.set $sum)
+    (local.get $out_row_ptr)
+    (local.set $this_out_row_ptr)
+    (loop $ptr_loop
+      ;; number of non-zeros in this row
+      (i32.load (local.get $this_out_row_ptr))
+      
+      ;; set the starting position of this row
+      (local.get $this_out_row_ptr)
+      (local.get $sum)
+      (i32.store)
+      
+      ;; add the number of nonzeros to sum
+      ;; which becomes the starting position info for the next row
+      (local.get $sum)
+      (i32.add)
+      (local.set $sum)
+
+      (local.set $this_out_row_ptr (i32.add (local.get $this_out_row_ptr) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $N)
+      (i32.lt_s)
+      (br_if $ptr_loop)      
+    )
+    (local.get $this_out_row_ptr)
+    (local.get $nnz)
+    (i32.store)
+
+
+    (i32.const 0)
+    (local.set $i)
+    (loop $outer_loop
+      (local.set $j (i32.load (local.get $in_row_ptr)))
+      (local.set $in_row_ptr (i32.add (local.get $in_row_ptr) (i32.const 4)))
+      (local.get $j)
+      (i32.load (local.get $in_row_ptr))
+      (i32.lt_s)
+      if
+        (loop $inner_loop
+	  ;; get the pointer to the location to write in col and val arrays
+	  (i32.add (local.get $out_row_ptr) (i32.shl (i32.load (local.get $in_col)) (i32.const 2)))
+	  (local.set $sum)
+	  (i32.load (local.get $sum)) 
+          (local.set $addr)
+
+	  ;; write the info in col array at the position pointed by addr
+	  (i32.add (local.get $out_col) (i32.shl (local.get $addr) (i32.const 2)))
+	  (local.get $i)
+	  (i32.store)
+
+	  ;; write the info in val array at the position pointed by addr
+	  (i32.add (local.get $out_val) (i32.shl (local.get $addr) (i32.const 2)))
+	  (i32.load (local.get $in_val))
+	  (i32.store)
+
+	  ;; increment the pointer info so that it can point to the next location to write
+          (local.get $sum)
+          (local.get $addr)
+	  (i32.const 1)
+	  (i32.add)
+	  (i32.store)
+	  
+          (local.set $in_col (i32.add (local.get $in_col) (i32.const 4)))
+          (local.set $in_val (i32.add (local.get $in_val) (i32.const 4)))
+          (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+          (local.get $in_row_ptr)
+          (i32.load)
+          (i32.ne)
+          (br_if $inner_loop)
+        )
+      end
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $N)
+      (i32.lt_s)     
+      (br_if $outer_loop)
+    )
+
+    
+    (i32.const 0)
+    (local.set $i)
+    (i32.const 0)
+    (local.set $sum)
+    (local.get $out_row_ptr)
+    (local.set $this_out_row_ptr)
+    (loop $fix_ptr_loop
+      (i32.load (local.get $this_out_row_ptr)) 
+
+      (local.get $this_out_row_ptr)
+      (local.get $sum)
+      (i32.store)
+
+      (local.set $sum)
+
+      (local.set $this_out_row_ptr (i32.add (local.get $this_out_row_ptr) (i32.const 4)))
+      (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $N)
+      (i32.le_s)
+      (br_if $fix_ptr_loop)      
+    )
+  )
+
+  (func (export "transpose_dia") (param $in_offset i32) (param $in_data i32) (param $out_offset i32) (param $out_data i32) (param $ndiags i32) (param $stride i32) (param $N i32)
+    (local $i i32)
+    (local $k i32)
+    (local $in_n i32)
+    (local $in_end i32)
+    (local $out_n i32)
+    (local $out_end i32)
+    (local $exp1 i32) ;; N - stride
+    (local $exp2 i32) ;; i * stride
+    (local $exp3 i32) ;; exp2 - exp1
+    (local $this_in_data i32)
+    (local $this_out_data i32)
+
+    (i32.const 0)
+    (local.set $i)
+
+    (local.get $N)
+    (local.get $stride)
+    (i32.sub)
+    (local.set $exp1)
+
+    (i32.const 0)
+    (local.set $exp2)
+
+    (loop $outer_loop
+      ;; diagonal offset
+      (i32.load (local.get $in_offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $in_n)
+      (if (result i32) (i32.lt_s (local.get $N) (i32.sub (local.get $N) (local.get $k)))
+        (then
+          (local.get $N)
+        )
+        (else
+          (i32.sub (local.get $N) (local.get $k))
+        )
+      )
+      ;; end position
+      (local.set $in_end)
+      (i32.add (local.get $in_data) (i32.shl (i32.add (local.get $exp3) (local.get $in_n)) (i32.const 2)))
+      (local.set $this_in_data)
+
+      (local.get $out_offset)
+      (i32.sub (i32.const 0) (local.get $k))
+      (i32.store)
+      ;; diagonal offset
+      (i32.load (local.get $out_offset))
+      (local.set $k)
+      (if (result i32) (i32.lt_s (local.get $k) (i32.const 0))
+        (then
+          (i32.sub (local.get $exp2) (local.get $exp1))
+          (local.set $exp3)
+          (i32.sub (i32.const 0)(local.get $k))
+        )
+        (else
+          i32.const 0
+        )
+      )
+      ;; start position
+      (local.set $out_n)
+      (i32.add (local.get $out_data) (i32.shl (i32.add (local.get $exp3) (local.get $out_n)) (i32.const 2)))
+      (local.set $this_out_data)
+
+      (loop $inner_loop
+        (f32.store (local.get $this_out_data) (f32.load (local.get $this_in_data)))
+        (local.set $this_out_data (i32.add (local.get $this_out_data) (i32.const 4)))
+        (local.set $this_in_data (i32.add (local.get $this_in_data) (i32.const 4)))
+        (tee_local $in_n (i32.add (local.get $in_n) (i32.const 1)))
+        (local.get $in_end)
+        (i32.lt_s)
+        (br_if $inner_loop)
+      )
+      (local.set $in_offset (i32.add (local.get $in_offset) (i32.const 4)))
+      (local.set $out_offset (i32.add (local.get $out_offset) (i32.const 4)))
+      (i32.add (local.get $exp2) (local.get $stride))
+      (local.tee $exp2)
+      (local.set $exp3)
+      (local.tee $i (i32.add (local.get $i) (i32.const 1)))
+      (local.get $ndiags)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
+
+  (func (export "count_transpose_cols_ell") (param $data i32) (param $indices i32) (param $nnz_row i32) (param $ncols i32) (param $N i32) (result i32)
+    (local $i i32)
+    (local $j i32)
+    (local $current i32)
+    (local $count_cols i32)
+
+    (i32.const 0)
+    (local.set $count_cols)
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (local.get $count_cols)
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $i)
+      (loop $inner_loop
+        (if (i32.or (f32.gt (f32.load (local.get $data)) (f32.const 0.0)) (f32.lt (f32.load (local.get $data)) (f32.const 0.0)))
+          (then
+          (i32.add (local.get $nnz_row) (i32.shl (i32.load (local.get $indices)) (i32.const 2)))
+          (local.set $current)
+          (local.get $current)
+          (i32.add (i32.load (local.get $current)) (i32.const 1))
+          (i32.store)
+          (i32.load (local.get $current))
+          (local.get $count_cols)
+          (i32.gt_s)
+          if
+            (i32.load (local.get $current))
+            (local.set $count_cols)
+          end
+          )
+        )
+        (local.set $data (i32.add (local.get $data) (i32.const 4)))
+        (local.set $indices (i32.add (local.get $indices) (i32.const 4)))
+        (tee_local $i (i32.add (local.get $i) (i32.const 1)))
+        (local.get $N)
+        (i32.ne)
+        (br_if $inner_loop)
+      )
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $ncols)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+    (local.get $count_cols)
+    (return)
+  )
+
+  (func (export "transpose_ell") (param $in_data i32) (param $in_indices i32) (param $out_data i32) (param $out_indices i32) (param $nnz_row i32) (param $ncols i32) (param $N i32)
+    (local $i i32)
+    (local $j i32)
+    (local $current i32)
+    (local $index i32)
+    (local $this_in_data i32)
+    (local $this_out_data i32)
+    (local $this_out_indices i32)
+
+    (local.get $ncols)
+    (i32.const 0)
+    (i32.gt_s)
+    (local.get $N)
+    (i32.const 0)
+    (i32.gt_s)
+    (i32.and)
+    (i32.eqz)
+    if
+      (return)
+    end
+    (i32.const 0)
+    (local.set $j)
+
+    (local.get $ncols)
+    (local.get $N)
+    (i32.mul)
+    (local.set $ncols)
+
+    (loop $outer_loop
+      (i32.const 0)
+      (local.set $i)
+      (loop $inner_loop
+        (local.set $this_in_data (i32.add (local.get $in_data) (i32.shl (i32.add (local.get $i) (local.get $j)) (i32.const 2))))
+        (if (i32.or (f32.gt (f32.load (local.get $this_in_data)) (f32.const 0.0)) (f32.lt (f32.load (local.get $this_in_data)) (f32.const 0.0)))
+          (then
+          (i32.load (i32.add (local.get $in_indices) (i32.shl (i32.add (local.get $i) (local.get $j)) (i32.const 2))))
+	  (local.set $index)
+
+          (i32.add (local.get $nnz_row) (i32.shl (local.get $index) (i32.const 2)))
+          (local.set $current)
+
+	  (local.get $index)
+	  (i32.load (local.get $current))
+	  (i32.add)
+	  (local.set $index)
+
+          ;; this_out_data = out_data + index*4, where index is nnz_row[in_indices[i*N+j]] + in_indices[i*N+j]
+          (local.set $this_out_data (i32.add (local.get $out_data) (i32.shl (local.get $index) (i32.const 2))))
+          (local.set $this_out_indices (i32.add (local.get $out_indices) (i32.shl (local.get $index) (i32.const 2))))
+          (f32.store (local.get $this_out_data) (f32.load (local.get $this_in_data)))
+          (i32.store (local.get $this_out_indices) (local.get $j))
+
+          (local.get $current)
+          (i32.add (i32.load (local.get $current)) (local.get $N))
+          (i32.store)
+          )
+        )
+        (tee_local $i (i32.add (local.get $i) (local.get $N)))
+        (local.get $ncols)
+        (i32.ne)
+        (br_if $inner_loop)
+      )
+      (tee_local $j (i32.add (local.get $j) (i32.const 1)))
+      (local.get $N)
+      (i32.ne)
+      (br_if $outer_loop)
+    )
+  )
 )

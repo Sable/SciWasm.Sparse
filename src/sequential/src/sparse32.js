@@ -100,6 +100,7 @@ function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
   this.nearest = sparse_self_nearest_csr;
 
   // other methods
+  this.transpose = sparse_self_transpose_csr;
   this.eliminate_zeros = sparse_self_eliminate_zeros_csr;
 }
 
@@ -146,6 +147,7 @@ function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz){
   this.rad2deg = sparse_self_rad2deg_dia;
 
   // other methods
+  this.transpose = sparse_self_transpose_dia;
   this.eliminate_zeros = sparse_self_eliminate_zeros_dia;
 }
 
@@ -178,6 +180,7 @@ function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.rad2deg = sparse_self_rad2deg_ell;
 
   // other methods
+  this.transpose = sparse_self_transpose_ell;
   this.eliminate_zeros = sparse_self_eliminate_zeros_ell;
 }
 
@@ -398,6 +401,22 @@ function sparse_self_nearest_csr()
   sparse_instance.exports.self_nearest_coo(this.val_index, this.nnz);
 }
 
+function sparse_self_transpose_csr()
+{
+  var Acsr = allocate_CSR(this.N, this.nnz);
+  var csr_row = new Int32Array(memory.buffer, Acsr.row_index, Acsr.N + 1); 
+  csr_row.fill(0);
+  sparse_instance.exports.transpose_csr(this.row_index, this.col_index, this.val_index, Acsr.row_index, Acsr.col_index, Acsr.val_index, this.N, this.nnz);
+  
+  malloc_instance.exports._free(this.row_index);
+  malloc_instance.exports._free(this.col_index);
+  malloc_instance.exports._free(this.val_index);
+
+  this.row_index = Acsr.row_index;
+  this.col_index = Acsr.col_index;
+  this.val_index = Acsr.val_index;
+}
+
 function sparse_self_eliminate_zeros_csr(){
   var count = sparse_instance.exports.count_nonzeros_coo(this.val_index, this.nnz);
   if(count == this.nnz)
@@ -490,6 +509,18 @@ function sparse_self_rad2deg_dia()
 function sparse_self_sign_dia()
 {
   sparse_instance.exports.self_sign_dia(this.offset_index, this.data_index, this.ndiags, this.stride, this.N);
+}
+
+function sparse_self_transpose_dia()
+{
+  var Adia = allocate_DIA(this.N, this.nnz, this.ndiags, this.stride);
+  sparse_instance.exports.transpose_dia(this.offset_index, this.data_index, Adia.offset_index, Adia.data_index, this.ndiags, this.stride, this.N);
+
+  malloc_instance.exports._free(this.offset_index);
+  malloc_instance.exports._free(this.data_index);
+
+  this.offset_index = Adia.offset_index;
+  this.data_index = Adia.data_index;
 }
 
 function sparse_self_eliminate_zeros_dia(){
@@ -585,6 +616,23 @@ function sparse_self_rad2deg_ell()
 function sparse_self_sign_ell()
 {
   sparse_instance.exports.self_sign_ell(this.data_index, this.ncols, this.N);
+}
+
+function sparse_self_transpose_ell()
+{
+  var nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * this.N);
+  var nnz_row = new Int32Array(memory.buffer, nnz_row_index, this.N);
+  nnz_row.fill(0);
+  var count_cols = sparse_instance.exports.count_transpose_cols_ell(this.data_index, this.indices_index, nnz_row_index, this.ncols, this.N);
+  var Aell = allocate_ELL(this.N, this.nnz, count_cols);
+  nnz_row.fill(0);
+  sparse_instance.exports.transpose_ell(this.data_index, this.indices_index, Aell.data_index, Aell.indices_index, nnz_row_index, this.ncols, this.N);
+
+  malloc_instance.exports._free(this.indices_index);
+  malloc_instance.exports._free(this.data_index);
+
+  this.indices_index = Aell.indices_index;
+  this.data_index = Aell.data_index;
 }
 
 function sparse_self_eliminate_zeros_ell(){
