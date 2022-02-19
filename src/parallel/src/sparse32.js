@@ -71,7 +71,7 @@ function sparse_COO_t(row_index, col_index, val_index, N, nnz)
   this.deg2rad = sparse_self_deg2rad_coo;
   this.rad2deg = sparse_self_rad2deg_coo;
   this.sign = sparse_self_sign_coo;
-  this.multiply = sparse_self_multiply_coo;
+  this.multiply = sparse_self_multiply_scalar_coo;
   this.abs = sparse_self_abs_coo;
   this.neg = sparse_self_neg_coo;
   this.sqrt = sparse_self_sqrt_coo;
@@ -81,9 +81,7 @@ function sparse_COO_t(row_index, col_index, val_index, N, nnz)
   this.nearest = sparse_self_nearest_coo;
 
   // other methods
-  /*this.transpose = sparse_self_transpose_coo;
-  this.diagonal = sparse_self_diagonal_coo;
-  this.min = sparse_self_min_coo;*/
+  // this.transpose = sparse_self_transpose_coo;
 }
 
 function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz){
@@ -125,6 +123,7 @@ function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz){
   this.deg2rad = sparse_self_deg2rad_csr;
   this.rad2deg = sparse_self_rad2deg_csr;
   this.sign = sparse_self_sign_csr;
+  this.multiply = sparse_self_multiply_scalar_csr;
   this.abs = sparse_self_abs_csr;
   this.neg = sparse_self_neg_csr;
   this.sqrt = sparse_self_sqrt_csr;
@@ -156,6 +155,7 @@ function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz, major){
   this.tan = sparse_self_tan_dia;
   this.pow = sparse_self_pow_dia;
   this.sign = sparse_self_sign_dia;
+  this.multiply = sparse_self_multiply_scalar_dia;
   this.abs = sparse_self_abs_dia;
   this.neg = sparse_self_neg_dia;
   this.sqrt = sparse_self_sqrt_dia;
@@ -183,6 +183,7 @@ function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.tan = sparse_self_tan_ell;
   this.pow = sparse_self_pow_ell;
   this.sign = sparse_self_sign_ell;
+  this.multiply = sparse_self_multiply_scalar_ell;
   this.abs = sparse_self_abs_ell;
   this.neg = sparse_self_neg_ell;
   this.sqrt = sparse_self_sqrt_ell;
@@ -211,97 +212,97 @@ function sparse_y_t(y_index, y_nelem){
 
 async function sparse_self_expm1_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("expm1_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_expm1_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_log1p_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("log1p_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_log1p_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_sin_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("sin_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_sin_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_tan_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("tan_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_tan_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_pow_coo(p)
 {
-  var ret_status = await sparse_self_element_wise_coo("pow_coo", this.val_index, this.nnz, [p], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_pow_coo", this.val_index, this.nnz, [p], 1);
   return ret_status;
 }
 
 async function sparse_self_deg2rad_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("deg2rad_coo", this.val_index, this.nnz, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_deg2rad_coo", this.val_index, this.nnz, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_rad2deg_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("rad2deg_coo", this.val_index, this.nnz, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_rad2deg_coo", this.val_index, this.nnz, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_sign_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("sign_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_sign_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
-async function sparse_self_multiply_coo(scalar)
+async function sparse_self_multiply_scalar_coo(scalar)
 {
-  var ret_status = await sparse_self_element_wise_coo("multiply_coo", this.val_index, this.nnz, [scalar], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_multiply_scalar_coo", this.val_index, this.nnz, [scalar], 1);
   return ret_status;
 }
 
 async function sparse_self_abs_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("abs_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_abs_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_neg_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("neg_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_neg_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_sqrt_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("sqrt_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_sqrt_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_ceil_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("ceil_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_ceil_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_floor_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("floor_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_floor_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_trunc_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("trunc_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_trunc_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_nearest_coo()
 {
-  var ret_status = await sparse_self_element_wise_coo("nearest_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_nearest_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
@@ -310,97 +311,97 @@ async function sparse_self_nearest_coo()
 
 async function sparse_self_expm1_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("expm1_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_expm1_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_log1p_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("log1p_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_log1p_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_sin_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("sin_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_sin_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_tan_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("tan_coo", this.val_index, this.nnz, [], 0);
+  var ret_status = await sparse_self_element_wise_coo("self_tan_coo", this.val_index, this.nnz, [], 0);
   return ret_status;
 }
 
 async function sparse_self_pow_csr(p)
 {
-  var ret_status = await sparse_self_element_wise_coo("pow_coo", this.val_index, this.nnz, [p], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_pow_coo", this.val_index, this.nnz, [p], 1);
   return ret_status;
 }
 
 async function sparse_self_deg2rad_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("deg2rad_coo", this.val_index, this.nnz, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_deg2rad_coo", this.val_index, this.nnz, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_rad2deg_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("rad2deg_coo", this.val_index, this.nnz, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_rad2deg_coo", this.val_index, this.nnz, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_sign_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("sign_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_sign_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
-async function sparse_self_multiply_csr(scalar)
+async function sparse_self_multiply_scalar_csr(scalar)
 {
-  var ret_status = await sparse_self_element_wise_coo("multiply_coo", this.val_index, this.nnz, [scalar], 1);
+  var ret_status = await sparse_self_element_wise_coo("self_multiply_scalar_coo", this.val_index, this.nnz, [scalar], 1);
   return ret_status;
 }
 
 async function sparse_self_abs_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("abs_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_abs_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_neg_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("neg_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_neg_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_sqrt_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("sqrt_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_sqrt_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_ceil_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("ceil_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_ceil_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_floor_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("floor_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_floor_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_trunc_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("trunc_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_trunc_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
 async function sparse_self_nearest_csr()
 {
-  var ret_status = await sparse_self_element_wise_coo("nearest_coo", this.val_index, this.nnz, [] , 0);
+  var ret_status = await sparse_self_element_wise_coo("self_nearest_coo", this.val_index, this.nnz, [] , 0);
   return ret_status;
 }
 
@@ -409,97 +410,97 @@ async function sparse_self_nearest_csr()
 
 async function sparse_self_expm1_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("expm1_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_expm1_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_log1p_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("log1p_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_log1p_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_sin_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("sin_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_sin_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_tan_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("tan_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_tan_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_pow_dia(p)
 {
-  var ret_status = await sparse_self_element_wise_dia("pow_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [p], 1);
+  var ret_status = await sparse_self_element_wise_dia("self_pow_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [p], 1);
   return ret_status;
 }
 
 async function sparse_self_deg2rad_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("deg2rad_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_dia("self_deg2rad_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_rad2deg_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("rad2deg_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_dia("self_rad2deg_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_sign_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("sign_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_sign_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
-async function sparse_self_multiply_dia(scalar)
+async function sparse_self_multiply_scalar_dia(scalar)
 {
-  var ret_status = await sparse_self_element_wise_dia("multiply_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [scalar], 1);
+  var ret_status = await sparse_self_element_wise_dia("self_multiply_scalar_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [scalar], 1);
   return ret_status;
 }
 
 async function sparse_self_abs_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("abs_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_abs_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_neg_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("neg_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_neg_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_sqrt_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("sqrt_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_sqrt_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_ceil_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("ceil_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_ceil_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_floor_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("floor_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_floor_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_trunc_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("trunc_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_trunc_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_nearest_dia()
 {
-  var ret_status = await sparse_self_element_wise_dia("nearest_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_dia("self_nearest_dia", this.offset_index, this.data_index, this.ndiags, this.stride, this.N, [], 0);
   return ret_status;
 }
 
@@ -508,91 +509,97 @@ async function sparse_self_nearest_dia()
 
 async function sparse_self_expm1_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("expm1_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_expm1_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_log1p_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("log1p_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_log1p_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_sin_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("sin_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_sin_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_tan_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("tan_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_tan_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_pow_ell(p)
 {
-  var ret_status = await sparse_self_element_wise_ell("pow_ell", this.data_index, this.ncols, this.N, [p], 1);
+  var ret_status = await sparse_self_element_wise_ell("self_pow_ell", this.data_index, this.ncols, this.N, [p], 1);
   return ret_status;
 }
 
 async function sparse_self_deg2rad_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("deg2rad_ell", this.data_index, this.ncols, this.N, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_ell("self_deg2rad_ell", this.data_index, this.ncols, this.N, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_rad2deg_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("rad2deg_ell", this.data_index, this.ncols, this.N, [Math.PI], 1);
+  var ret_status = await sparse_self_element_wise_ell("self_rad2deg_ell", this.data_index, this.ncols, this.N, [Math.PI], 1);
   return ret_status;
 }
 
 async function sparse_self_sign_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("sign_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_sign_ell", this.data_index, this.ncols, this.N, [], 0);
+  return ret_status;
+}
+
+async function sparse_self_multiply_scalar_ell(p)
+{
+  var ret_status = await sparse_self_element_wise_ell("self_multiply_scalar_ell", this.data_index, this.ncols, this.N, [p], 1);
   return ret_status;
 }
 
 async function sparse_self_abs_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("abs_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_abs_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_neg_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("neg_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_neg_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_sqrt_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("sqrt_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_sqrt_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_ceil_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("ceil_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_ceil_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_floor_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("floor_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_floor_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_trunc_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("trunc_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_trunc_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
 async function sparse_self_nearest_ell()
 {
-  var ret_status = await sparse_self_element_wise_ell("nearest_ell", this.data_index, this.ncols, this.N, [], 0);
+  var ret_status = await sparse_self_element_wise_ell("self_nearest_ell", this.data_index, this.ncols, this.N, [], 0);
   return ret_status;
 }
 
@@ -734,6 +741,839 @@ function sparse_self_element_wise_ell(op, data_index, ncols, N, arg_list, arg_nu
   });
 }
 
+export async function expm1(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("expm1_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("expm1_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_dia("expm1_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("expm1_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function log1p(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("log1p_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("log1p_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("log1p_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("log1p_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function sin(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("sin_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("sin_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("sin_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("sin_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function tan(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("tan_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("tan_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("tan_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("tan_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function pow(A_in, p)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("pow_coo", A_in.val_index, A_out.val_index, A_in.nnz, [p], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("pow_coo", A_in.val_index, A_out.val_index, A_in.nnz, [p], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("pow_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [p], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("pow_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [p], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function deg2rad(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("deg2rad_coo", A_in.val_index, A_out.val_index, A_in.nnz, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("deg2rad_coo", A_in.val_index, A_out.val_index, A_in.nnz, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("deg2rad_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("deg2rad_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function rad2deg(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("rad2deg_coo", A_in.val_index, A_out.val_index, A_in.nnz, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("rad2deg_coo", A_in.val_index, A_out.val_index, A_in.nnz, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("rad2deg_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("rad2deg_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [Math.PI], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function sign(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("sign_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("sign_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("sign_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("sign_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+
+export async function multiply(A_in, scalar)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("multiply_scalar_coo", A_in.val_index, A_out.val_index, A_in.nnz, [scalar], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("multiply_scalar_coo", A_in.val_index, A_out.val_index, A_in.nnz, [scalar], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("multiply_scalar_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [scalar], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("multiply_scalar_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [scalar], 1);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function abs(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("abs_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("abs_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("abs_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("abs_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function neg(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("neg_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("neg_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("neg_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("neg_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function sqrt(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("sqrt_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("sqrt_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("sqrt_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("sqrt_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function ceil(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("ceil_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("ceil_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("ceil_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("ceil_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function floor(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("floor_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("floor_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("floor_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("floor_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function trunc(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("trunc_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("trunc_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("trunc_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("trunc_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+export async function nearest(A_in)
+{
+  if(A_in instanceof sparse_COO_t){
+    var A_out = allocate_copy_COO(A_in);
+    var ret_status = await memcpy_aux_coo(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("nearest_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_CSR_t){
+    var A_out = allocate_copy_CSR(A_in);
+    var ret_status = await memcpy_aux_csr(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_coo("nearest_coo", A_in.val_index, A_out.val_index, A_in.nnz, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_DIA_t){
+    var A_out = allocate_copy_DIA(A_in);
+    var ret_status = await memcpy_aux_dia(A_in, A_out);
+    if(ret_status == 0){ 
+      ret_status = await sparse_element_wise_dia("nearest_dia", A_in.offset_index, A_in.data_index, A_out.data_index, A_in.ndiags, A_in.stride, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+  else if(A_in instanceof sparse_ELL_t){
+    var A_out = allocate_copy_ELL(A_in);
+    var ret_status = await memcpy_aux_ell(A_in, A_out);
+    if(ret_status == 0){
+      ret_status = await sparse_element_wise_ell("nearest_ell", A_in.data_index, A_out.data_index, A_in.ncols, A_in.N, [], 0);
+      if(ret_status == 0)
+        return A_out;
+    }
+  }
+}
+
+function sparse_element_wise_coo(op, in_val_index, out_val_index, nnz, arg_list, arg_num)
+{
+  return new Promise(function(resolve){
+    if(typeof in_val_index === undefined){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    if(typeof out_val_index === undefined){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    var nnz_per_worker = Math.floor(nnz/num_workers);
+    var rem_nnz = nnz - nnz_per_worker * num_workers;
+    var pending_workers = num_workers;
+    if(arg_num == 0)
+      runCOO_0();
+    else if(arg_num == 1)
+      runCOO_1(arg_list[0]);
+
+    function runCOO_0(){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([op, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem_nnz, in_val_index, out_val_index]);
+        else
+          workers.worker[i].postMessage([op, i, i * nnz_per_worker, (i+1) * nnz_per_worker, in_val_index, out_val_index]);
+        workers.worker[i].onmessage = doneCOO;
+      }
+    }
+
+    function runCOO_1(arg0){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([op, i, i * nnz_per_worker, (i+1) * nnz_per_worker + rem_nnz, in_val_index, out_val_index, arg0]);
+        else
+          workers.worker[i].postMessage([op, i, i * nnz_per_worker, (i+1) * nnz_per_worker, in_val_index, out_val_index, arg0]);
+        workers.worker[i].onmessage = doneCOO;
+      }
+    }
+
+    function doneCOO(event){
+      pending_workers -= 1;
+      if(pending_workers <= 0){
+        return resolve(0);
+      }
+    }
+  });
+}
+
+function sparse_element_wise_dia(op, offset_index, in_data_index, out_data_index, ndiags, stride, N, arg_list, arg_num)
+{
+  return new Promise(function(resolve){
+    if(offset_index === undefined || in_data_index === undefined || out_data_index === undefined){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    var N_per_worker = Math.floor(N/num_workers);
+    var rem_N  = N - N_per_worker * num_workers;
+    var pending_workers = num_workers;
+    if(arg_num == 0)
+      runDIA_0();
+    else if(arg_num == 1)
+      runDIA_1(arg_list[0]);
+
+    function runDIA_0(){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, offset_index, in_data_index, out_data_index, ndiags, stride, N]);
+        else
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker, offset_index, in_data_index, out_data_index, ndiags, stride, N]);
+        workers.worker[i].onmessage = doneDIA;
+      }
+    }
+
+    function runDIA_1(arg0){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, offset_index, in_data_index, out_data_index, ndiags, stride, N, arg0]);
+        else
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker, offset_index, in_data_index, out_data_index, ndiags, stride, N, arg0]);
+        workers.worker[i].onmessage = doneDIA;
+      }
+    }
+
+    function doneDIA(event){
+      pending_workers -= 1;
+      if(pending_workers <= 0){
+        return resolve(0);
+      }
+    }
+  });
+}
+
+function sparse_element_wise_ell(op, in_data_index, out_data_index, ncols, N, arg_list, arg_num)
+{
+  return new Promise(function(resolve){
+    if(in_data_index === undefined || out_data_index === undefined ){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    var N_per_worker = Math.floor(N/num_workers);
+    var rem_N  = N - N_per_worker * num_workers;
+    var pending_workers = num_workers;
+    if(arg_num == 0)
+      runELL_0();
+    else if(arg_num == 1)
+      runELL_1(arg_list[0]);
+
+    function runELL_0(){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, in_data_index, out_data_index, ncols, N]);
+        else
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker, in_data_index, out_data_index, ncols, N]);
+        workers.worker[i].onmessage = doneELL;
+      }
+    }
+
+    function runELL_1(arg0){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker + rem_N, in_data_index, out_data_index, ncols, N, arg0]);
+        else
+          workers.worker[i].postMessage([op, i, i * N_per_worker, (i+1) * N_per_worker, in_data_index, out_data_index, ncols, N, arg0]);
+        workers.worker[i].onmessage = doneELL;
+      }
+    }
+
+    function doneELL(event){
+      pending_workers -= 1;
+      if(pending_workers <= 0){
+        return resolve(0);
+      }
+    }
+  });
+}
+
+function sparse_memcpy(in_index, out_index, len)
+{
+  return new Promise(function(resolve){
+    if(typeof in_index === undefined){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    if(typeof out_index === undefined){
+      console.log("matrix is undefined");
+      return resolve(-1);
+    }
+    var len_per_worker = Math.floor(len/num_workers);
+    var rem_len = len - len_per_worker * num_workers;
+    var pending_workers = num_workers;
+    run();
+
+    function run(){
+      pending_workers = num_workers;
+      for(var i = 0; i < num_workers; i++){
+        if(i == num_workers - 1)
+          workers.worker[i].postMessage(["memcpy", i, i * len_per_worker, (i+1) * len_per_worker + rem_len, in_index, out_index]);
+        else
+          workers.worker[i].postMessage(["memcpy", i, i * len_per_worker, (i+1) * len_per_worker, in_index, out_index]);
+        workers.worker[i].onmessage = done;
+      }
+    }
+
+    function done(event){
+      pending_workers -= 1;
+      if(pending_workers <= 0){
+        return resolve(0);
+      }
+    }
+  });
+}
+
+
+async function memcpy_aux_coo(A_coo_in, A_coo_out)
+{
+  var ret_status = await sparse_memcpy(A_coo_in.row_index, A_coo_out.row_index, A_coo_in.nnz);
+  if(ret_status == 0)
+    ret_status = await sparse_memcpy(A_coo_in.col_index, A_coo_out.col_index, A_coo_in.nnz);
+  return ret_status;
+}
+
+async function memcpy_aux_csr(A_csr_in, A_csr_out)
+{
+  var ret_status = await sparse_memcpy(A_csr_in.row_index, A_csr_out.row_index, A_csr_in.N + 1);
+  if(ret_status == 0)
+    ret_status = await sparse_memcpy(A_csr_in.col_index, A_csr_out.col_index, A_csr_in.nnz);
+  return ret_status;
+}
+
+async function memcpy_aux_dia(A_dia_in, A_dia_out)
+{
+  var ret_status = await sparse_memcpy(A_dia_in.offset_index, A_dia_out.offset_index, A_dia_in.ndiags);
+  return ret_status;
+}
+
+async function memcpy_aux_ell(A_ell_in, A_ell_out)
+{
+  var ret_status = await sparse_memcpy(A_ell_in.offset_index, A_ell_out.offset_index, A_ell_in.ncols * A_ell_in.N);
+  return ret_status;
+}
+
 
 function matlab_modulo(x, y) {
   var n = Math.floor(x/y);
@@ -775,6 +1615,18 @@ export function clear_y(y_view){
   var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
   y.fill(0);
 }
+
+function spts_init_x(x_view){
+  var x = new Float32Array(memory.buffer, x_view.x_index, x_view.x_nelem);
+  for(var i = 0; i < x_view.x_nelem; i++)
+    x[i] = 1.0;
+}
+function spts_init_y(y_view){
+  var y = new Float32Array(memory.buffer, y_view.y_index, y_view.y_nelem);
+  for(var i = 0; i < y_view.y_nelem; i++)
+    y[i] = 1.0;
+}
+
 
 export function pretty_print(obj){
   if(typeof obj === undefined){
@@ -849,7 +1701,6 @@ function pretty_print_CSR_permutation(A_csr){
       console.log(i, permutation[i]);
   }
 }
-
 
 function pretty_print_DIA_col(A_dia){
   var offset = new Int32Array(memory.buffer, A_dia.offset_index, A_dia.ndiags);
@@ -2068,6 +2919,282 @@ function static_nnz_special_codes(A_csr, num_workers, row_start, row_end, one_ro
   }	  
 }
 
+function setup_sync_free_metadata(A_csr)
+{
+  console.log('sync free metadata');
+  // assume the column array is sorted by ascending order per row
+  var nz = A_csr.nnz;
+  var N = A_csr.nrows;
+  // allocate and set barrier to 0
+  A_csr.barrier_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var barrier = new Int32Array(memory.buffer, A_csr.barrier_index, 1);
+  barrier[0] = 0;
+  A_csr.flag_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var flag = new Int32Array(memory.buffer, A_csr.flag_index, 1);
+  flag[0] = 0;
+  /*A_csr.array_flag_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+  var array_flag = new Int32Array(memory.buffer, A_csr.array_flag_index, N);
+  for(var i = 0; i < N; i++){
+    array_flag[i] = 0;
+  }*/
+}
+
+function CSR_create_level_sets(A_csr)
+{
+  console.log('creating level sets');
+  // assume the column array is sorted by ascending order per row
+  var nz = A_csr.nnz;
+  var N = A_csr.nrows;
+
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, N + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, nz);
+
+  // allocate level per row array
+  var level_per_row = new Int32Array(N);
+
+  var max_level = 0;
+  for(var i = 0; i < N; i++){
+    // check if there is only 1 element in row i (which is the diagonal element in lower-triangular matrix)
+    if(csr_row[i+1] - csr_row[i] == 1)
+      // if yes, assign row i to level 0
+      level_per_row[i] = 0;
+    else{
+      /* otherwise, assign row i to one level higher
+       * than the row number corresponding to the maximum level
+       * among the non-zero column value of row i */
+      var max_level_per_row = 0;
+      for(var j = csr_row[i]; j < csr_row[i+1] - 1; j++){
+        if(level_per_row[csr_col[j]] > max_level_per_row)
+          max_level_per_row = level_per_row[csr_col[j]];
+      }
+      level_per_row[i] = 1 + max_level_per_row;
+      if(level_per_row[i] > max_level)
+        max_level = level_per_row[i];
+    }
+  }
+  // total number of levels
+  var tot_levels = max_level + 1;
+  A_csr.nlevels = tot_levels;
+  num_levels = tot_levels;
+
+  // calculate number of rows at each level
+  var freq = new Int32Array(tot_levels);
+  freq.fill(0);
+  for(var i = 0; i < N; i++){
+    freq[level_per_row[i]]++;
+  }
+
+  // allocate level pointer array
+  A_csr.level_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (tot_levels + 1));
+  var level = new Int32Array(memory.buffer, A_csr.level_index, tot_levels + 1);
+
+  // calculate the starting index of each level if the rows are sorted by levels
+  var starting_index = new Int32Array(tot_levels);
+  starting_index[0] = level[0] = 0;
+  for(var i = 1; i < tot_levels; i++){
+    starting_index[i] = level[i] = level[i-1] + freq[i-1];
+  }
+  level[i] = level[i-1] + freq[i-1];
+
+
+  // allocate permutation array
+  A_csr.permutation_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var permutation = new Int32Array(memory.buffer, A_csr.permutation_index, N);
+  // calculate the permutation of rows if the rows are sorted by levels
+  for(var i = 0; i < N; i++){
+    permutation[starting_index[level_per_row[i]]] = i;
+    starting_index[level_per_row[i]]++;
+  }
+}
+
+function CSR_create_level_sets_with_reorder(A_csr)
+{
+  console.log('creating level sets');
+  // assume the column array is sorted by ascending order per row
+  var nz = A_csr.nnz;
+  var N = A_csr.nrows;
+
+  var csr_row = new Int32Array(memory.buffer, A_csr.row_index, N + 1);
+  var csr_col = new Int32Array(memory.buffer, A_csr.col_index, nz);
+  var csr_val = new Float32Array(memory.buffer, A_csr.val_index, nz);
+
+  // new CSR
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (N + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * nz);
+  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nz);
+  var A_csr_new = new sswasm_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, N, nz);
+  var nnz_per_row = new Int32Array(memory.buffer, A_csr_new.nnz_row_index, N);
+  var csr_row_new = new Int32Array(memory.buffer, A_csr_new.row_index, A_csr_new.nrows + 1);
+  var csr_col_new = new Int32Array(memory.buffer, A_csr_new.col_index, A_csr_new.nnz);
+  var csr_val_new = new Float32Array(memory.buffer, A_csr_new.val_index, A_csr_new.nnz);
+  csr_row_new.fill(0);
+  csr_col_new.fill(0);
+  csr_val_new.fill(0);
+
+  // allocate level per row array
+  var level_per_row = new Int32Array(N);
+
+  var max_level = 0;
+  for(var i = 0; i < N; i++){
+    nnz_per_row[i] = csr_row[i+1] - csr_row[i];
+    // check if there is only 1 element in row i (which is the diagonal element in lower-triangular matrix)
+    if(nnz_per_row[i] == 1)
+      // if yes, assign row i to level 0
+      level_per_row[i] = 0;
+    else{
+      /* otherwise, assign row i to one level higher
+       * than the row number corresponding to the maximum level
+       * among the non-zero column value of row i */
+      var max_level_per_row = 0;
+      for(var j = csr_row[i]; j < csr_row[i+1] - 1; j++){
+        if(level_per_row[csr_col[j]] > max_level_per_row)
+          max_level_per_row = level_per_row[csr_col[j]];
+      }
+      level_per_row[i] = 1 + max_level_per_row;
+      if(level_per_row[i] > max_level)
+        max_level = level_per_row[i];
+    }
+  }
+  // total number of levels
+  var tot_levels = max_level + 1;
+  A_csr_new.nlevels = tot_levels;
+  num_levels = tot_levels;
+  nlevels = tot_levels;
+  console.log('number of levels', tot_levels);
+
+  // calculate number of rows at each level
+  var freq = new Int32Array(tot_levels);
+  freq.fill(0);
+  for(var i = 0; i < N; i++){
+    freq[level_per_row[i]]++;
+  }
+
+  // allocate level pointer array
+  A_csr_new.level_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (tot_levels + 1));
+  var level = new Int32Array(memory.buffer, A_csr_new.level_index, tot_levels + 1);
+
+  // allocate and set barrier to 0
+  A_csr_new.barrier_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var barrier = new Int32Array(memory.buffer, A_csr_new.barrier_index, 1);
+  barrier[0] = 0;
+  A_csr_new.flag_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var flag = new Int32Array(memory.buffer, A_csr_new.flag_index, 1);
+  flag[0] = 0;
+  /*for(var i = 0; i < num_workers; i++){
+    var array_flag_index = malloc_instance.exports._malloc(N * Int32Array.BYTES_PER_ELEMENT);
+    var array_flag = new Int32Array(memory.buffer, array_flag_index, N);
+    for(var j = 0; j < N; j++)
+      array_flag[j] = 0;
+    A_csr_new.array_flag_index.push(array_flag_index);
+  }*/
+  A_csr_new.global_level_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var global_level = new Int32Array(memory.buffer, A_csr_new.global_level_index, 1);
+  global_level[0] = -1;
+  A_csr_new.global_rows_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT);
+  var global_rows = new Int32Array(memory.buffer, A_csr_new.global_rows_index, 1);
+  global_rows[0] = 0;
+  A_csr_new.array_level_index = malloc_instance.exports._malloc(tot_levels * Int32Array.BYTES_PER_ELEMENT);
+  var array_level = new Int32Array(memory.buffer, A_csr_new.array_level_index, tot_levels);
+  for(var i = 0; i < tot_levels; i++){
+    array_level[i] = 0;
+  }
+  //for(var i = 0; i < tot_levels; i++){
+    //barrier[i] = 0;
+  //}
+  // calculate the starting index of each level if the rows are sorted by levels
+  var starting_index = new Int32Array(tot_levels);
+  starting_index[0] = level[0] = 0;
+  var max_freq = 0;
+  for(var i = 1; i < tot_levels; i++){
+    starting_index[i] = level[i] = level[i-1] + freq[i-1];
+    console.log(freq[i-1]);
+    if(max_freq < freq[i-1])
+      max_freq = freq[i-1];
+  }
+  console.log(freq[i-1]);
+  level[i] = level[i-1] + freq[i-1];
+  if(max_freq < freq[i-1])
+    max_freq = freq[i-1];
+  console.log(max_freq);
+
+  // allocate permutation array
+  A_csr_new.permutation_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * N);
+  var permutation = new Int32Array(memory.buffer, A_csr_new.permutation_index, N);
+  var order = new Int32Array(N);
+  // calculate the permutation of rows if the rows are sorted by levels
+  for(var i = 0; i < N; i++){
+    permutation[starting_index[level_per_row[i]]] = i;
+    order[i] = starting_index[level_per_row[i]];
+    starting_index[level_per_row[i]]++;
+  }
+
+  //for(var i = 0; i < 10; i++){
+    //console.log(i, permutation[i]);
+  //}
+
+  // calculate reordered CSR
+  console.log("calculate new CSR")
+  var temp, k;
+  j = 0;
+  csr_row_new[0] = 0;
+  for(i = 0; i < N; i++){
+   k = csr_row[permutation[i]];
+   temp = nnz_per_row[permutation[i]];
+   csr_row_new[i+1] = csr_row_new[i] + temp;
+   while(temp != 0){
+     csr_col_new[j] = order[csr_col[k]];
+     csr_val_new[j++] = csr_val[k++];
+     temp--;
+   }
+  }
+  console.log("returning new CSR");
+  for(var l = 0; l < tot_levels; l++){
+    temp = 0;
+    var sum = 0;
+    var nr = level[l+1] - level[l];
+    var rem = nr%num_workers;
+    var len = Math.floor(nr/num_workers);
+    console.log(nr, num_workers, len, rem);
+    if(rem != 0){
+      len++;
+    }
+    for(k = 0, i = level[l]; i < level[l+1]; i++, k++){
+      if(k == len){
+        console.log(temp);
+        sum += temp;
+        temp = 0;
+        k = 0;
+        rem--;
+        if(rem == 0)
+          len--;
+      }
+      for(j = csr_row_new[i]; j < csr_row_new[i+1]; j++){
+        temp++;
+      }
+    }
+    sum += temp;
+    console.log(temp);
+    console.log(sum);
+  }
+  return A_csr_new;
+}
+
+function spts_get_inner_max()
+{
+  get_inner_max();
+  console.log(inner_max);
+  var nrows_level = N/nlevels;
+  console.log(nrows_level)
+  if(nrows_level > 50000)
+    inner_max *= 25;
+  else if(nrows_level > 150)
+    inner_max *= 5;
+  else if(nrows_level < 10)
+    inner_max /= 5;
+  console.log(inner_max);
+}
+
 function read_MM_header(file, mm_info)
 {
   /* read the first line for arithmetic field 
@@ -2228,6 +3355,144 @@ function create_COO_from_MM(mm_info, A_coo)
   quick_sort_COO(A_coo, 0, mm_info.nnz-1);      
 }
 
+function create_LCOO_from_MM(mm_info)
+{
+  var row = mm_info.row;
+  var col = mm_info.col;
+  var val = mm_info.val;
+  var L_anz = mm_info.nrows;
+
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n])
+          L_anz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] != col[n] && (val[n] > 0 || val[n] < 0))
+          L_anz++;
+      }
+    }
+  }
+  else{
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]))
+          L_anz++;
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if((row[n] > col[n]) && (val[n] > 0 || val[n] < 0))
+          L_anz++;
+      }
+    }
+  }
+
+  mm_info.anz = L_anz;
+  anz = mm_info.anz;
+  var A_coo = allocate_COO(mm_info);
+  var coo_row = new Int32Array(memory.buffer, A_coo.row_index, A_coo.nnz);
+  var coo_col = new Int32Array(memory.buffer, A_coo.col_index, A_coo.nnz);
+  var coo_val = new Float32Array(memory.buffer, A_coo.val_index, A_coo.nnz);
+  var i = 0;
+
+  if(mm_info.symmetry == "symmetric"){
+    if(mm_info.field == "pattern"){
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+        else if(row[n] < col[n]){
+          coo_row[i] = Number(col[n] - 1);
+          coo_col[i] = Number(row[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+      }
+    }
+    else{
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+          else if(row[n] < col[n]){
+            coo_row[i] = Number(col[n] - 1);
+            coo_col[i] = Number(row[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+    }
+  }
+  else{
+    if(mm_info.field == "pattern"){
+      for(n = 0; n < mm_info.nentries; n++) {
+        if(row[n] > col[n]){
+          coo_row[i] = Number(row[n] - 1);
+          coo_col[i] = Number(col[n] - 1);
+          coo_val[i] = 1.0;
+          i++;
+        }
+      }
+    }
+    else{
+      var count_zero = 0;
+      console.log("general real");
+      for(var n = 0; n < mm_info.nentries; n++) {
+        if(val[n] < 0 || val[n] > 0){
+          if(row[n] > col[n]){
+            coo_row[i] = Number(row[n] - 1);
+            if(coo_row[i] == 0)
+              count_zero++;
+            coo_col[i] = Number(col[n] - 1);
+            coo_val[i] = Number(val[n]);
+            i++;
+          }
+        }
+      }
+      console.log("read", i, anz, mm_info.nrows, count_zero);
+    }
+  }
+  for(var n = 0; n < mm_info.nrows; n++){
+    coo_row[i] = n;
+    coo_col[i] = n;
+    coo_val[i] = 1.0;
+    i++;
+  }
+  /*var count_zero = 0;
+  for(var n = 0; n < anz; n++){
+    if(coo_row[n] == 0)
+      count_zero++;
+  }*/
+  quick_sort_COO(A_coo, 0, anz-1);
+  return A_coo;
+}
+
+export function allocate_copy_COO(A_coo_in)
+{
+  // COO memory allocation
+  var coo_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  var coo_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  var coo_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * A_coo_in.nnz);
+  var A_coo_out = new sparse_COO_t(coo_row_index, coo_col_index, coo_val_index, A_coo_in.N, A_coo_in.nnz);
+  for(var i = 0; i < num_workers; i++){
+    var w_y_view = allocate_y(A_coo_in.N);
+    A_coo_out.w_y_view.push(w_y_view);
+  }
+  return A_coo_out;
+}
+
 function allocate_COO(mm_info)
 {
   // COO memory allocation
@@ -2242,6 +3507,17 @@ function allocate_COO(mm_info)
   return A_coo;
 }
 
+export function allocate_copy_CSR(A_csr_in)
+{
+  // CSR memory allocation
+  var csr_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * (A_csr_in.N + 1));
+  var csr_nnz_row_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_csr_in.N);
+  var csr_col_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_csr_in.nnz);
+  var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * A_csr_in.nnz);
+  var A_csr_out = new sparse_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, A_csr_in.N, A_csr_in.nnz);
+  return A_csr_out;
+}
+
 function allocate_CSR(N, nnz)
 {
   // CSR memory allocation
@@ -2253,6 +3529,20 @@ function allocate_CSR(N, nnz)
   return A_csr;
 }
 
+export function allocate_copy_DIA(A_dia_in)
+{
+  // DIA memory allocation
+  var offset_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags);
+  var dia_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags * A_dia_in.stride);
+  var A_dia_out = new sparse_DIA_t(offset_index, dia_data_index, A_dia_in.ndiags, A_dia_in.stride, A_dia_in.N, A_dia_in.nnz);
+  for(var i = 0; i < num_workers; i++){
+    var w_istart_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags);
+    var w_iend_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_dia_in.ndiags);
+    A_dia_out.w_istart_index.push(w_istart_index);
+    A_dia_out.w_iend_index.push(w_iend_index);
+  }
+  return A_dia_out;
+}
 
 export function allocate_DIA(N, nnz, ndiags, stride)
 {
@@ -2267,6 +3557,21 @@ export function allocate_DIA(N, nnz, ndiags, stride)
     A_dia.w_iend_index.push(w_iend_index);
   }
   return A_dia;
+}
+
+export function allocate_copy_ELL(A_ell_in)
+{
+  // ELL memory allocation
+  try{
+    var indices_index = malloc_instance.exports._malloc(Int32Array.BYTES_PER_ELEMENT * A_ell_in.ncols * A_ell_in.N);
+    var ell_data_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * A_ell_in.ncols * A_ell_in.N);
+  }
+  catch(e){
+    console.log('Error : ', e);
+    return;
+  }
+  var A_ell_out = new sparse_ELL_t(indices_index, ell_data_index, A_ell_in.ncols, A_ell_in.N, A_ell_in.nnz);
+  return A_ell_out;
 }
 
 function allocate_ELL(N, nnz, ncols)
