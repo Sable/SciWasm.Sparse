@@ -6,7 +6,7 @@ var variance;
 export var inner_max = 1000000, outer_max = 30;
 export var N, nnz;
 
-import * as swasmsModule from '/static/src/spmv32.js';
+import * as swasmsModule from '/static/src/sparse32.js';
 
 function get_inner_max(nnz)
 {
@@ -19,96 +19,81 @@ function get_inner_max(nnz)
   inner_max *= 5;
 }
 
-function allocate_memory_test(mm_info)
+export async function element_wise_test(callback)
 {
-  //const bytesPerPage = 64 * 1024;
-  //var max_pages = 16384;
-  
-  var A_coo = swasmsModule.allocate_COO(mm_info);
-  swasmsModule.create_COO_from_MM(mm_info, A_coo); 
+  var Acoo = await swasmsModule.mmread(filename);
+  N = Acoo.N;
+  nnz = Acoo.nnz;
+  var Acsr = swasmsModule.coo_csr(Acoo);
+  var Aell = swasmsModule.csr_ell(Acsr);
+  swasmsModule.pretty_print(Acoo);
+  swasmsModule.pretty_print(Aell);
+  var Aell2 = swasmsModule.abs(Aell);
+  swasmsModule.pretty_print(Aell2);
+  swasmsModule.pretty_print(Aell);
+  Acoo.abs();
+  swasmsModule.pretty_print(Acoo);
 
-  var A_csr = swasmsModule.allocate_CSR(mm_info);
-  //convert COO to CSR
-  swasmsModule.coo_csr(A_coo, A_csr);
 
-  //get DIA info
-  var result = swasmsModule.num_diags(A_csr);
-  var nd = result[0];
-  var stride = result[1];
-  //get ELL info
-  var nc = swasmsModule.num_cols(A_csr);
-  var A_dia, A_ell;
-  
-  console.log((stride * nd)/mm_info.nnz);
-
-  if(nd*stride < Math.pow(2,27) && (((stride * nd)/mm_info.nnz) <= 5)){ 
-    A_dia = swasmsModule.allocate_DIA(mm_info, nd, stride);
-    //convert CSR to DIA
-    swasmsModule.csr_dia(A_csr, A_dia);
-  }
-
-  if((nc*mm_info.nrows < Math.pow(2,27)) && (((mm_info.nrows * nc)/mm_info.nnz) <= 5)){
-    A_ell = swasmsModule.allocate_ELL(mm_info, nc);
-    //convert CSR to ELL
-    swasmsModule.csr_ell(A_csr, A_ell);
-  } 
-
-  var x = swasmsModule.allocate_x(mm_info);
-  swasmsModule.init_x(x);
-
-  var y = swasmsModule.allocate_y(mm_info);
-  swasmsModule.clear_y(y);
-
-  return [A_coo, A_csr, A_dia, A_ell, x, y];
+  swasmsModule.free(Acoo);
+  swasmsModule.free(Acsr);
+  swasmsModule.free(Aell);
+  swasmsModule.free(Aell2);
+  console.log("done");
+  callback();
 }
 
-function free_memory_test(A_coo, A_csr, A_dia, A_ell, x, y)
+export async function spmv_csr_test(callback)
 {
-  swasmsModule.free_COO(A_coo);
-  swasmsModule.free_CSR(A_csr);
-  swasmsModule.free_DIA(A_dia);
-  swasmsModule.free_ELL(A_ell);
-  swasmsModule.free_x(x);
-  swasmsModule.free_y(y);
-}
+  var Acoo = await swasmsModule.mmread(filename);
 
-function spmv_csr_test(files, callback)
-{
-  // create an instance of swasms_MM_info object type
-  var mm_info = new swasmsModule.sswasm_MM_info();
-  // read matrix data from file into mm_info
-  swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
-  get_inner_max(mm_info.nnz);
-  N = mm_info.nrows;
-  nnz = mm_info.nnz;
+  N = Acoo.N;
+  nnz = Acoo.nnz;
 
-  var A_coo, A_csr, x, y;
+  var Acsr = swasmsModule.coo_csr(Acoo);
+  swasmsModule.free(Acoo);
 
-  // allocate memory for COO format
-  A_coo = swasmsModule.allocate_COO(mm_info);
-  // fill COO with matrix data
-  swasmsModule.create_COO_from_MM(mm_info, A_coo);
-  console.log("COO allocated");
-
-  // allocate memory for CSR format
-  A_csr = swasmsModule.allocate_CSR(mm_info);
-  //convert COO to CSR
-  swasmsModule.coo_csr(A_coo, A_csr);
-  //free COO
-  swasmsModule.free_COO(A_coo);
-  console.log("CSR allocated");
-
-  x = swasmsModule.allocate_x(mm_info);
+  var x = swasmsModule.allocate_x(N);
   swasmsModule.init_x(x);
-  y = swasmsModule.allocate_y(mm_info);
+  var y = swasmsModule.allocate_y(N);
   swasmsModule.clear_y(y);
 
   // test SpMV CSR
-  csr_test(A_csr, x, y);
+  swasmsModule.spmv(Acsr, x, y);
+  console.log(swasmsModule.fletcher_sum_y(y));
   //free CSR, x and y
-  swasmsModule.free_CSR(A_csr);
-  swasmsModule.free_x(x);
-  swasmsModule.free_y(y);
+  swasmsModule.free(Acsr);
+  swasmsModule.free(x);
+  swasmsModule.free(y);
+  console.log("done");
+  callback();
+}
+
+export async function spmv_test(callback)
+{
+  var Acoo = await swasmsModule.mmread(filename);
+  N = Acoo.N;
+  nnz = Acoo.nnz;
+  var Acsr = swasmsModule.coo_csr(Acoo);
+  var Adia = swasmsModule.csr_dia(Acsr);
+  var Aell = swasmsModule.csr_ell(Acsr);
+
+  var x = swasmsModule.allocate_x(N);
+  swasmsModule.init_x(x);
+  var y = swasmsModule.allocate_y(N);
+  swasmsModule.clear_y(y);
+
+  swasmsModule.spmv(Acoo, x, y);
+  coo_sum = swasmsModule.fletcher_sum_y(y);
+  swasmsModule.clear_y(y);
+  swasmsModule.spmv(Acsr, x, y);
+  csr_sum = swasmsModule.fletcher_sum_y(y);
+  swasmsModule.clear_y(y);
+  swasmsModule.spmv(Adia, x, y);
+  dia_sum = swasmsModule.fletcher_sum_y(y);
+  swasmsModule.clear_y(y);
+  swasmsModule.spmv(Aell, x, y);
+  ell_sum = swasmsModule.fletcher_sum_y(y);
   console.log("done");
   callback();
 }
@@ -297,28 +282,6 @@ function ell_test(A_ell, x, y)
   console.log('ell sd is ', ell_sd);
 }
 
-function spmv_test(files, callback)
-{
-  var mm_info = new swasmsModule.sswasm_MM_info();
-  swasmsModule.read_matrix_MM_files(files, num, mm_info, callback);
-  N = mm_info.nrows;
-  nnz = mm_info.nnz;
-  get_inner_max(nnz);
-
-  var A_coo, A_csr, A_dia, A_ell, x, y;
-  [A_coo, A_csr, A_dia, A_ell, x, y] = allocate_memory_test(mm_info);
-
-  coo_test(A_coo, x, y);
-  csr_test(A_csr, x, y);
-  dia_test(A_dia, x, y);
-  ell_test(A_ell, x, y);
-  free_memory_test(A_coo, A_csr, A_dia, A_ell, x, y);
-  console.log("done");
-  callback();
-}
-
-
-
 function spts_test(files, callback)
 {
   //var mm_info = new swasmsModule.sswasm_MM_info();
@@ -383,61 +346,3 @@ function spts_test(files, callback)
   callback();
 }
 
-export async function element_wise_test(callback)
-{
-  var A_coo = await swasmsModule.mmread(filename);
-
-  console.log(A_coo);
-  N = A_coo.N;
-  nnz = A_coo.nnz;
-  
-  //var min = A_coo.min(1);
-  //swasmsModule.pretty_print_vec(min); 
-  var A_csr = swasmsModule.coo_csr(A_coo);
-  swasmsModule.pretty_print_CSR(A_csr); 
-  var A_csr_sign = swasmsModule.sign(A_csr);
-  swasmsModule.pretty_print_CSR(A_csr_sign); 
-  swasmsModule.pretty_print_CSR(A_csr); 
-
-  /*
-  // allocate memory for CSR format
-  A_csr1 = swasmsModule.allocate_CSR(mm_info);
-  //convert COO to CSR
-  swasmsModule.coo_csr(A_coo, A_csr1);
-  //free COO
-  swasmsModule.free_COO(A_coo);
-  console.log("CSR allocated");
-
-  swasmsModule.pretty_print_CSR(A_csr1); 
-  A_csr2 = swasmsModule.swasms_ceil_csr(A_csr1);
-  //A_csr.ceil();
-  swasmsModule.pretty_print_CSR(A_csr2); 
-  //swasmsModule.pretty_print_CSR(A_csr1); 
-  swasmsModule.free_CSR(A_csr1);
-  swasmsModule.free_CSR(A_csr2);
-  */
-  swasmsModule.free_CSR(A_csr);
-  swasmsModule.free_COO(A_csr_sign);
-  swasmsModule.free_COO(A_coo);
-  console.log("done");
-  callback();
-}
-
-export function spmv(callback)
-{
-  let promise = swasmsModule.load_file();
-  promise.then(
-    files => spmv_test(files, callback),
-    //files => spmv_csr_test(files, callback),
-    error => callback()
-  );
-}
-
-export function spts(callback)
-{
-  let promise = swasmsModule.load_file();
-  promise.then(
-    files => spts_test(files, callback),
-    error => callback()
-  );
-}

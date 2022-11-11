@@ -13,7 +13,15 @@ def get_file(name):
   #response.set_header('Pragma', 'no-cache')
   return response
 
-@route('/result/<json_string:path>')
+@route('/close/<json_string:path>')
+def result(json_string):
+  parsed_json = json.loads(json_string) 
+  browser = parsed_json['browser']
+  #if browser == 0:
+    #subprocess.call(['killall', '-9', 'chrome']);
+  return "OK"
+
+@route('/spmv_bench/<json_string:path>')
 def result(json_string):
   parsed_json = json.loads(json_string) 
   output_file = parsed_json['output_file']
@@ -21,7 +29,7 @@ def result(json_string):
   #print(os.path.join(os.getcwd(), output_file), file=sys.stderr)
   f = open(os.path.join(os.getcwd(), output_file),'a')
   browser = parsed_json['browser']
-  f.write(parsed_json['file'])
+  f.write(os.path.splitext(os.path.basename(parsed_json['file']))[0])
   f.write(",")
   f.write(str(parsed_json['outer_max']))
   f.write(",")
@@ -71,6 +79,7 @@ def result(json_string):
   #if browser == 1:
     #subprocess.call(['killall', '-9', 'firefox-bin']);
   return "OK"
+
 #print(os.getcwd(), file=sys.stderr)
 os.chdir('../')
 #print(os.getcwd(), file=sys.stderr)
