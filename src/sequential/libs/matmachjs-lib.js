@@ -7,6 +7,7 @@ export let Module = {};
  */
 const WASM_PAGE_SIZE = 65536;
 const MIN_TOTAL_MEMORY = 16777216;
+let TOTAL_MEMORY = 2147418112;
 let TOTAL_STACK = 5242880; 
 
 let HEAP,

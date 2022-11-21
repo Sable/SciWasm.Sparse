@@ -7737,10 +7737,10 @@
 
     )
     ;; TABLE DEFINITIONS
-    (elem $tab (i32.const 0) $zeros_s $ones_s $rand_s $randn_s $randi_s)
-    (elem $tab (i32.const 5) $plus_SS $minus_SS $rem_SS $mod_SS $times_SS $rdivide_SS $power_SS)
-    (elem $tab (i32.const 12) $le_SS $lt_SS $ge_SS $gt_SS $eq_SS)
-    (elem $tab (i32.const 17) $and_SS $or_SS $ne_SS)
+    (elem (table $tab) (i32.const 0) $zeros_s $ones_s $rand_s $randn_s $randi_s)
+    (elem (table $tab) (i32.const 5) $plus_SS $minus_SS $rem_SS $mod_SS $times_SS $rdivide_SS $power_SS)
+    (elem (table $tab) (i32.const 12) $le_SS $lt_SS $ge_SS $gt_SS $eq_SS)
+    (elem (table $tab) (i32.const 17) $and_SS $or_SS $ne_SS)
 
 
      
