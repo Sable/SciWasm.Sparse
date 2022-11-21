@@ -102,6 +102,9 @@ function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
   // other methods
   this.transpose = sparse_self_transpose_csr;
   this.eliminate_zeros = sparse_self_eliminate_zeros_csr;
+  this.row_array = sparse_CSR_row_array;
+  this.col_array = sparse_CSR_col_array;
+  this.val_array = sparse_CSR_val_array;
 }
 
 /* Constructor function to create an object sparse_CSC_t to
@@ -312,14 +315,14 @@ function sparse_self_diagonal_coo(offset)
 {
   if(this.N - Math.abs(offset) <= 0)
     return;
-  var diag_vec = allocate_vec(this.N - Math.abs(offset));
+  var diag_vec = create_vec(this.N - Math.abs(offset));
   sparse_instance.exports.diagonal_coo(offset, this.row_index, this.col_index, this.val_index, diag_vec.vec_index, this.N, this.nnz);
   return diag_vec;
 }
 
 function sparse_self_min_coo(axis)
 {
-  var min_vec = allocate_vec(this.N);
+  var min_vec = create_vec(this.N);
   sparse_instance.exports.min_coo(axis, this.row_index, this.col_index, this.val_index, min_vec.vec_index, this.N, this.nnz);
   return min_vec;
 }
@@ -1313,7 +1316,7 @@ export function init_x(x_view){
     x[i] = i;
 }
 
-export function clear_y(y_view){
+export function clear_vec(y_view){
   var y = new Float32Array(memory.buffer, y_view.vec_index, y_view.vec_nelem);
   y.fill(0);
 }
@@ -1375,7 +1378,8 @@ function pretty_print_CSR(A_csr){
   console.log("csr_row_index :", A_csr.row_index);
   console.log("csr_col_index :", A_csr.col_index);
   console.log("csr_val_index :", A_csr.val_index);
-  for(var i = 0; i < A_csr.N; i++){
+  //for(var i = 0; i < A_csr.N; i++){
+  for(var i = 0; i < 2; i++){
     for(var j = csr_row[i]; j < csr_row[i+1] ; j++)
       console.log(i, csr_col[j], csr_val[j]);
   }
@@ -2257,6 +2261,24 @@ export function allocate_CSR(nrows, nnz)
   var csr_val_index = malloc_instance.exports._malloc(Float32Array.BYTES_PER_ELEMENT * nnz);
   var A_csr = new sparse_CSR_t(csr_row_index, csr_col_index, csr_val_index, csr_nnz_row_index, nrows, nnz);
   return A_csr;
+}
+
+function sparse_CSR_row_array()
+{
+  this.row = new Int32Array(memory.buffer, this.row_index, this.N + 1);
+  return this.row;
+}
+
+function sparse_CSR_col_array()
+{
+  this.col = new Int32Array(memory.buffer, this.col_index, this.nnz);
+  return this.col;
+}
+
+function sparse_CSR_val_array()
+{
+  this.val = new Float32Array(memory.buffer, this.val_index, this.nnz);
+  return this.val;
 }
 
 function free_CSR(A_csr)

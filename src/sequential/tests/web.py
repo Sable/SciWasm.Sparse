@@ -17,11 +17,11 @@ def get_file(name):
 def result(json_string):
   parsed_json = json.loads(json_string) 
   browser = parsed_json['browser']
-  #if browser == 0:
-    #subprocess.call(['killall', '-9', 'chrome']);
+  if browser == 0:
+    subprocess.call(['killall', '-9', 'chrome']);
   return "OK"
 
-@route('/spmv_bench/<json_string:path>')
+@route('/spmv/<json_string:path>')
 def result(json_string):
   parsed_json = json.loads(json_string) 
   output_file = parsed_json['output_file']
@@ -65,8 +65,8 @@ def result(json_string):
   f.write(",")
   f.write("\n")
   f.close()
-  #if browser == 0:
-    #subprocess.call(['killall', '-9', 'chrome']);
+  if browser == 0:
+    subprocess.call(['killall', '-9', 'chrome']);
   #elif browser == 1:
     #subprocess.call(['killall', '-9', 'firefox']);
     #sys.stderr.close()

@@ -1,14 +1,17 @@
+// import the matmachjs libs to setup WebAssembly memory and enable malloc and free routines on it.
 let memModule = await import('/static/libs/matmachjs-lib.js');
 let memory = memModule.Module['wasmMemory'];
 let obj = await WebAssembly.instantiateStreaming(fetch('/static/libs/matmachjs.wasm'), memModule.Module);
 const malloc_instance = obj.instance;
+
+// create an object to import memory and JavaScript methods into WebAssembly.
 var importObject = { js: { mem: memory }, console: { log: function(arg) {console.log(arg);}}, math: { expm1: function(arg) { return Math.expm1(arg);}, log1p: function(arg) { return Math.log1p(arg);}, pow: function(arg1, arg2) { return Math.pow(arg1, arg2);}, sin: function(arg) { return Math.sin(arg);}, tan: function(arg) { return Math.tan(arg);}}}
 obj = await WebAssembly.instantiateStreaming(fetch('/static/src/sparse_opt_64.wasm'), importObject);
 const sparse_instance = obj.instance;
 
 /* Constructor function to create an object sparse_MM_info to
  * represent the matrix data from a Matrix-Market format input file */
-export function sparse_MM_info()
+function sparse_MM_info()
 {
   this.field = '';
   this.symmetry = '';
@@ -21,7 +24,9 @@ export function sparse_MM_info()
   this.nnz = 0;
 }
 
-export function sparse_COO_t(row_index, col_index, val_index, N, nnz)
+/* Constructor function to create an object sparse_COO_t to
+ * represent the matrix data in the COO format  */
+function sparse_COO_t(row_index, col_index, val_index, N, nnz)
 {
   this.row;
   this.col;
@@ -56,7 +61,9 @@ export function sparse_COO_t(row_index, col_index, val_index, N, nnz)
   this.min = sparse_self_min_coo;
 }
 
-export function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
+/* Constructor function to create an object sparse_CSR_t to
+ * represent the matrix data in the CSR format  */
+function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, nnz)
 {
   this.row;
   this.col;
@@ -92,6 +99,8 @@ export function sparse_CSR_t(row_index, col_index, val_index, nnz_row_index, N, 
   this.nearest = sparse_self_nearest_csr;
 }
 
+/* Constructor function to create an object sparse_CSC_t to
+ * represent the matrix data in the CSC format  */
 function sparse_CSC_t(col_index, row_index, val_index, ncols, nnz){
   this.col;
   this.row;
@@ -103,6 +112,8 @@ function sparse_CSC_t(col_index, row_index, val_index, ncols, nnz){
   this.nnz = nnz;
 }
 
+/* Constructor function to create an object sparse_DIA_t to
+ * represent the matrix data in the DIA format  */
 function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz){
   this.offset;
   this.data;
@@ -131,6 +142,8 @@ function sparse_DIA_t(offset_index, data_index, ndiags, stride, N, nnz){
   this.rad2deg = sparse_self_rad2deg_dia;
 }
 
+/* Constructor function to create an object sparse_ELL_t to
+ * represent the matrix data in the ELL format  */
 function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.indices;
   this.data;
@@ -158,7 +171,7 @@ function sparse_ELL_t(indices_index, data_index, ncols, N, nnz){
   this.rad2deg = sparse_self_rad2deg_ell;
 }
 
-export function sparse_vec_t(vec_index, vec_nelem){
+function sparse_vec_t(vec_index, vec_nelem){
   this.vec;
   this.vec_index = vec_index;
   this.vec_nelem = vec_nelem;
@@ -833,6 +846,9 @@ function sparse_spmv_ell(A_ell, x_view, y_view, inner_max)
 {
   sparse_instance.exports.spmv_ell_wrapper(A_ell.indices_index, A_ell.data_index, A_ell.N, A_ell.ncols, x_view.x_index, y_view.y_index, inner_max);
 }
+
+
+
 
 function matlab_modulo(x, y) {
   var n = Math.floor(x/y);

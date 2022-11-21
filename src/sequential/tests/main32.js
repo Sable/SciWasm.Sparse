@@ -45,22 +45,26 @@ export async function element_wise_test(callback)
 
 export async function spmv_csr_test(callback)
 {
+  // read matrix from file into COO format
   var Acoo = await swasmsModule.mmread(filename);
-
   N = Acoo.N;
   nnz = Acoo.nnz;
-
+  get_inner_max(nnz);
+  // convert matrix from COO format to CSR format
   var Acsr = swasmsModule.coo_csr(Acoo);
   swasmsModule.free(Acoo);
 
-  var x = swasmsModule.allocate_x(N);
-  swasmsModule.init_x(x);
-  var y = swasmsModule.allocate_y(N);
-  swasmsModule.clear_y(y);
+  // create and initialize vectors x and y
+  var x = swasmsModule.create_vec(N);
+  var x_array = x.array();
+  for(var i = 0; i < N; i++){
+    x_array[i] = i;
+  }
+  var y = swasmsModule.create_vec(N, 0);
 
   // test SpMV CSR
-  swasmsModule.spmv(Acsr, x, y);
-  console.log(swasmsModule.fletcher_sum_y(y));
+  console.log("calling csr_test");
+  csr_test(Acsr, x, y);
   //free CSR, x and y
   swasmsModule.free(Acsr);
   swasmsModule.free(x);
@@ -74,26 +78,26 @@ export async function spmv_test(callback)
   var Acoo = await swasmsModule.mmread(filename);
   N = Acoo.N;
   nnz = Acoo.nnz;
+  get_inner_max(nnz);
   var Acsr = swasmsModule.coo_csr(Acoo);
   var Adia = swasmsModule.csr_dia(Acsr);
   var Aell = swasmsModule.csr_ell(Acsr);
 
-  var x = swasmsModule.allocate_x(N);
-  swasmsModule.init_x(x);
-  var y = swasmsModule.allocate_y(N);
-  swasmsModule.clear_y(y);
+  // create and initialize vectors x and y
+  var x = swasmsModule.create_vec(N);
+  var x_array = x.array();
+  for(var i = 0; i < N; i++){
+    x_array[i] = i;
+  }
+  var y = swasmsModule.create_vec(N, 0);
 
-  swasmsModule.spmv(Acoo, x, y);
-  coo_sum = swasmsModule.fletcher_sum_y(y);
-  swasmsModule.clear_y(y);
-  swasmsModule.spmv(Acsr, x, y);
-  csr_sum = swasmsModule.fletcher_sum_y(y);
-  swasmsModule.clear_y(y);
-  swasmsModule.spmv(Adia, x, y);
-  dia_sum = swasmsModule.fletcher_sum_y(y);
-  swasmsModule.clear_y(y);
-  swasmsModule.spmv(Aell, x, y);
-  ell_sum = swasmsModule.fletcher_sum_y(y);
+  coo_test(Acoo, x, y);
+  swasmsModule.clear_vec(y);
+  csr_test(Acsr, x, y);
+  swasmsModule.clear_vec(y);
+  dia_test(Adia, x, y);
+  swasmsModule.clear_vec(y);
+  ell_test(Aell, x, y);
   console.log("done");
   callback();
 }
@@ -116,14 +120,14 @@ function coo_test(A_coo, x, y)
 
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
-    swasmsModule.clear_y(y);
-    swasmsModule.swasms_spmv_coo(A_coo, x, y, inner_max);
+    swasmsModule.clear_vec(y);
+    swasmsModule.spmv(A_coo, x, y, inner_max);
   }
 
   for(var i = 0; i < outer_max; i++){
-    swasmsModule.clear_y(y);
+    swasmsModule.clear_vec(y);
     t1 = Date.now();
-    swasmsModule.swasms_spmv_coo(A_coo, x, y, inner_max);
+    swasmsModule.spmv(A_coo, x, y, inner_max);
     t2 = Date.now();
     coo_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_coo.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
@@ -163,14 +167,14 @@ function csr_test(A_csr, x, y)
 
   // warm up runs
   for(var i = 0; i < 10; i++){
-    swasmsModule.clear_y(y);
-    swasmsModule.swasms_spmv_csr(A_csr, x, y, inner_max);
+    swasmsModule.clear_vec(y);
+    swasmsModule.spmv(A_csr, x, y, inner_max);
   }
 
   for(var i = 0; i < outer_max; i++){
-    swasmsModule.clear_y(y);
+    swasmsModule.clear_vec(y);
     t1 = Date.now();
-    swasmsModule.swasms_spmv_csr(A_csr, x, y, inner_max);
+    swasmsModule.spmv(A_csr, x, y, inner_max);
     t2 = Date.now();
     csr_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_csr.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
@@ -211,14 +215,14 @@ function dia_test(A_dia, x, y)
   }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
-    swasmsModule.clear_y(y);
-    swasmsModule.swasms_spmv_dia(A_dia, x, y, inner_max);
+    swasmsModule.clear_vec(y);
+    swasmsModule.spmv(A_dia, x, y, inner_max);
   }
 
   for(var i = 0; i < outer_max; i++){
-    swasmsModule.clear_y(y);
+    swasmsModule.clear_vec(y);
     t1 = Date.now();
-    swasmsModule.swasms_spmv_dia(A_dia, x, y, inner_max);
+    swasmsModule.spmv(A_dia, x, y, inner_max);
     t2 = Date.now();
     dia_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_dia.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;
@@ -255,14 +259,14 @@ function ell_test(A_ell, x, y)
   }
   var t1, t2, tt = 0.0;
   for(var i = 0; i < 10; i++){
-    swasmsModule.clear_y(y);
-    swasmsModule.swasms_spmv_ell(A_ell, x, y, inner_max);
+    swasmsModule.clear_vec(y);
+    swasmsModule.spmv(A_ell, x, y, inner_max);
   }
 
   for(var i = 0; i < outer_max; i++){
-    swasmsModule.clear_y(y);
+    swasmsModule.clear_vec(y);
     t1 = Date.now();
-    swasmsModule.swasms_spmv_ell(A_ell, x, y, inner_max);
+    swasmsModule.spmv(A_ell, x, y, inner_max);
     t2 = Date.now();
     ell_flops[i] = 1/Math.pow(10,6) * 2 * inner_max * A_ell.nnz/((t2 - t1)/1000);
     tt = tt + t2 - t1;

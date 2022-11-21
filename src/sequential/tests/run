@@ -15,11 +15,11 @@ def main(argv):
   try :
     opts, args = getopt.getopt(argv, "hb:p:o:t:")
   except getopt.GetoptError:
-    print 'ERROR : run.py -b <browser> -p <precision> <input_filename>'
+    print 'ERROR : ./run -b <browser> -p <precision> <input_filename>'
     sys.exit(2)
   for opt, arg in opts:
     if opt == '-h':
-      print 'ERROR : run.py -b <browser> -p <precision> <input_filename>'
+      print 'ERROR : ./run -b <browser> -p <precision> <input_filename>'
       sys.exit()
     elif opt == '-b':
       b_found = True
